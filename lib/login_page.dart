@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'providers/auth_provider.dart';
 import 'otp_verification_page.dart';
 
@@ -138,10 +139,10 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Logo/Header
-                    const Icon(
-                      Icons.business,
-                      size: 80,
-                      color: Color(0xFF272579),
+                    SvgPicture.asset(
+                      'assets/logo_1.svg',
+                      height: 80,
+                      width: 80,
                     ),
                     const SizedBox(height: 16),
                     const Text(
