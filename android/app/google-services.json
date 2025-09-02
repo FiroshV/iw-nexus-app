@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "303335506080",
+    "project_id": "iw-nexus",
+    "storage_bucket": "iw-nexus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:303335506080:android:b85c055da85b61db9549c5",
+        "android_client_info": {
+          "package_name": "com.iwn.iw_nexus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoLhzZdeUJrHbQq-dvYLKpMjerlv65LZk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

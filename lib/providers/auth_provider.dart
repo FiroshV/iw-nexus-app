@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/firebase_phone_auth_service.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -108,16 +109,40 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await ApiService.sendOtp(
-        identifier: identifier,
-        method: method,
-      );
+      if (method == 'phone') {
+        // Use Firebase for phone OTP
+        final firebaseResponse = await FirebasePhoneAuthService.sendPhoneOTP(identifier);
+        
+        if (firebaseResponse['success'] == true) {
+          return ApiResponse<Map<String, dynamic>>(
+            success: true,
+            message: firebaseResponse['message'],
+            data: {
+              'signInId': firebaseResponse['verificationId'],
+              'identifier': identifier,
+              'provider': 'firebase'
+            },
+          );
+        } else {
+          _error = firebaseResponse['message'];
+          return ApiResponse<Map<String, dynamic>>(
+            success: false,
+            message: firebaseResponse['message'],
+          );
+        }
+      } else {
+        // Use regular API for email OTP
+        final response = await ApiService.sendOtp(
+          identifier: identifier,
+          method: method,
+        );
 
-      if (!response.success) {
-        _error = response.message;
+        if (!response.success) {
+          _error = response.message;
+        }
+
+        return response;
       }
-
-      return response;
     } catch (e) {
       _error = 'Failed to send OTP: ${e.toString()}';
       return ApiResponse<Map<String, dynamic>>(
@@ -138,29 +163,71 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await ApiService.verifyOtp(
-        signInId: signInId,
-        code: code,
-      );
-
-      if (response.success) {
-        // Save session token
-        if (response.data?['sessionToken'] != null) {
-          await ApiService.saveToken(response.data!['sessionToken']);
-        }
-
-        // Store user info both locally and in memory
-        if (response.data?['user'] != null) {
-          _user = response.data!['user'];
-          await ApiService.saveUserData(_user!);
-        }
+      // Check if this is a Firebase phone verification (signInId starts with phone number)
+      if (signInId.startsWith('+')) {
+        // This is Firebase phone authentication - simplified flow
+        final firebaseResponse = await FirebasePhoneAuthService.verifyPhoneOTP(code);
         
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-        return true;
+        if (firebaseResponse['success'] == true) {
+          // Firebase verification successful - directly notify backend and create session
+          final firebaseUser = firebaseResponse['user'];
+          final firebaseUid = firebaseUser['uid'];
+          final phoneNumber = firebaseUser['phoneNumber'];
+          
+          final backendResponse = await ApiService.notifyFirebaseSignin(
+            firebaseUid: firebaseUid,
+            phoneNumber: phoneNumber,
+          );
+          
+          if (backendResponse.success) {
+            // Save session token
+            if (backendResponse.data?['sessionToken'] != null) {
+              await ApiService.saveToken(backendResponse.data!['sessionToken']);
+            }
+
+            // Store user info both locally and in memory
+            if (backendResponse.data?['user'] != null) {
+              _user = backendResponse.data!['user'];
+              await ApiService.saveUserData(_user!);
+            }
+            
+            _status = AuthStatus.authenticated;
+            notifyListeners();
+            return true;
+          } else {
+            _error = backendResponse.message;
+            return false;
+          }
+        } else {
+          _error = firebaseResponse['message'];
+          return false;
+        }
       } else {
-        _error = response.message;
-        return false;
+        // This is email OTP verification via regular API
+        final response = await ApiService.verifyOtp(
+          signInId: signInId,
+          code: code,
+        );
+
+        if (response.success) {
+          // Save session token
+          if (response.data?['sessionToken'] != null) {
+            await ApiService.saveToken(response.data!['sessionToken']);
+          }
+
+          // Store user info both locally and in memory
+          if (response.data?['user'] != null) {
+            _user = response.data!['user'];
+            await ApiService.saveUserData(_user!);
+          }
+          
+          _status = AuthStatus.authenticated;
+          notifyListeners();
+          return true;
+        } else {
+          _error = response.message;
+          return false;
+        }
       }
     } catch (e) {
       _error = 'Failed to verify OTP: ${e.toString()}';
@@ -179,16 +246,40 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await ApiService.resendOtp(
-        signInId: signInId,
-        method: method,
-      );
+      if (method == 'phone' && signInId.startsWith('+')) {
+        // Use Firebase for phone OTP resend
+        final firebaseResponse = await FirebasePhoneAuthService.resendPhoneOTP(signInId);
+        
+        if (firebaseResponse['success'] == true) {
+          return ApiResponse<Map<String, dynamic>>(
+            success: true,
+            message: firebaseResponse['message'],
+            data: {
+              'signInId': firebaseResponse['verificationId'],
+              'identifier': signInId,
+              'provider': 'firebase'
+            },
+          );
+        } else {
+          _error = firebaseResponse['message'];
+          return ApiResponse<Map<String, dynamic>>(
+            success: false,
+            message: firebaseResponse['message'],
+          );
+        }
+      } else {
+        // Use regular API for email OTP resend
+        final response = await ApiService.resendOtp(
+          signInId: signInId,
+          method: method,
+        );
 
-      if (!response.success) {
-        _error = response.message;
+        if (!response.success) {
+          _error = response.message;
+        }
+
+        return response;
       }
-
-      return response;
     } catch (e) {
       _error = 'Failed to resend OTP: ${e.toString()}';
       return ApiResponse<Map<String, dynamic>>(

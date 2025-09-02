@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/loading_widget.dart';
 import 'login_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('🔥 Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('❌ Firebase initialization error: $e');
+  }
+  
   runApp(const MyApp());
 }
 

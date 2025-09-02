@@ -225,9 +225,19 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
         return '$maskedUsername@$domain';
       }
     } else {
-      // Mobile number
-      if (widget.loginValue.length >= 4) {
-        return '${widget.loginValue.substring(0, 2)}${'*' * (widget.loginValue.length - 4)}${widget.loginValue.substring(widget.loginValue.length - 2)}';
+      // Mobile number with +91 prefix
+      String phoneNumber = widget.loginValue;
+      
+      // Handle cases where phone number already has +91 prefix
+      if (phoneNumber.startsWith('+91')) {
+        if (phoneNumber.length >= 7) { // +91 + at least 4 digits
+          return '+91 ${phoneNumber.substring(3, 5)}${'*' * (phoneNumber.length - 7)}${phoneNumber.substring(phoneNumber.length - 2)}';
+        }
+      } else {
+        // Original number without prefix, add +91 and mask
+        if (phoneNumber.length >= 4) {
+          return '+91 ${phoneNumber.substring(0, 2)}${'*' * (phoneNumber.length - 4)}${phoneNumber.substring(phoneNumber.length - 2)}';
+        }
       }
     }
     return widget.loginValue;

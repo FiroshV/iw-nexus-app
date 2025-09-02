@@ -338,6 +338,36 @@ class ApiService {
     );
   }
 
+  static Future<ApiResponse<Map<String, dynamic>>> verifyFirebaseToken({
+    required String idToken,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/auth/verify-firebase-token',
+      'POST',
+      body: {
+        'idToken': idToken,
+      },
+      includeAuth: false,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> notifyFirebaseSignin({
+    required String firebaseUid,
+    required String phoneNumber,
+    String? displayName,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/auth/firebase-signin',
+      'POST',
+      body: {
+        'firebaseUid': firebaseUid,
+        'phoneNumber': phoneNumber,
+        if (displayName != null) 'displayName': displayName,
+      },
+      includeAuth: false,
+    );
+  }
+
   static Future<ApiResponse<Map<String, dynamic>>> getCurrentUser() async {
     return await _makeRequest<Map<String, dynamic>>(
       '/auth/me',

@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
         return 'Please enter a valid email address';
       }
     } else {
-      // Mobile number validation
+      // Mobile number validation (10 digits for Indian numbers)
       final mobileRegex = RegExp(r'^[0-9]{10}$');
       if (!mobileRegex.hasMatch(value)) {
         return 'Please enter a valid 10-digit mobile number';
@@ -51,6 +51,13 @@ class _LoginPageState extends State<LoginPage> {
     }
     
     return null;
+  }
+
+  String _getFormattedPhoneNumber() {
+    if (_isEmailMode) {
+      return _loginController.text;
+    }
+    return '+91${_loginController.text}';
   }
 
 
@@ -64,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
       
       try {
         final response = await authProvider.sendOtp(
-          identifier: _loginController.text,
+          identifier: _isEmailMode ? _loginController.text : _getFormattedPhoneNumber(),
           method: _isEmailMode ? 'email' : 'phone',
         );
 
@@ -80,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
               builder: (context) => OTPVerificationPage(
                 signInId: response.data?['signInId'] ?? '',
                 loginMethod: _isEmailMode ? 'email' : 'phone',
-                loginValue: response.data?['identifier'] ?? _loginController.text,
+                loginValue: response.data?['identifier'] ?? (_isEmailMode ? _loginController.text : _getFormattedPhoneNumber()),
               ),
             ),
           );
@@ -222,7 +229,14 @@ class _LoginPageState extends State<LoginPage> {
                         : [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
                         labelText: _isEmailMode ? 'Email Address' : 'Mobile Number',
+                        hintText: _isEmailMode ? 'example@company.com' : '9876543210',
                         prefixIcon: Icon(_isEmailMode ? Icons.email : Icons.phone),
+                        prefixText: _isEmailMode ? null : '+91 ',
+                        prefixStyle: const TextStyle(
+                          color: Color(0xFF272579),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
