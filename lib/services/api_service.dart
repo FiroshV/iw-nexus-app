@@ -229,12 +229,12 @@ class ApiService {
         // Handle specific HTTP error codes
         String errorMessage = data['message'] ?? _getHttpErrorMessage(response.statusCode);
         
-        // Handle Clerk-specific errors
+        // Handle specific errors
         if (data.containsKey('errors') && data['errors'] is List) {
           final errors = data['errors'] as List;
           if (errors.isNotEmpty && errors[0] is Map) {
-            final clerkError = errors[0] as Map<String, dynamic>;
-            errorMessage = clerkError['longMessage'] ?? clerkError['message'] ?? errorMessage;
+            final specificError = errors[0] as Map<String, dynamic>;
+            errorMessage = specificError['longMessage'] ?? specificError['message'] ?? errorMessage;
           }
         }
         
