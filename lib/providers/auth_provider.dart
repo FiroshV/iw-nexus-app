@@ -26,77 +26,134 @@ class AuthProvider extends ChangeNotifier {
   Future<void> initializeAuth() async {
     if (_status != AuthStatus.uninitialized) return;
 
+    debugPrint('🔐 AUTH: Starting authentication initialization');
     _setLoading(true);
 
     try {
       // Check if we have a valid session stored locally
       final hasValidSession = await ApiService.hasValidSession();
+      debugPrint('🔐 AUTH: Has valid local session: $hasValidSession');
       
       if (hasValidSession) {
         // Try to restore user data from local storage first
         final localUserData = await ApiService.getUserData();
         if (localUserData != null) {
+          debugPrint('🔐 AUTH: Restored user data from local storage');
           _user = localUserData;
           _status = AuthStatus.authenticated;
           _setLoading(false);
           
-          // Validate with server in the background
+          // Validate with server in the background (non-blocking)
           _validateSessionInBackground();
           return;
+        } else {
+          debugPrint('🔐 AUTH: Valid session but no user data found');
         }
       }
 
-      // If no valid local session, check with server
+      // If no valid local session or no user data, try server validation
       final token = await ApiService.getToken();
       if (token != null) {
-        // Validate existing token with server
-        final response = await ApiService.validateSession();
-        if (response.success) {
-          // Get fresh user info from server
-          final userResponse = await ApiService.getCurrentUser();
-          if (userResponse.success && userResponse.data?['user'] != null) {
-            _user = userResponse.data!['user'];
-            _status = AuthStatus.authenticated;
+        debugPrint('🔐 AUTH: Token found, validating with server');
+        
+        try {
+          // Validate existing token with server (with timeout protection)
+          final response = await ApiService.validateSession();
+          
+          if (response.success) {
+            debugPrint('🔐 AUTH: Server validation successful, fetching user data');
             
-            // Save user data locally for faster future loads
-            await ApiService.saveUserData(_user!);
+            // Get fresh user info from server
+            try {
+              final userResponse = await ApiService.getCurrentUser();
+              if (userResponse.success && userResponse.data?['user'] != null) {
+                _user = userResponse.data!['user'];
+                _status = AuthStatus.authenticated;
+                
+                // Save user data locally for faster future loads
+                await ApiService.saveUserData(_user!);
+                debugPrint('🔐 AUTH: User data fetched and saved successfully');
+              } else {
+                debugPrint('🔐 AUTH: Failed to fetch user data: ${userResponse.message}');
+                // Only clear auth if we get explicit auth errors
+                if (userResponse.statusCode == 401 || userResponse.statusCode == 403) {
+                  await _clearAuth();
+                } else {
+                  // For other errors, set unauthenticated but don't clear stored data
+                  _status = AuthStatus.unauthenticated;
+                }
+              }
+            } catch (e) {
+              debugPrint('🔐 AUTH: Error fetching user data: $e');
+              // Don't clear auth on network errors, just set unauthenticated
+              _status = AuthStatus.unauthenticated;
+            }
           } else {
-            await _clearAuth();
+            debugPrint('🔐 AUTH: Server validation failed: ${response.message}');
+            // Only clear auth for explicit auth failures (401/403)
+            if (response.statusCode == 401 || response.statusCode == 403) {
+              await _clearAuth();
+            } else {
+              // For other errors (network, server), keep existing data and set unauthenticated
+              _status = AuthStatus.unauthenticated;
+            }
           }
-        } else {
-          await _clearAuth();
+        } catch (e) {
+          debugPrint('🔐 AUTH: Server validation error: $e');
+          // On network/server errors, don't clear auth data
+          _status = AuthStatus.unauthenticated;
         }
       } else {
+        debugPrint('🔐 AUTH: No token found, setting unauthenticated');
         _status = AuthStatus.unauthenticated;
       }
     } catch (e) {
+      debugPrint('🔐 AUTH: Initialization error: $e');
       _error = 'Failed to initialize authentication: ${e.toString()}';
+      // Don't clear auth data on initialization errors
       _status = AuthStatus.unauthenticated;
     }
 
     _setLoading(false);
+    debugPrint('🔐 AUTH: Initialization completed with status: $_status');
   }
 
   // Validate session in background without affecting UI
   Future<void> _validateSessionInBackground() async {
+    debugPrint('🔐 AUTH: Starting background session validation');
+    
     try {
       final response = await ApiService.validateSession();
+      
       if (!response.success) {
-        // Session is no longer valid, clear auth
-        await _clearAuth();
+        // Only clear auth if we get explicit auth errors (401/403)
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          debugPrint('🔐 AUTH: Background validation failed with auth error - clearing session');
+          await _clearAuth();
+        } else {
+          debugPrint('🔐 AUTH: Background validation failed with non-auth error - keeping session');
+        }
       } else {
-        // Optionally refresh user data
-        final userResponse = await ApiService.getCurrentUser();
-        if (userResponse.success && userResponse.data?['user'] != null) {
-          _user = userResponse.data!['user'];
-          await ApiService.saveUserData(_user!);
-          notifyListeners();
+        debugPrint('🔐 AUTH: Background validation successful');
+        
+        // Optionally refresh user data (but don't fail if this fails)
+        try {
+          final userResponse = await ApiService.getCurrentUser();
+          if (userResponse.success && userResponse.data?['user'] != null) {
+            _user = userResponse.data!['user'];
+            await ApiService.saveUserData(_user!);
+            notifyListeners();
+            debugPrint('🔐 AUTH: User data refreshed in background');
+          }
+        } catch (e) {
+          // Silently continue if user data refresh fails
+          debugPrint('🔐 AUTH: Failed to refresh user data in background: $e');
         }
       }
     } catch (e) {
       // Don't clear auth for background validation errors
       // User can continue with cached data
-      debugPrint('Background session validation failed: $e');
+      debugPrint('🔐 AUTH: Background session validation error (continuing with cached data): $e');
     }
   }
 
@@ -398,19 +455,26 @@ class AuthProvider extends ChangeNotifier {
   // Handle app lifecycle changes
   Future<void> onAppResumed() async {
     if (_status == AuthStatus.authenticated) {
+      debugPrint('🔐 AUTH: App resumed, checking session validity');
+      
       // Check if session is still valid when app is resumed
       try {
         final hasValidSession = await ApiService.hasValidSession();
         if (!hasValidSession) {
+          debugPrint('🔐 AUTH: Local session expired on app resume');
           await _clearAuth();
         } else {
-          // Optionally refresh user data
-          await refreshUser();
+          debugPrint('🔐 AUTH: Local session still valid on app resume');
+          
+          // Background validation and user refresh (non-blocking)
+          _validateSessionInBackground();
         }
       } catch (e) {
         // Handle silently - user can continue with cached data
-        debugPrint('App resume auth check failed: $e');
+        debugPrint('🔐 AUTH: App resume auth check failed (continuing with cached data): $e');
       }
+    } else {
+      debugPrint('🔐 AUTH: App resumed but user not authenticated');
     }
   }
 
