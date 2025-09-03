@@ -109,6 +109,17 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
+      // First check if user exists in the database
+      final userCheckResponse = await ApiService.checkUserExists(
+        identifier: identifier,
+        method: method,
+      );
+
+      if (!userCheckResponse.success) {
+        _error = userCheckResponse.message;
+        return userCheckResponse;
+      }
+
       if (method == 'phone') {
         // Use Firebase for phone OTP
         final firebaseResponse = await FirebasePhoneAuthService.sendPhoneOTP(identifier);

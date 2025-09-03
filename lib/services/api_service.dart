@@ -293,6 +293,21 @@ class ApiService {
   }
 
   // Authentication endpoints
+  static Future<ApiResponse<Map<String, dynamic>>> checkUserExists({
+    required String identifier,
+    required String method, // 'email' or 'phone'
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/auth/check-user-exists',
+      'POST',
+      body: {
+        'identifier': identifier,
+        'method': method,
+      },
+      includeAuth: false,
+    );
+  }
+
   static Future<ApiResponse<Map<String, dynamic>>> sendOtp({
     required String identifier,
     required String method, // 'email' or 'phone'
