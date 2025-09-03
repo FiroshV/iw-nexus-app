@@ -248,9 +248,22 @@ class AuthProvider extends ChangeNotifier {
           );
           
           if (backendResponse.success) {
-            // Save session token
-            if (backendResponse.data?['sessionToken'] != null) {
-              await ApiService.saveToken(backendResponse.data!['sessionToken']);
+            // Save session token with refresh token and expiry
+            final sessionToken = backendResponse.data?['sessionToken'] as String?;
+            final refreshToken = backendResponse.data?['refreshToken'] as String?;
+            final expiresIn = backendResponse.data?['expiresIn'] as int?;
+            
+            if (sessionToken != null) {
+              DateTime? expiresAt;
+              if (expiresIn != null) {
+                expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+              }
+              
+              await ApiService.saveToken(
+                sessionToken, 
+                refreshToken: refreshToken, 
+                expiresAt: expiresAt
+              );
             }
 
             // Store user info both locally and in memory
@@ -278,9 +291,22 @@ class AuthProvider extends ChangeNotifier {
         );
 
         if (response.success) {
-          // Save session token
-          if (response.data?['sessionToken'] != null) {
-            await ApiService.saveToken(response.data!['sessionToken']);
+          // Save session token with refresh token and expiry
+          final sessionToken = response.data?['sessionToken'] as String?;
+          final refreshToken = response.data?['refreshToken'] as String?;
+          final expiresIn = response.data?['expiresIn'] as int?;
+          
+          if (sessionToken != null) {
+            DateTime? expiresAt;
+            if (expiresIn != null) {
+              expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+            }
+            
+            await ApiService.saveToken(
+              sessionToken, 
+              refreshToken: refreshToken, 
+              expiresAt: expiresAt
+            );
           }
 
           // Store user info both locally and in memory
@@ -384,7 +410,7 @@ class AuthProvider extends ChangeNotifier {
         _user = response.data?['user'];
         notifyListeners();
       } else {
-        // If user fetch fails, might be token expired
+        // If user fetch fails with auth errors, clear session
         await _clearAuth();
       }
     } catch (e) {

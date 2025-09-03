@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Environment-based configuration
@@ -16,15 +15,19 @@ class ApiService {
   }
   
   static const String _tokenKey = 'session_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  static const String _tokenExpiryKey = 'token_expiry';
   static const String _userKey = 'user_data';
   static const String _lastLoginKey = 'last_login_time';
-  static const String _authStateKey = 'auth_state';
   
-  static const _storage = FlutterSecureStorage();
-  
-  // Singleton SharedPreferences instance with error handling
-  static SharedPreferences? _sharedPrefs;
-  static bool _sharedPrefsInitialized = false;
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
   
   // Add auth debug logging
   static void _authLog(String message) {
@@ -33,21 +36,37 @@ class ApiService {
     }
   }
   
-  // Safe SharedPreferences getter with error handling
-  static Future<SharedPreferences?> _getSharedPrefs() async {
-    if (!_sharedPrefsInitialized) {
-      try {
-        _authLog('Initializing SharedPreferences');
-        _sharedPrefs = await SharedPreferences.getInstance();
-        _sharedPrefsInitialized = true;
-        _authLog('SharedPreferences initialized successfully');
-      } catch (e) {
-        _authLog('Failed to initialize SharedPreferences: $e');
-        _sharedPrefs = null;
-        _sharedPrefsInitialized = true; // Mark as tried to avoid repeated attempts
-      }
+  // Token expiry management
+  static Future<void> _saveTokenExpiry(DateTime expiry) async {
+    try {
+      await _storage.write(key: _tokenExpiryKey, value: expiry.toIso8601String());
+      _authLog('Token expiry saved: $expiry');
+    } catch (e) {
+      _authLog('Failed to save token expiry: $e');
     }
-    return _sharedPrefs;
+  }
+
+  static Future<DateTime?> _getTokenExpiry() async {
+    try {
+      final expiryStr = await _storage.read(key: _tokenExpiryKey);
+      if (expiryStr != null) {
+        return DateTime.parse(expiryStr);
+      }
+    } catch (e) {
+      _authLog('Failed to read token expiry: $e');
+    }
+    return null;
+  }
+
+  static Future<bool> _isTokenNearExpiry() async {
+    final expiry = await _getTokenExpiry();
+    if (expiry == null) return false;
+    
+    final now = DateTime.now();
+    final timeUntilExpiry = expiry.difference(now);
+    
+    // Consider token near expiry if less than 30 minutes remain
+    return timeUntilExpiry.inMinutes < 30;
   }
 
   // HTTP client with longer timeout for real API calls
@@ -70,186 +89,121 @@ class ApiService {
     return headers;
   }
 
-  // Enhanced token and user data management with fallback storage
-  static Future<void> saveToken(String token) async {
-    _authLog('Saving authentication token');
+  // Enhanced token management with expiry and refresh tokens
+  static Future<void> saveToken(String token, {String? refreshToken, DateTime? expiresAt}) async {
+    _authLog('Saving authentication tokens');
     
-    // Always try to save to secure storage first (critical)
     try {
       await _storage.write(key: _tokenKey, value: token);
       await _storage.write(key: _lastLoginKey, value: DateTime.now().toIso8601String());
-      _authLog('Token saved successfully to secure storage');
-    } catch (e) {
-      _authLog('CRITICAL: Failed to save token to secure storage: $e');
-      rethrow; // This is critical, so we rethrow
-    }
-    
-    // Try to save to shared preferences as fallback (non-critical)
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        await prefs.setString(_tokenKey, token);
-        await prefs.setString(_lastLoginKey, DateTime.now().toIso8601String());
-        await prefs.setBool(_authStateKey, true);
-        _authLog('Token also saved to shared preferences fallback');
-      } else {
-        _authLog('SharedPreferences not available - continuing with secure storage only');
+      
+      if (refreshToken != null) {
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+        _authLog('Refresh token saved');
       }
+      
+      if (expiresAt != null) {
+        await _saveTokenExpiry(expiresAt);
+      } else {
+        // If no expiry provided, set a long-lived default (30 days)
+        final defaultExpiry = DateTime.now().add(const Duration(days: 30));
+        await _saveTokenExpiry(defaultExpiry);
+      }
+      
+      _authLog('Tokens saved successfully to secure storage');
     } catch (e) {
-      _authLog('Failed to save token to shared preferences (non-critical): $e');
-      // Don't rethrow - this is just fallback storage
+      _authLog('CRITICAL: Failed to save tokens to secure storage: $e');
+      rethrow;
     }
   }
 
   static Future<String?> getToken() async {
     try {
-      // Try secure storage first (primary storage)
-      final secureToken = await _storage.read(key: _tokenKey);
-      if (secureToken != null) {
+      final token = await _storage.read(key: _tokenKey);
+      if (token != null) {
         _authLog('Token retrieved from secure storage');
-        return secureToken;
+        
+        // Check if token needs refresh
+        final needsRefresh = await _isTokenNearExpiry();
+        if (needsRefresh) {
+          _authLog('Token is near expiry, attempting refresh');
+          final refreshed = await _refreshTokenIfNeeded();
+          if (refreshed) {
+            // Return the refreshed token
+            return await _storage.read(key: _tokenKey);
+          }
+        }
+        
+        return token;
       }
       _authLog('No token found in secure storage');
     } catch (e) {
-      _authLog('Error reading from secure storage: $e');
+      _authLog('Error reading token from secure storage: $e');
     }
     
-    // Fallback to shared preferences only if secure storage failed
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        final prefToken = prefs.getString(_tokenKey);
-        if (prefToken != null) {
-          _authLog('Token retrieved from shared preferences fallback');
-          // Try to restore to secure storage if possible
-          try {
-            await _storage.write(key: _tokenKey, value: prefToken);
-            _authLog('Token restored to secure storage from fallback');
-          } catch (e) {
-            _authLog('Could not restore token to secure storage: $e');
-          }
-          return prefToken;
-        }
-      }
-    } catch (e) {
-      _authLog('Error retrieving token from shared preferences: $e');
-    }
-    
-    _authLog('No token found in any storage');
     return null;
+  }
+
+  static Future<String?> getRefreshToken() async {
+    try {
+      final refreshToken = await _storage.read(key: _refreshTokenKey);
+      if (refreshToken != null) {
+        _authLog('Refresh token retrieved from secure storage');
+      }
+      return refreshToken;
+    } catch (e) {
+      _authLog('Error reading refresh token: $e');
+      return null;
+    }
   }
 
   static Future<void> saveUserData(Map<String, dynamic> userData) async {
     _authLog('Saving user data');
     
-    // Always try to save to secure storage first (critical)
     try {
       final userDataJson = jsonEncode(userData);
       await _storage.write(key: _userKey, value: userDataJson);
       _authLog('User data saved successfully to secure storage');
     } catch (e) {
       _authLog('CRITICAL: Failed to save user data to secure storage: $e');
-      rethrow; // This is critical, so we rethrow
-    }
-    
-    // Try to save to shared preferences as fallback (non-critical)
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        final userDataJson = jsonEncode(userData);
-        await prefs.setString(_userKey, userDataJson);
-        _authLog('User data also saved to shared preferences fallback');
-      }
-    } catch (e) {
-      _authLog('Failed to save user data to shared preferences (non-critical): $e');
-      // Don't rethrow - this is just fallback storage
+      rethrow;
     }
   }
 
   static Future<Map<String, dynamic>?> getUserData() async {
     try {
-      // Try secure storage first (primary storage)
-      final secureUserData = await _storage.read(key: _userKey);
-      if (secureUserData != null) {
+      final userData = await _storage.read(key: _userKey);
+      if (userData != null) {
         try {
-          final userData = jsonDecode(secureUserData);
+          final parsedUserData = jsonDecode(userData);
           _authLog('User data retrieved from secure storage');
-          return userData;
+          return parsedUserData;
         } catch (e) {
-          _authLog('Error parsing user data from secure storage: $e');
-        }
-      }
-      _authLog('No user data found in secure storage');
-    } catch (e) {
-      _authLog('Error reading from secure storage: $e');
-    }
-    
-    // Fallback to shared preferences only if secure storage failed
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        final prefUserData = prefs.getString(_userKey);
-        if (prefUserData != null) {
-          try {
-            final userData = jsonDecode(prefUserData);
-            _authLog('User data retrieved from shared preferences fallback');
-            // Try to restore to secure storage if possible
-            try {
-              await _storage.write(key: _userKey, value: prefUserData);
-              _authLog('User data restored to secure storage from fallback');
-            } catch (e) {
-              _authLog('Could not restore user data to secure storage: $e');
-            }
-            return userData;
-          } catch (e) {
-            _authLog('Error parsing user data from shared preferences: $e');
-            // Clear corrupt data
-            try {
-              await prefs.remove(_userKey);
-            } catch (e2) {
-              _authLog('Could not clear corrupt user data from shared preferences: $e2');
-            }
-          }
+          _authLog('Error parsing user data: $e');
+          // Clear corrupt data
+          await _storage.delete(key: _userKey);
         }
       }
     } catch (e) {
-      _authLog('Error retrieving user data from shared preferences: $e');
+      _authLog('Error reading user data from secure storage: $e');
     }
     
-    _authLog('No user data found in any storage');
+    _authLog('No user data found in storage');
     return null;
   }
 
   static Future<DateTime?> getLastLoginTime() async {
     try {
-      // Try secure storage first (primary storage)
-      final secureLastLogin = await _storage.read(key: _lastLoginKey);
-      if (secureLastLogin != null) {
+      final lastLoginStr = await _storage.read(key: _lastLoginKey);
+      if (lastLoginStr != null) {
         try {
-          return DateTime.parse(secureLastLogin);
+          return DateTime.parse(lastLoginStr);
         } catch (e) {
-          _authLog('Error parsing last login time from secure storage: $e');
+          _authLog('Error parsing last login time: $e');
         }
       }
     } catch (e) {
-      _authLog('Error reading last login time from secure storage: $e');
-    }
-    
-    // Fallback to shared preferences only if needed
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        final prefLastLogin = prefs.getString(_lastLoginKey);
-        if (prefLastLogin != null) {
-          try {
-            return DateTime.parse(prefLastLogin);
-          } catch (e) {
-            _authLog('Error parsing last login time from shared preferences: $e');
-          }
-        }
-      }
-    } catch (e) {
-      _authLog('Error retrieving last login time from shared preferences: $e');
+      _authLog('Error reading last login time: $e');
     }
     
     return null;
@@ -257,6 +211,8 @@ class ApiService {
 
   static Future<void> clearToken() async {
     await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _tokenExpiryKey);
   }
 
   static Future<void> clearUserData() async {
@@ -266,39 +222,18 @@ class ApiService {
   static Future<void> clearAllAuthData() async {
     _authLog('Clearing all authentication data');
     
-    // Clear secure storage (critical)
     try {
       await Future.wait([
         _storage.delete(key: _tokenKey),
+        _storage.delete(key: _refreshTokenKey),
+        _storage.delete(key: _tokenExpiryKey),
         _storage.delete(key: _userKey),
         _storage.delete(key: _lastLoginKey),
       ]);
-      _authLog('Secure storage cleared successfully');
+      _authLog('All authentication data cleared successfully');
     } catch (e) {
-      _authLog('Error clearing secure storage: $e');
-      // Continue even if clearing fails
+      _authLog('Error clearing authentication data: $e');
     }
-    
-    // Clear shared preferences (non-critical)
-    try {
-      final prefs = await _getSharedPrefs();
-      if (prefs != null) {
-        await Future.wait([
-          prefs.remove(_tokenKey),
-          prefs.remove(_userKey),
-          prefs.remove(_lastLoginKey),
-          prefs.remove(_authStateKey),
-        ]);
-        _authLog('Shared preferences cleared successfully');
-      } else {
-        _authLog('SharedPreferences not available during clear operation');
-      }
-    } catch (e) {
-      _authLog('Error clearing shared preferences (non-critical): $e');
-      // Continue even if clearing fails
-    }
-    
-    _authLog('Authentication data clear operation completed');
   }
 
   static Future<bool> hasValidSession() async {
@@ -306,9 +241,8 @@ class ApiService {
     
     final token = await getToken();
     final userData = await getUserData();
-    final lastLogin = await getLastLoginTime();
     
-    _authLog('Session check - Token: ${token != null}, UserData: ${userData != null}, LastLogin: ${lastLogin != null}');
+    _authLog('Session check - Token: ${token != null}, UserData: ${userData != null}');
     
     if (token == null) {
       _authLog('No token found - session invalid');
@@ -320,23 +254,65 @@ class ApiService {
       return false;
     }
     
-    if (lastLogin == null) {
-      _authLog('No last login time found - assuming valid session');
-      return true; // If we have token and user data, don't invalidate just because no timestamp
-    }
-    
-    // Extended session timeout to 30 days (was 7)
-    final sessionAge = DateTime.now().difference(lastLogin);
-    _authLog('Session age: ${sessionAge.inDays} days');
-    
-    if (sessionAge.inDays > 30) {
-      _authLog('Session expired (older than 30 days) - clearing data');
-      await clearAllAuthData();
-      return false;
+    // Check if token is near expiry and needs refresh
+    final nearExpiry = await _isTokenNearExpiry();
+    if (nearExpiry) {
+      _authLog('Token is near expiry but session still valid (will refresh automatically)');
     }
     
     _authLog('Session is valid');
     return true;
+  }
+
+  // Token refresh mechanism
+  static Future<bool> _refreshTokenIfNeeded() async {
+    final refreshToken = await getRefreshToken();
+    if (refreshToken == null) {
+      _authLog('No refresh token available for token refresh');
+      return false;
+    }
+
+    try {
+      _authLog('Attempting to refresh token');
+      final response = await _makeRequest<Map<String, dynamic>>(
+        '/auth/refresh-token',
+        'POST',
+        body: {
+          'refreshToken': refreshToken,
+        },
+        includeAuth: false,
+        timeout: const Duration(seconds: 15),
+        maxRetries: 2,
+      );
+
+      if (response.success && response.data != null) {
+        final newToken = response.data!['accessToken'] as String?;
+        final newRefreshToken = response.data!['refreshToken'] as String?;
+        final expiresIn = response.data!['expiresIn'] as int?;
+
+        if (newToken != null) {
+          DateTime? expiresAt;
+          if (expiresIn != null) {
+            expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+          }
+
+          await saveToken(
+            newToken,
+            refreshToken: newRefreshToken ?? refreshToken,
+            expiresAt: expiresAt,
+          );
+
+          _authLog('Token refreshed successfully');
+          return true;
+        }
+      }
+
+      _authLog('Token refresh failed: ${response.message}');
+      return false;
+    } catch (e) {
+      _authLog('Token refresh error: $e');
+      return false;
+    }
   }
 
   // Generic API request method with retry logic
@@ -575,7 +551,7 @@ class ApiService {
     required String signInId,
     required String code,
   }) async {
-    return await _makeRequest<Map<String, dynamic>>(
+    final response = await _makeRequest<Map<String, dynamic>>(
       '/auth/verify-otp',
       'POST',
       body: {
@@ -584,6 +560,25 @@ class ApiService {
       },
       includeAuth: false,
     );
+
+    // If login successful, extract and save tokens with expiry
+    if (response.success && response.data != null) {
+      final sessionToken = response.data!['sessionToken'] as String?;
+      final refreshToken = response.data!['refreshToken'] as String?;
+      final expiresIn = response.data!['expiresIn'] as int?;
+
+      if (sessionToken != null) {
+        DateTime? expiresAt;
+        if (expiresIn != null) {
+          expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+        }
+        
+        await saveToken(sessionToken, refreshToken: refreshToken, expiresAt: expiresAt);
+        _authLog('Tokens saved after OTP verification');
+      }
+    }
+
+    return response;
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> resendOtp({
@@ -619,7 +614,7 @@ class ApiService {
     required String phoneNumber,
     String? displayName,
   }) async {
-    return await _makeRequest<Map<String, dynamic>>(
+    final response = await _makeRequest<Map<String, dynamic>>(
       '/auth/firebase-signin',
       'POST',
       body: {
@@ -629,6 +624,25 @@ class ApiService {
       },
       includeAuth: false,
     );
+
+    // If login successful, extract and save tokens with expiry
+    if (response.success && response.data != null) {
+      final sessionToken = response.data!['sessionToken'] as String?;
+      final refreshToken = response.data!['refreshToken'] as String?;
+      final expiresIn = response.data!['expiresIn'] as int?;
+
+      if (sessionToken != null) {
+        DateTime? expiresAt;
+        if (expiresIn != null) {
+          expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+        }
+        
+        await saveToken(sessionToken, refreshToken: refreshToken, expiresAt: expiresAt);
+        _authLog('Tokens saved after Firebase signin');
+      }
+    }
+
+    return response;
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> getCurrentUser() async {
@@ -654,12 +668,22 @@ class ApiService {
   static Future<ApiResponse<bool>> validateSession() async {
     _authLog('Validating session with server');
     
+    // First check if we need to refresh the token
+    final needsRefresh = await _isTokenNearExpiry();
+    if (needsRefresh) {
+      _authLog('Token needs refresh before validation');
+      final refreshed = await _refreshTokenIfNeeded();
+      if (!refreshed) {
+        _authLog('Token refresh failed, but continuing with current token');
+      }
+    }
+    
     try {
       final response = await _makeRequest<Map<String, dynamic>>(
         '/auth/session/validate',
         'GET',
-        timeout: const Duration(seconds: 10), // Shorter timeout for session validation
-        maxRetries: 2, // Fewer retries for session validation
+        timeout: const Duration(seconds: 10),
+        maxRetries: 1, // Reduced retries for validation
       );
       
       _authLog('Session validation response: ${response.success}, Status: ${response.statusCode}');
@@ -667,6 +691,28 @@ class ApiService {
       // Only consider explicit auth errors as session invalid
       if (response.statusCode == 401 || response.statusCode == 403) {
         _authLog('Session explicitly invalid (401/403 response)');
+        // Try token refresh one more time before declaring invalid
+        if (response.statusCode == 401) {
+          _authLog('Attempting token refresh on 401 response');
+          final refreshed = await _refreshTokenIfNeeded();
+          if (refreshed) {
+            _authLog('Token refreshed on 401, re-validating');
+            // Retry validation with refreshed token
+            final retryResponse = await _makeRequest<Map<String, dynamic>>(
+              '/auth/session/validate',
+              'GET',
+              timeout: const Duration(seconds: 10),
+              maxRetries: 1,
+            );
+            return ApiResponse<bool>(
+              success: retryResponse.success,
+              message: retryResponse.message,
+              data: retryResponse.success,
+              statusCode: retryResponse.statusCode,
+            );
+          }
+        }
+        
         return ApiResponse<bool>(
           success: false,
           message: response.message,
@@ -675,16 +721,18 @@ class ApiService {
         );
       }
       
-      // For network errors or server errors, assume session is still valid
-      // to avoid unnecessary logouts
-      if (!response.success && (response.statusCode == null || response.statusCode! >= 500)) {
-        _authLog('Network/server error during validation - assuming session valid');
-        return ApiResponse<bool>(
-          success: true,
-          message: 'Session validation skipped due to network error',
-          data: true,
-          statusCode: 200,
-        );
+      // For network errors, server errors, or timeouts, assume session is valid
+      // This prevents unnecessary logouts due to connectivity issues
+      if (!response.success) {
+        if (response.statusCode == null || response.statusCode! >= 500 || response.statusCode! == 408) {
+          _authLog('Network/server error during validation - assuming session valid');
+          return ApiResponse<bool>(
+            success: true,
+            message: 'Session assumed valid (network error)',
+            data: true,
+            statusCode: 200,
+          );
+        }
       }
       
       return ApiResponse<bool>(
@@ -698,7 +746,7 @@ class ApiService {
       // On error, assume session is valid to prevent unnecessary logouts
       return ApiResponse<bool>(
         success: true,
-        message: 'Session validation skipped due to error',
+        message: 'Session assumed valid (validation error)',
         data: true,
         statusCode: 200,
       );
@@ -729,7 +777,7 @@ class ApiService {
     required String lastName,
     required String email,
     required String phoneNumber,
-    required String department,
+    String? department,
     required String role,
     required String designation,
     String? dateOfJoining,
@@ -744,7 +792,7 @@ class ApiService {
         'lastName': lastName,
         'email': email,
         'phoneNumber': phoneNumber,
-        'department': department,
+        if (department != null) 'department': department,
         'role': role,
         'designation': designation,
         if (dateOfJoining != null) 'dateOfJoining': dateOfJoining,

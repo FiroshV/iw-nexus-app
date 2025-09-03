@@ -38,14 +38,16 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final List<String> roles = [
     'employee',
     'manager',
-    'hr',
+    'field_staff',
+    'telecaller',
+    'director',
     'admin'
   ];
 
   @override
   void initState() {
     super.initState();
-    selectedJoiningDate = DateTime.now();
+    selectedJoiningDate = null;
     _loadManagers();
   }
 
@@ -57,6 +59,17 @@ class _AddUserScreenState extends State<AddUserScreen> {
     _phoneController.dispose();
     _designationController.dispose();
     super.dispose();
+  }
+
+  String _formatRoleDisplay(String role) {
+    switch (role) {
+      case 'field_staff':
+        return 'Field Staff';
+      case 'telecaller':
+        return 'Telecaller';
+      default:
+        return role.toUpperCase();
+    }
   }
 
   Future<void> _loadManagers() async {
@@ -121,10 +134,10 @@ class _AddUserScreenState extends State<AddUserScreen> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
         phoneNumber: _phoneController.text.trim(),
-        department: selectedDepartment!,
+        department: selectedDepartment,
         role: selectedRole!,
         designation: _designationController.text.trim(),
-        dateOfJoining: selectedJoiningDate!.toIso8601String(),
+        dateOfJoining: selectedJoiningDate?.toIso8601String(),
         managerId: selectedManagerId,
       );
 
@@ -292,23 +305,20 @@ class _AddUserScreenState extends State<AddUserScreen> {
                       DropdownButtonFormField<String>(
                         value: selectedDepartment,
                         decoration: const InputDecoration(
-                          labelText: 'Department *',
+                          labelText: 'Department (Optional)',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.business),
                         ),
-                        items: departments.map((dept) => 
-                          DropdownMenuItem(value: dept, child: Text(dept))
-                        ).toList(),
+                        items: [
+                          const DropdownMenuItem<String>(value: null, child: Text('No Department')),
+                          ...departments.map((dept) => 
+                            DropdownMenuItem(value: dept, child: Text(dept))
+                          ),
+                        ],
                         onChanged: (value) {
                           setState(() {
                             selectedDepartment = value;
                           });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select a department';
-                          }
-                          return null;
                         },
                       ),
                       
@@ -322,7 +332,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                           prefixIcon: Icon(Icons.work),
                         ),
                         items: roles.map((role) => 
-                          DropdownMenuItem(value: role, child: Text(role.toUpperCase()))
+                          DropdownMenuItem(value: role, child: Text(_formatRoleDisplay(role)))
                         ).toList(),
                         onChanged: (value) {
                           setState(() {
@@ -360,14 +370,14 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         onTap: _selectJoiningDate,
                         child: InputDecorator(
                           decoration: const InputDecoration(
-                            labelText: 'Date of Joining *',
+                            labelText: 'Date of Joining (Optional)',
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.calendar_today),
                           ),
                           child: Text(
                             selectedJoiningDate != null
                                 ? '${selectedJoiningDate!.day}/${selectedJoiningDate!.month}/${selectedJoiningDate!.year}'
-                                : 'Select Date',
+                                : 'Select Date (Optional)',
                           ),
                         ),
                       ),
