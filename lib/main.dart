@@ -14,18 +14,18 @@ import 'utils/timezone_test.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize timezone for consistent IST handling
   try {
     await TimezoneUtil.initialize();
     debugPrint('🌍 Timezone (IST) initialized successfully');
-    
+
     // Run timezone tests in debug mode
     await testTimezoneUtility();
   } catch (e) {
     debugPrint('❌ Timezone initialization error: $e');
   }
-  
+
   // Initialize API configuration
   try {
     await ApiConfig.initialize();
@@ -33,7 +33,7 @@ void main() async {
   } catch (e) {
     debugPrint('❌ API configuration initialization error: $e');
   }
-  
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -42,7 +42,7 @@ void main() async {
   } catch (e) {
     debugPrint('❌ Firebase initialization error: $e');
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -52,9 +52,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
       child: MaterialApp(
         title: 'IW Nexus',
         debugShowCheckedModeBanner: false,
@@ -80,7 +78,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Initialize authentication state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().initializeAuth();
@@ -96,7 +94,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (state == AppLifecycleState.resumed) {
       // Check authentication status when app is resumed
       context.read<AuthProvider>().onAppResumed();
@@ -196,7 +194,10 @@ class _DashboardPageState extends State<DashboardPage> {
     print('🔍 Debug: Current user data: $currentUser');
     print('🔍 Debug: User role: ${currentUser?['role']}');
     final userRole = currentUser?['role']?.toString().toLowerCase();
-    final isAdminResult = userRole == 'admin' || userRole == 'administrator' || userRole == 'director';
+    final isAdminResult =
+        userRole == 'admin' ||
+        userRole == 'administrator' ||
+        userRole == 'director';
     print('🔍 Debug: Is admin check result: $isAdminResult');
     return isAdminResult;
   }
@@ -219,11 +220,7 @@ class _DashboardPageState extends State<DashboardPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 36,
-                color: color ?? const Color(0xFF272579),
-              ),
+              Icon(icon, size: 36, color: color ?? const Color(0xFF272579)),
               const SizedBox(height: 8),
               Flexible(
                 child: Text(
@@ -241,10 +238,7 @@ class _DashboardPageState extends State<DashboardPage> {
               Flexible(
                 child: Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -304,7 +298,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         Text(
                           currentUser != null
-                              ? '${currentUser!['firstName'] ?? ''} ${currentUser!['lastName'] ?? ''}'.trim()
+                              ? '${currentUser!['firstName'] ?? ''} ${currentUser!['lastName'] ?? ''}'
+                                    .trim()
                               : 'User',
                           style: const TextStyle(
                             color: Colors.white,
@@ -331,7 +326,10 @@ class _DashboardPageState extends State<DashboardPage> {
                           if (isAdmin)
                             Container(
                               margin: const EdgeInsets.only(top: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
@@ -349,9 +347,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Quick actions
                   Text(
                     'Quick Actions',
@@ -360,9 +358,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: const Color(0xFF272579),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Dashboard cards grid
                   GridView.count(
                     shrinkWrap: true,
@@ -385,35 +383,24 @@ class _DashboardPageState extends State<DashboardPage> {
                           );
                         },
                       ),
-                      
-                      // Profile card
-                      _buildDashboardCard(
-                        title: 'My Profile',
-                        subtitle: 'View & edit',
-                        icon: Icons.person,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Profile feature coming soon!')),
-                          );
-                        },
-                      ),
-                      
+
                       // Admin-only: User Management
                       if (isAdmin) ...[
                         _buildDashboardCard(
-                          title: 'User Management',
+                          title: 'Employees',
                           subtitle: 'Manage employees',
                           icon: Icons.people,
                           color: Colors.orange,
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => const UserManagementScreen(),
+                                builder: (context) =>
+                                    const UserManagementScreen(),
                               ),
                             );
                           },
                         ),
-                        
+
                         _buildDashboardCard(
                           title: 'Reports',
                           subtitle: 'Analytics & data',
@@ -421,24 +408,13 @@ class _DashboardPageState extends State<DashboardPage> {
                           color: Colors.green,
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Reports feature coming soon!')),
+                              const SnackBar(
+                                content: Text('Reports feature coming soon!'),
+                              ),
                             );
                           },
                         ),
                       ],
-                      
-                      // More features placeholder
-                      _buildDashboardCard(
-                        title: 'More Features',
-                        subtitle: 'Coming soon',
-                        icon: Icons.more_horiz,
-                        color: Colors.grey,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('More features coming soon!')),
-                          );
-                        },
-                      ),
                     ],
                   ),
                 ],
@@ -447,4 +423,3 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 }
-
