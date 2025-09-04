@@ -8,9 +8,31 @@ import 'login_page.dart';
 import 'services/api_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/attendance_screen.dart';
+import 'config/api_config.dart';
+import 'utils/timezone_util.dart';
+import 'utils/timezone_test.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize timezone for consistent IST handling
+  try {
+    await TimezoneUtil.initialize();
+    debugPrint('🌍 Timezone (IST) initialized successfully');
+    
+    // Run timezone tests in debug mode
+    await testTimezoneUtility();
+  } catch (e) {
+    debugPrint('❌ Timezone initialization error: $e');
+  }
+  
+  // Initialize API configuration
+  try {
+    await ApiConfig.initialize();
+    debugPrint('⚙️ API configuration initialized successfully');
+  } catch (e) {
+    debugPrint('❌ API configuration initialization error: $e');
+  }
   
   try {
     await Firebase.initializeApp(

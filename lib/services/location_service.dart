@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
+import '../utils/timezone_util.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._internal();
@@ -10,7 +12,7 @@ class LocationService {
   LocationService._internal();
 
   Position? _lastKnownPosition;
-  DateTime? _lastPositionUpdate;
+  tz.TZDateTime? _lastPositionUpdate;
 
   // Location settings for high accuracy
   static const LocationSettings _locationSettings = LocationSettings(
@@ -226,7 +228,7 @@ class LocationService {
       }
 
       _lastKnownPosition = position;
-      _lastPositionUpdate = DateTime.now();
+      _lastPositionUpdate = TimezoneUtil.nowIST();
 
       debugPrint('✅ Location obtained: ${position.latitude}, ${position.longitude}');
       debugPrint('📊 Accuracy: ${position.accuracy}m, Altitude: ${position.altitude}m');
@@ -296,7 +298,7 @@ class LocationService {
   /// Check if last known position is recent (within 5 minutes)
   bool _isRecentPosition() {
     if (_lastPositionUpdate == null) return false;
-    final now = DateTime.now();
+    final now = TimezoneUtil.nowIST();
     final difference = now.difference(_lastPositionUpdate!);
     return difference.inMinutes <= 5;
   }

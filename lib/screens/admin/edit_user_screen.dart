@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../utils/timezone_util.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -120,9 +121,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
   Future<void> _selectJoiningDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: selectedJoiningDate ?? DateTime.now(),
+      initialDate: (selectedJoiningDate ?? TimezoneUtil.nowIST()).toLocal(),
       firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: TimezoneUtil.nowIST().add(const Duration(days: 365)).toLocal(),
     );
     
     if (date != null) {

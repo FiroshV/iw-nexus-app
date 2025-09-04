@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../services/api_service.dart';
 import '../services/location_service.dart';
+import '../utils/timezone_util.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -121,11 +121,77 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         });
       }
 
-      // Call check-in API with location
-      final response = await ApiService.checkIn(
+      // First attempt - check-in without late reason
+      var response = await ApiService.checkIn(
         location: _locationService.positionToMap(position),
         notes: 'Clock-in from mobile app',
       );
+
+      // Debug logging for late clock-in detection
+      print('🔍 Clock-in response: Success=${response.success}');
+      print('🔍 Response message: ${response.message}');
+      print('🔍 Response data: ${response.data}');
+      print('🔍 Response data type: ${response.data.runtimeType}');
+      if (response.data is Map) {
+        print('🔍 RequiresReason: ${response.data?['requiresReason']}');
+        print('🔍 ReasonType: ${response.data?['reasonType']}');
+        print('🔍 LateBy: ${response.data?['lateBy']}');
+      }
+
+      // Enhanced late detection with multiple checks
+      bool requiresLateReason = false;
+      int lateByMinutes = 0;
+      
+      // Primary check: Backend indicates late reason required
+      if (!response.success && response.data?['requiresReason'] == true) {
+        requiresLateReason = true;
+        lateByMinutes = response.data?['lateBy'] ?? 0;
+        print('🔍 Backend detected late arrival: $lateByMinutes minutes');
+      }
+      // Secondary check: Error message contains late reason requirement
+      else if (!response.success && response.message.toLowerCase().contains('late reason is required')) {
+        requiresLateReason = true;
+        // Try to extract late minutes from message or use client-side calculation
+        lateByMinutes = _calculateClientSideLateMinutes();
+        print('🔍 Error message indicates late arrival, client-side calculated: $lateByMinutes minutes');
+      }
+      // Tertiary check: 400 status with specific message pattern
+      else if (!response.success && response.statusCode == 400 && 
+               (response.message.contains('work hours') || response.message.contains('late'))) {
+        requiresLateReason = true;
+        lateByMinutes = _calculateClientSideLateMinutes();
+        print('🔍 Status 400 with work hours message, client-side calculated: $lateByMinutes minutes');
+      }
+
+      if (requiresLateReason) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        print('🔍 Showing late reason dialog for $lateByMinutes minutes late');
+        final lateReason = await _showLateReasonDialog(lateByMinutes: lateByMinutes);
+        
+        if (lateReason == null) {
+          // User cancelled
+          print('🔍 User cancelled late reason dialog');
+          return;
+        }
+        
+        print('🔍 User provided late reason: $lateReason');
+        setState(() {
+          _isLoading = true;
+        });
+
+        // Retry check-in with late reason
+        print('🔍 Retrying check-in with late reason');
+        response = await ApiService.checkIn(
+          location: _locationService.positionToMap(position),
+          notes: 'Clock-in from mobile app',
+          lateReason: lateReason,
+        );
+        
+        print('🔍 Retry response: Success=${response.success}, Message=${response.message}');
+      }
 
       if (mounted) {
         setState(() {
@@ -133,10 +199,27 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         });
 
         if (response.success) {
-          _showSuccess('Clocked in successfully!');
+          final lateBy = response.data?['lateBy'] ?? 0;
+          final lateReason = response.data?['lateReason'];
+          
+          String successMessage = 'Clocked in successfully!';
+          if (lateBy > 0) {
+            successMessage = 'Clocked in successfully ($lateBy minutes late)';
+            if (lateReason != null) {
+              print('🔍 Late reason recorded: $lateReason');
+            }
+          }
+          
+          _showSuccess(successMessage);
           await _loadTodayAttendance();
         } else {
-          _showError(response.message);
+          // Enhanced error reporting
+          String errorMessage = response.message;
+          if (response.data is Map && response.data?['requiresReason'] == true) {
+            errorMessage = 'Failed to process late clock-in. Please check your connection and try again.';
+          }
+          _showError(errorMessage);
+          print('🔍 Final clock-in failed: ${response.message}');
         }
       }
     } catch (e) {
@@ -243,6 +326,43 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
     
     return result ?? false;
+  }
+
+  /// Calculate how late the user is based on client-side time
+  /// This is a fallback when backend doesn't provide late minutes
+  int _calculateClientSideLateMinutes() {
+    try {
+      final now = TimezoneUtil.nowIST();
+      // Assume standard work start time is 9:00 AM
+      final workStartTime = tz.TZDateTime(
+        now.location,
+        now.year,
+        now.month,
+        now.day,
+        9, // 9 AM
+        0, // 0 minutes
+      );
+      
+      if (now.isAfter(workStartTime)) {
+        final difference = now.difference(workStartTime);
+        return difference.inMinutes;
+      }
+    } catch (e) {
+      print('Error calculating client-side late minutes: $e');
+    }
+    return 0; // Default to 0 if calculation fails
+  }
+
+  Future<String?> _showLateReasonDialog({
+    required int lateByMinutes,
+  }) async {
+    return await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return _LateReasonDialog(lateByMinutes: lateByMinutes);
+      },
+    );
   }
 
   void _showError(String message) {
@@ -446,8 +566,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return '${_todayAttendance!['totalWorkingHours'].toStringAsFixed(1)}h';
     } else if (_todayAttendance?['checkIn']?['time'] != null) {
       // Live calculation when clocked in
-      final checkInTime = DateTime.parse(_todayAttendance!['checkIn']['time']);
-      final now = DateTime.now();
+      final checkInTime = TimezoneUtil.parseToIST(_todayAttendance!['checkIn']['time']);
+      final now = TimezoneUtil.nowIST();
       final duration = now.difference(checkInTime);
       final hours = duration.inMinutes / 60.0;
       return '${hours.toStringAsFixed(1)}h';
@@ -459,7 +579,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String _getClockInTimeDisplay() {
     final checkIn = _todayAttendance?['checkIn'];
     if (checkIn != null && checkIn['time'] != null) {
-      return DateFormat('h:mm a').format(DateTime.parse(checkIn['time']));
+      final istTime = TimezoneUtil.parseToIST(checkIn['time']);
+      return TimezoneUtil.timeOnlyIST(istTime);
     }
     return '--:--';
   }
@@ -555,6 +676,85 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _LateReasonDialog extends StatefulWidget {
+  final int lateByMinutes;
+  
+  const _LateReasonDialog({required this.lateByMinutes});
+
+  @override
+  State<_LateReasonDialog> createState() => _LateReasonDialogState();
+}
+
+class _LateReasonDialogState extends State<_LateReasonDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Late Arrival Reason'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Please provide a reason for your late clock in:'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            maxLines: 3,
+            maxLength: 200,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
+            textCapitalization: TextCapitalization.sentences,
+            autofocus: true,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Minimum 10 characters required',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.of(context).pop(null),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF272579),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Submit'),
+          onPressed: () {
+            final reason = _controller.text.trim();
+            if (reason.length >= 10) {
+              Navigator.of(context).pop(reason);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please provide at least 10 characters for the reason'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }

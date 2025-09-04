@@ -2,23 +2,44 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:timezone/timezone.dart' as tz;
+import '../config/api_config.dart';
+import '../config/api_endpoints.dart';
+import '../config/http_client_config.dart';
+import '../utils/timezone_util.dart';
 
+/// Centralized API service for handling all HTTP requests to the IW Nexus backend.
+/// 
+/// This service provides:
+/// - Environment-based URL management
+/// - Secure token storage and management
+/// - Automatic token refresh
+/// - Comprehensive error handling
+/// - Request retry logic
+/// - Standardized response handling
+/// 
+/// Usage:
+/// ```dart
+/// // Check user existence
+/// final response = await ApiService.checkUserExists(
+///   identifier: 'user@example.com',
+///   method: 'email',
+/// );
+/// 
+/// if (response.success) {
+///   // User exists, proceed with OTP
+/// }
+/// ```
 class ApiService {
-  // Environment-based configuration
-  static const String _developmentUrl = 'http://localhost:3000/api';
-  static const String _productionUrl = 'https://your-production-api.com/api'; // Update when deploying
+  // Base URL from configuration
+  static String get baseUrl => ApiConfig.baseUrl;
   
-  static String get baseUrl {
-    // You can also use flutter_dotenv or similar for environment variables
-    const bool isDevelopment = bool.fromEnvironment('dart.vm.product') == false;
-    return isDevelopment ? _developmentUrl : _productionUrl;
-  }
-  
-  static const String _tokenKey = 'session_token';
-  static const String _refreshTokenKey = 'refresh_token';
-  static const String _tokenExpiryKey = 'token_expiry';
-  static const String _userKey = 'user_data';
-  static const String _lastLoginKey = 'last_login_time';
+  // Storage keys from configuration
+  static const String _tokenKey = ApiConfig.tokenKey;
+  static const String _refreshTokenKey = ApiConfig.refreshTokenKey;
+  static const String _tokenExpiryKey = ApiConfig.tokenExpiryKey;
+  static const String _userKey = ApiConfig.userDataKey;
+  static const String _lastLoginKey = ApiConfig.lastLoginKey;
   
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -29,28 +50,31 @@ class ApiService {
     ),
   );
   
-  // Add auth debug logging
+  // Add auth debug logging with IST timestamp
   static void _authLog(String message) {
-    if (kDebugMode) {
-      debugPrint('🔐 AUTH: $message');
+    if (ApiConfig.enableAuthDebugLogging) {
+      final timestamp = TimezoneUtil.formatIST(TimezoneUtil.nowIST(), 'HH:mm:ss');
+      debugPrint('🔐 AUTH [$timestamp IST]: $message');
     }
   }
   
-  // Token expiry management
-  static Future<void> _saveTokenExpiry(DateTime expiry) async {
+  // Token expiry management - now handles IST timezone
+  static Future<void> _saveTokenExpiry(tz.TZDateTime expiry) async {
     try {
-      await _storage.write(key: _tokenExpiryKey, value: expiry.toIso8601String());
-      _authLog('Token expiry saved: $expiry');
+      // Store as UTC but log as IST
+      await _storage.write(key: _tokenExpiryKey, value: TimezoneUtil.toApiString(expiry));
+      final istTime = TimezoneUtil.formatIST(expiry, 'dd MMM yyyy, HH:mm:ss');
+      _authLog('Token expiry saved: $istTime IST');
     } catch (e) {
       _authLog('Failed to save token expiry: $e');
     }
   }
 
-  static Future<DateTime?> _getTokenExpiry() async {
+  static Future<tz.TZDateTime?> _getTokenExpiry() async {
     try {
       final expiryStr = await _storage.read(key: _tokenExpiryKey);
       if (expiryStr != null) {
-        return DateTime.parse(expiryStr);
+        return TimezoneUtil.parseToIST(expiryStr);
       }
     } catch (e) {
       _authLog('Failed to read token expiry: $e');
@@ -62,22 +86,21 @@ class ApiService {
     final expiry = await _getTokenExpiry();
     if (expiry == null) return false;
     
-    final now = DateTime.now();
+    final now = TimezoneUtil.nowIST();
     final timeUntilExpiry = expiry.difference(now);
     
-    // Consider token near expiry if less than 30 minutes remain
-    return timeUntilExpiry.inMinutes < 30;
+    _authLog('Token expiry check - Expires: ${TimezoneUtil.formatIST(expiry, 'HH:mm:ss')}, Now: ${TimezoneUtil.formatIST(now, 'HH:mm:ss')}, Until expiry: ${timeUntilExpiry.inMinutes}min');
+    
+    // Consider token near expiry based on configuration
+    return timeUntilExpiry < ApiConfig.tokenExpiryBuffer;
   }
 
-  // HTTP client with longer timeout for real API calls
-  static final http.Client _client = http.Client();
+  // HTTP client with enhanced configuration
+  static http.Client get _client => HttpClientConfig.client;
   
   // Headers for API requests
   static Future<Map<String, String>> _getHeaders({bool includeAuth = true}) async {
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+    final headers = Map<String, String>.from(ApiConfig.appHeaders);
 
     if (includeAuth) {
       final token = await getToken();
@@ -89,13 +112,13 @@ class ApiService {
     return headers;
   }
 
-  // Enhanced token management with expiry and refresh tokens
+  // Enhanced token management with expiry and refresh tokens - now IST timezone aware
   static Future<void> saveToken(String token, {String? refreshToken, DateTime? expiresAt}) async {
     _authLog('Saving authentication tokens');
     
     try {
       await _storage.write(key: _tokenKey, value: token);
-      await _storage.write(key: _lastLoginKey, value: DateTime.now().toIso8601String());
+      await _storage.write(key: _lastLoginKey, value: TimezoneUtil.nowToApiString());
       
       if (refreshToken != null) {
         await _storage.write(key: _refreshTokenKey, value: refreshToken);
@@ -103,10 +126,12 @@ class ApiService {
       }
       
       if (expiresAt != null) {
-        await _saveTokenExpiry(expiresAt);
+        // Convert received DateTime to IST TZDateTime
+        final istExpiry = TimezoneUtil.utcToIST(expiresAt);
+        await _saveTokenExpiry(istExpiry);
       } else {
-        // If no expiry provided, set a long-lived default (30 days)
-        final defaultExpiry = DateTime.now().add(const Duration(days: 30));
+        // If no expiry provided, set a long-lived default
+        final defaultExpiry = TimezoneUtil.nowIST().add(ApiConfig.defaultTokenExpiry);
         await _saveTokenExpiry(defaultExpiry);
       }
       
@@ -192,12 +217,12 @@ class ApiService {
     return null;
   }
 
-  static Future<DateTime?> getLastLoginTime() async {
+  static Future<tz.TZDateTime?> getLastLoginTime() async {
     try {
       final lastLoginStr = await _storage.read(key: _lastLoginKey);
       if (lastLoginStr != null) {
         try {
-          return DateTime.parse(lastLoginStr);
+          return TimezoneUtil.parseToIST(lastLoginStr);
         } catch (e) {
           _authLog('Error parsing last login time: $e');
         }
@@ -275,8 +300,8 @@ class ApiService {
     try {
       _authLog('Attempting to refresh token');
       final response = await _makeRequest<Map<String, dynamic>>(
-        '/auth/refresh-token',
-        'POST',
+        ApiEndpoints.refreshToken,
+        HttpMethods.post,
         body: {
           'refreshToken': refreshToken,
         },
@@ -291,10 +316,11 @@ class ApiService {
         final expiresIn = response.data!['expiresIn'] as int?;
 
         if (newToken != null) {
-          DateTime? expiresAt;
+          tz.TZDateTime? istExpiresAt;
           if (expiresIn != null) {
-            expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+            istExpiresAt = TimezoneUtil.nowIST().add(Duration(seconds: expiresIn));
           }
+          final expiresAt = istExpiresAt?.toUtc();
 
           await saveToken(
             newToken,
@@ -456,6 +482,7 @@ class ApiService {
           return ApiResponse<T>(
             success: false,
             message: errorMessage,
+            data: parsedResponse, // IMPORTANT: Preserve entire response for error handling
             error: parsedResponse['error'],
             statusCode: response.statusCode,
           );
@@ -516,14 +543,39 @@ class ApiService {
     }
   }
 
-  // Authentication endpoints
+  // ============================================================================
+  // AUTHENTICATION ENDPOINTS
+  // ============================================================================
+  /// Checks if a user exists in the system before sending OTP.
+  /// 
+  /// This is typically the first step in the authentication flow.
+  /// 
+  /// Parameters:
+  /// - [identifier]: User's email address or phone number
+  /// - [method]: Authentication method - either 'email' or 'phone'
+  /// 
+  /// Returns:
+  /// - Success: User existence status and user data if exists
+  /// - Error: User not found or validation errors
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.checkUserExists(
+  ///   identifier: 'john.doe@company.com',
+  ///   method: 'email',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   print('User exists: ${response.data!['exists']}');
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> checkUserExists({
     required String identifier,
     required String method, // 'email' or 'phone'
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/auth/check-user-exists',
-      'POST',
+      ApiEndpoints.checkUserExists,
+      HttpMethods.post,
       body: {
         'identifier': identifier,
         'method': method,
@@ -532,13 +584,37 @@ class ApiService {
     );
   }
 
+  /// Sends OTP (One-Time Password) to the user for authentication.
+  /// 
+  /// Should be called after confirming user exists via [checkUserExists].
+  /// 
+  /// Parameters:
+  /// - [identifier]: User's email address or phone number
+  /// - [method]: Authentication method - either 'email' or 'phone'
+  /// 
+  /// Returns:
+  /// - Success: Contains signInId for OTP verification
+  /// - Error: Failed to send OTP or user validation errors
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.sendOtp(
+  ///   identifier: '+1234567890',
+  ///   method: 'phone',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   final signInId = response.data!['signInId'];
+  ///   // Proceed to OTP verification
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> sendOtp({
     required String identifier,
     required String method, // 'email' or 'phone'
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/auth/send-otp',
-      'POST',
+      ApiEndpoints.sendOtp,
+      HttpMethods.post,
       body: {
         'identifier': identifier,
         'method': method,
@@ -547,13 +623,38 @@ class ApiService {
     );
   }
 
+  /// Verifies the OTP code and completes the authentication process.
+  /// 
+  /// This method automatically handles token storage upon successful verification.
+  /// 
+  /// Parameters:
+  /// - [signInId]: Unique identifier from the [sendOtp] response
+  /// - [code]: 6-digit OTP code entered by the user
+  /// 
+  /// Returns:
+  /// - Success: User authentication data with session tokens
+  /// - Error: Invalid OTP, expired code, or verification failure
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.verifyOtp(
+  ///   signInId: 'sign_in_123456',
+  ///   code: '123456',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   // User is now authenticated
+  ///   final user = response.data!['user'];
+  ///   print('Welcome ${user['firstName']}!');
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> verifyOtp({
     required String signInId,
     required String code,
   }) async {
     final response = await _makeRequest<Map<String, dynamic>>(
-      '/auth/verify-otp',
-      'POST',
+      ApiEndpoints.verifyOtp,
+      HttpMethods.post,
       body: {
         'signInId': signInId,
         'code': code,
@@ -568,10 +669,11 @@ class ApiService {
       final expiresIn = response.data!['expiresIn'] as int?;
 
       if (sessionToken != null) {
-        DateTime? expiresAt;
+        tz.TZDateTime? istExpiresAt;
         if (expiresIn != null) {
-          expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+          istExpiresAt = TimezoneUtil.nowIST().add(Duration(seconds: expiresIn));
         }
+        final expiresAt = istExpiresAt?.toUtc();
         
         await saveToken(sessionToken, refreshToken: refreshToken, expiresAt: expiresAt);
         _authLog('Tokens saved after OTP verification');
@@ -586,8 +688,8 @@ class ApiService {
     required String method,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/auth/resend-otp',
-      'POST',
+      ApiEndpoints.resendOtp,
+      HttpMethods.post,
       body: {
         'signInId': signInId,
         'method': method,
@@ -600,8 +702,8 @@ class ApiService {
     required String idToken,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/auth/verify-firebase-token',
-      'POST',
+      ApiEndpoints.verifyFirebaseToken,
+      HttpMethods.post,
       body: {
         'idToken': idToken,
       },
@@ -615,8 +717,8 @@ class ApiService {
     String? displayName,
   }) async {
     final response = await _makeRequest<Map<String, dynamic>>(
-      '/auth/firebase-signin',
-      'POST',
+      ApiEndpoints.firebaseSignin,
+      HttpMethods.post,
       body: {
         'firebaseUid': firebaseUid,
         'phoneNumber': phoneNumber,
@@ -632,10 +734,11 @@ class ApiService {
       final expiresIn = response.data!['expiresIn'] as int?;
 
       if (sessionToken != null) {
-        DateTime? expiresAt;
+        tz.TZDateTime? istExpiresAt;
         if (expiresIn != null) {
-          expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
+          istExpiresAt = TimezoneUtil.nowIST().add(Duration(seconds: expiresIn));
         }
+        final expiresAt = istExpiresAt?.toUtc();
         
         await saveToken(sessionToken, refreshToken: refreshToken, expiresAt: expiresAt);
         _authLog('Tokens saved after Firebase signin');
@@ -647,15 +750,15 @@ class ApiService {
 
   static Future<ApiResponse<Map<String, dynamic>>> getCurrentUser() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/auth/me',
-      'GET',
+      ApiEndpoints.getCurrentUser,
+      HttpMethods.get,
     );
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> logout() async {
     final response = await _makeRequest<Map<String, dynamic>>(
-      '/auth/logout',
-      'POST',
+      ApiEndpoints.logout,
+      HttpMethods.post,
     );
     
     // Clear local data regardless of API response
@@ -680,10 +783,10 @@ class ApiService {
     
     try {
       final response = await _makeRequest<Map<String, dynamic>>(
-        '/auth/session/validate',
-        'GET',
-        timeout: const Duration(seconds: 10),
-        maxRetries: 1, // Reduced retries for validation
+        ApiEndpoints.validateSession,
+        HttpMethods.get,
+        timeout: ApiConfig.shortTimeout,
+        maxRetries: ApiConfig.validationMaxRetries,
       );
       
       _authLog('Session validation response: ${response.success}, Status: ${response.statusCode}');
@@ -699,10 +802,10 @@ class ApiService {
             _authLog('Token refreshed on 401, re-validating');
             // Retry validation with refreshed token
             final retryResponse = await _makeRequest<Map<String, dynamic>>(
-              '/auth/session/validate',
-              'GET',
-              timeout: const Duration(seconds: 10),
-              maxRetries: 1,
+              ApiEndpoints.validateSession,
+              HttpMethods.get,
+              timeout: ApiConfig.shortTimeout,
+              maxRetries: ApiConfig.validationMaxRetries,
             );
             return ApiResponse<bool>(
               success: retryResponse.success,
@@ -753,11 +856,13 @@ class ApiService {
     }
   }
 
-  // User endpoints
+  // ============================================================================
+  // USER MANAGEMENT ENDPOINTS
+  // ============================================================================
   static Future<ApiResponse<Map<String, dynamic>>> getUserProfile() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users/profile',
-      'GET',
+      ApiEndpoints.getUserProfile,
+      HttpMethods.get,
     );
   }
 
@@ -765,13 +870,49 @@ class ApiService {
     required Map<String, dynamic> profileData,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users/profile',
-      'PUT',
+      ApiEndpoints.updateUserProfile,
+      HttpMethods.put,
       body: profileData,
     );
   }
 
   // User Management endpoints (Admin only)
+  /// Creates a new user in the system (Admin only).
+  /// 
+  /// This endpoint requires admin privileges and creates a complete user profile.
+  /// 
+  /// Parameters:
+  /// - [firstName]: User's first name (required)
+  /// - [lastName]: User's last name (required)
+  /// - [email]: User's email address (required, must be unique)
+  /// - [phoneNumber]: User's phone number (required, must be unique)
+  /// - [department]: User's department (optional)
+  /// - [role]: User's role - 'employee', 'manager', 'admin', etc. (required)
+  /// - [designation]: User's job title/designation (required)
+  /// - [dateOfJoining]: Date when user joined (ISO string, optional)
+  /// - [managerId]: ID of the user's manager (optional)
+  /// - [workSchedule]: User's work schedule configuration (optional)
+  /// 
+  /// Returns:
+  /// - Success: Created user data with generated ID
+  /// - Error: Validation errors, duplicate email/phone, or permission denied
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.createUser(
+  ///   firstName: 'John',
+  ///   lastName: 'Doe',
+  ///   email: 'john.doe@company.com',
+  ///   phoneNumber: '+1234567890',
+  ///   role: 'employee',
+  ///   designation: 'Software Engineer',
+  ///   department: 'Engineering',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   print('User created with ID: ${response.data!['id']}');
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> createUser({
     required String firstName,
     required String lastName,
@@ -785,8 +926,8 @@ class ApiService {
     Map<String, dynamic>? workSchedule,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users',
-      'POST',
+      ApiEndpoints.createUser,
+      HttpMethods.post,
       body: {
         'firstName': firstName,
         'lastName': lastName,
@@ -810,30 +951,25 @@ class ApiService {
     String? status,
     String? search,
   }) async {
-    final queryParams = <String, String>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
-
-    if (department != null) queryParams['department'] = department;
-    if (role != null) queryParams['role'] = role;
-    if (status != null) queryParams['status'] = status;
-    if (search != null) queryParams['search'] = search;
-
-    final queryString = queryParams.entries
-        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-        .join('&');
+    final endpoint = ApiEndpoints.buildUsersQuery(
+      page: page,
+      limit: limit,
+      department: department,
+      role: role,
+      status: status,
+      search: search,
+    );
 
     return await _makeRequest<Map<String, dynamic>>(
-      '/users?$queryString',
-      'GET',
+      endpoint,
+      HttpMethods.get,
     );
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> getUserById(String userId) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users/$userId',
-      'GET',
+      ApiEndpoints.userByIdEndpoint(userId),
+      HttpMethods.get,
     );
   }
 
@@ -842,48 +978,109 @@ class ApiService {
     required Map<String, dynamic> userData,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users/$userId',
-      'PUT',
+      ApiEndpoints.userByIdEndpoint(userId),
+      HttpMethods.put,
       body: userData,
     );
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> deleteUser(String userId) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users/$userId',
-      'DELETE',
+      ApiEndpoints.userByIdEndpoint(userId),
+      HttpMethods.delete,
     );
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> getManagers() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/users?role=manager&status=active&limit=100',
-      'GET',
+      ApiEndpoints.getManagers,
+      HttpMethods.get,
     );
   }
 
-  // Attendance endpoints
+  // ============================================================================
+  // ATTENDANCE TRACKING ENDPOINTS
+  // ============================================================================
+  /// Records user check-in for attendance tracking.
+  /// 
+  /// Creates a new attendance record for the current day or updates existing one.
+  /// 
+  /// Parameters:
+  /// - [location]: GPS coordinates and address information (optional)
+  ///   Format: {'latitude': 40.7128, 'longitude': -74.0060, 'address': 'New York, NY'}
+  /// - [notes]: Additional notes for the check-in (optional)
+  /// - [lateReason]: Reason for late arrival if applicable (optional)
+  /// 
+  /// Returns:
+  /// - Success: Updated attendance record with check-in time
+  /// - Error: Already checked in, invalid data, or system error
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.checkIn(
+  ///   location: {
+  ///     'latitude': 40.7128,
+  ///     'longitude': -74.0060,
+  ///     'address': 'Office Building, New York, NY'
+  ///   },
+  ///   notes: 'Started early today',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   print('Checked in at: ${response.data!['checkInTime']}');
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> checkIn({
     Map<String, dynamic>? location,
     String? notes,
+    String? lateReason,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/check-in',
-      'POST',
+      ApiEndpoints.checkIn,
+      HttpMethods.post,
       body: {
         if (location != null) 'location': location,
         if (notes != null) 'notes': notes,
+        if (lateReason != null) 'lateReason': lateReason,
       },
     );
   }
 
+  /// Records user check-out for attendance tracking.
+  /// 
+  /// Updates the current day's attendance record with check-out time.
+  /// 
+  /// Parameters:
+  /// - [location]: GPS coordinates and address information (optional)
+  ///   Format: {'latitude': 40.7128, 'longitude': -74.0060, 'address': 'New York, NY'}
+  /// - [notes]: Additional notes for the check-out (optional)
+  /// 
+  /// Returns:
+  /// - Success: Updated attendance record with check-out time and total hours
+  /// - Error: Not checked in, already checked out, or system error
+  /// 
+  /// Example:
+  /// ```dart
+  /// final response = await ApiService.checkOut(
+  ///   location: {
+  ///     'latitude': 40.7128,
+  ///     'longitude': -74.0060,
+  ///     'address': 'Office Building, New York, NY'
+  ///   },
+  ///   notes: 'Completed all tasks for today',
+  /// );
+  /// 
+  /// if (response.success) {
+  ///   print('Total hours worked: ${response.data!['totalHours']}');
+  /// }
+  /// ```
   static Future<ApiResponse<Map<String, dynamic>>> checkOut({
     Map<String, dynamic>? location,
     String? notes,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/check-out',
-      'POST',
+      ApiEndpoints.checkOut,
+      HttpMethods.post,
       body: {
         if (location != null) 'location': location,
         if (notes != null) 'notes': notes,
@@ -896,8 +1093,8 @@ class ApiService {
     String? notes,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/break-out',
-      'POST',
+      ApiEndpoints.breakOut,
+      HttpMethods.post,
       body: {
         if (type != null) 'type': type,
         if (notes != null) 'notes': notes,
@@ -907,15 +1104,15 @@ class ApiService {
 
   static Future<ApiResponse<Map<String, dynamic>>> endBreak() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/break-in',
-      'POST',
+      ApiEndpoints.breakIn,
+      HttpMethods.post,
     );
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> getTodayAttendance() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/today',
-      'GET',
+      ApiEndpoints.todayAttendance,
+      HttpMethods.get,
     );
   }
 
@@ -926,22 +1123,17 @@ class ApiService {
     String? endDate,
     String? status,
   }) async {
-    final queryParams = <String, String>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
-
-    if (startDate != null) queryParams['startDate'] = startDate;
-    if (endDate != null) queryParams['endDate'] = endDate;
-    if (status != null) queryParams['status'] = status;
-
-    final queryString = queryParams.entries
-        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-        .join('&');
+    final endpoint = ApiEndpoints.buildAttendanceHistoryQuery(
+      page: page,
+      limit: limit,
+      startDate: startDate,
+      endDate: endDate,
+      status: status,
+    );
 
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/history?$queryString',
-      'GET',
+      endpoint,
+      HttpMethods.get,
     );
   }
 
@@ -949,29 +1141,25 @@ class ApiService {
     int? year,
     int? month,
   }) async {
-    final queryParams = <String, String>{};
-    
-    if (year != null) queryParams['year'] = year.toString();
-    if (month != null) queryParams['month'] = month.toString();
-
-    final queryString = queryParams.isNotEmpty 
-        ? '?${queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
-        : '';
+    final endpoint = ApiEndpoints.buildAttendanceSummaryQuery(
+      year: year,
+      month: month,
+    );
 
     return await _makeRequest<Map<String, dynamic>>(
-      '/attendance/summary$queryString',
-      'GET',
+      endpoint,
+      HttpMethods.get,
     );
   }
 
   // Health check and connectivity test
   static Future<ApiResponse<Map<String, dynamic>>> healthCheck() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/health',
-      'GET',
+      ApiEndpoints.healthCheck,
+      HttpMethods.get,
       includeAuth: false,
-      timeout: const Duration(seconds: 10), // Shorter timeout for health checks
-      maxRetries: 1, // Don't retry health checks
+      timeout: ApiConfig.shortTimeout,
+      maxRetries: ApiConfig.healthCheckMaxRetries,
     );
   }
 
@@ -987,7 +1175,7 @@ class ApiService {
 
   // Cleanup
   static void dispose() {
-    _client.close();
+    HttpClientConfig.dispose();
   }
 }
 
