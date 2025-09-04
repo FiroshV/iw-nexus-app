@@ -59,6 +59,24 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF272579)),
           useMaterial3: true,
+          primaryColor: const Color(0xFF0071bf),
+          cardTheme: CardThemeData(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            color: const Color(0xFFfbf8ff),
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF272579),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            titleTextStyle: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         home: const AuthWrapper(),
       ),
@@ -191,15 +209,256 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   bool get isAdmin {
-    print('🔍 Debug: Current user data: $currentUser');
-    print('🔍 Debug: User role: ${currentUser?['role']}');
+    debugPrint('🔍 Debug: Current user data: $currentUser');
+    debugPrint('🔍 Debug: User role: ${currentUser?['role']}');
     final userRole = currentUser?['role']?.toString().toLowerCase();
     final isAdminResult =
         userRole == 'admin' ||
         userRole == 'administrator' ||
         userRole == 'director';
-    print('🔍 Debug: Is admin check result: $isAdminResult');
+    debugPrint('🔍 Debug: Is admin check result: $isAdminResult');
     return isAdminResult;
+  }
+
+  String _getUserInitials() {
+    if (currentUser == null) return 'U';
+    final firstName = currentUser!['firstName']?.toString() ?? '';
+    final lastName = currentUser!['lastName']?.toString() ?? '';
+
+    if (firstName.isNotEmpty && lastName.isNotEmpty) {
+      return '${firstName[0]}${lastName[0]}'.toUpperCase();
+    } else if (firstName.isNotEmpty) {
+      return firstName[0].toUpperCase();
+    } else if (lastName.isNotEmpty) {
+      return lastName[0].toUpperCase();
+    }
+    return 'U';
+  }
+
+  String _getUserDisplayName() {
+    if (currentUser == null) return 'User';
+    final firstName = currentUser!['firstName']?.toString() ?? '';
+    final lastName = currentUser!['lastName']?.toString() ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    return fullName.isNotEmpty ? fullName : 'User';
+  }
+
+  void _showProfileMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Profile header
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: const Color(0xFF5cfbd8),
+                  child: Text(
+                    _getUserInitials(),
+                    style: const TextStyle(
+                      color: Color(0xFF272579),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getUserDisplayName(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+
+                      if (currentUser!['department'] != null)
+                        Text(
+                          currentUser!['department'].toString(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Menu items
+            _buildMenuTile(
+              icon: Icons.person_outline,
+              title: 'Profile',
+              subtitle: 'View and edit your profile',
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Navigate to profile screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile feature coming soon!')),
+                );
+              },
+            ),
+
+            _buildMenuTile(
+              icon: Icons.settings_outlined,
+              title: 'Settings',
+              subtitle: 'App preferences and options',
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Navigate to settings screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Settings feature coming soon!'),
+                  ),
+                );
+              },
+            ),
+
+            const Divider(height: 32),
+
+            _buildMenuTile(
+              icon: Icons.logout,
+              title: 'Logout',
+              subtitle: 'Sign out of your account',
+              isDestructive: true,
+              onTap: () {
+                Navigator.pop(context);
+                _showLogoutDialog(context);
+              },
+            ),
+
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDestructive
+              ? Colors.red.withOpacity(0.1)
+              : const Color(0xFF0071bf).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: isDestructive ? Colors.red : const Color(0xFF0071bf),
+          size: 20,
+        ),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: isDestructive ? Colors.red : const Color(0xFF272579),
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: Colors.grey[400],
+      ),
+      onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Logout',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF272579),
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Logout',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.read<AuthProvider>().logout();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildDashboardCard({
@@ -209,42 +468,90 @@ class _DashboardPageState extends State<DashboardPage> {
     required VoidCallback onTap,
     Color? color,
   }) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 36, color: color ?? const Color(0xFF272579)),
-              const SizedBox(height: 8),
-              Flexible(
-                child: Text(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, const Color(0xFFfbf8ff)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0xFF272579).withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF272579).withOpacity(0.08),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (color ?? const Color(0xFF0071bf)).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: (color ?? const Color(0xFF0071bf)).withOpacity(
+                        0.2,
+                      ),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 28,
+                    color: color ?? const Color(0xFF0071bf),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF272579),
+                    letterSpacing: -0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Flexible(
-                child: Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -255,36 +562,168 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('IW Nexus Dashboard'),
-        backgroundColor: const Color(0xFF272579),
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF272579), Color(0xFF0071bf)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(Icons.business, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'IW Nexus',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  Text(
+                    'Dashboard',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthProvider>().logout();
-            },
+          // Profile info and logout
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (currentUser != null) ...[
+                  // User avatar and info
+                  GestureDetector(
+                    onTap: () => _showProfileMenu(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: const Color(0xFF5cfbd8),
+                            child: Text(
+                              _getUserInitials(),
+                              style: const TextStyle(
+                                color: Color(0xFF272579),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [],
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.white70,
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // Simple logout when user data not loaded
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.logout,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: () => _showLogoutDialog(context),
+                    tooltip: 'Logout',
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
+      backgroundColor: const Color(0xFFf8f9fa),
       body: isLoading
           ? const LoadingWidget(message: 'Loading dashboard...')
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Welcome section
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF272579), Color(0xFF3A2F8B)],
+                        colors: [Color(0xFF272579), Color(0xFF0071bf)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,13 +807,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.1, // Make cards slightly taller
+                    childAspectRatio: 1.1,
                     children: [
                       // Attendance card
                       _buildDashboardCard(
                         title: 'Attendance',
-                        subtitle: 'Check in/out',
-                        icon: Icons.access_time,
+                        subtitle: 'Check in/out & tracking',
+                        icon: Icons.schedule,
+                        color: const Color(0xFF5cfbd8),
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -388,9 +828,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       if (isAdmin) ...[
                         _buildDashboardCard(
                           title: 'Employees',
-                          subtitle: 'Manage employees',
-                          icon: Icons.people,
-                          color: Colors.orange,
+                          subtitle: 'Manage team members',
+                          icon: Icons.people_outline,
+                          color: const Color(0xFF00b8d9),
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -403,9 +843,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
                         _buildDashboardCard(
                           title: 'Reports',
-                          subtitle: 'Analytics & data',
-                          icon: Icons.analytics,
-                          color: Colors.green,
+                          subtitle: 'Analytics & insights',
+                          icon: Icons.bar_chart_rounded,
+                          color: const Color(0xFF0071bf),
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
