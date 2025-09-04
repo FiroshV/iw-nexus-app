@@ -14,12 +14,6 @@ class LocationService {
   Position? _lastKnownPosition;
   tz.TZDateTime? _lastPositionUpdate;
 
-  // Location settings for high accuracy
-  static const LocationSettings _locationSettings = LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 10, // Only update if moved 10 meters
-    timeLimit: Duration(seconds: 30), // Timeout after 30 seconds
-  );
 
   /// Check if location permissions are granted
   Future<bool> hasLocationPermission() async {
@@ -202,15 +196,25 @@ class LocationService {
         );
       }
 
-      // Get current position with platform-specific handling
+      // Get current position with highest precision
       Position position;
       try {
+        // First attempt: Get best accuracy position
         position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 45),
         ).timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            throw TimeoutException('Location request timed out', const Duration(seconds: 30));
+          const Duration(seconds: 45),
+          onTimeout: () async {
+            // Fallback: Try with reduced accuracy but still good precision
+            return await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+            ).timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw TimeoutException('Location request timed out', const Duration(seconds: 45));
+              },
+            );
           },
         );
       } catch (e) {
@@ -344,30 +348,44 @@ class LocationService {
     );
   }
 
-  /// Convert position to map for API calls
+  /// Convert position to map for API calls with enhanced precision data
   Map<String, dynamic> positionToMap(Position position) {
     return {
       'latitude': position.latitude,
       'longitude': position.longitude,
       'accuracy': position.accuracy,
       'altitude': position.altitude,
+      'altitudeAccuracy': position.altitudeAccuracy,
       'heading': position.heading,
+      'headingAccuracy': position.headingAccuracy,
       'speed': position.speed,
       'speedAccuracy': position.speedAccuracy,
       'timestamp': position.timestamp?.millisecondsSinceEpoch,
+      // Additional precision metadata
+      'isMocked': position.isMocked,
+      'floor': position.floor,
     };
   }
 
-  /// Check if position has good accuracy (less than 50 meters)
+  /// Check if position has good accuracy (less than 20 meters for high precision)
   bool hasGoodAccuracy(Position position) {
-    return position.accuracy <= 50.0;
+    return position.accuracy <= 20.0;
+  }
+  
+  /// Check if position has excellent accuracy (less than 10 meters)
+  bool hasExcellentAccuracy(Position position) {
+    return position.accuracy <= 10.0;
   }
 
-  /// Get location accuracy description
+  /// Get location accuracy description with enhanced precision levels
   String getAccuracyDescription(double accuracy) {
-    if (accuracy <= 10) {
+    if (accuracy <= 5) {
+      return 'Precise (±${accuracy.toStringAsFixed(1)}m)';
+    } else if (accuracy <= 10) {
       return 'Excellent (±${accuracy.toStringAsFixed(1)}m)';
-    } else if (accuracy <= 25) {
+    } else if (accuracy <= 20) {
+      return 'Very Good (±${accuracy.toStringAsFixed(1)}m)';
+    } else if (accuracy <= 30) {
       return 'Good (±${accuracy.toStringAsFixed(1)}m)';
     } else if (accuracy <= 50) {
       return 'Fair (±${accuracy.toStringAsFixed(1)}m)';
