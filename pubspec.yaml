@@ -54,6 +54,13 @@ dependencies:
   
   # SVG support
   flutter_svg: ^2.0.10+1
+  
+  # Location services
+  geolocator: ^10.1.0
+  permission_handler: ^11.3.1
+  
+  # Date/time formatting
+  intl: ^0.19.0
 
 
 dev_dependencies:

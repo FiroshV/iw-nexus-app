@@ -7,6 +7,7 @@ import 'widgets/loading_widget.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'screens/admin/user_management_screen.dart';
+import 'screens/attendance_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -355,8 +356,10 @@ class _DashboardPageState extends State<DashboardPage> {
                         subtitle: 'Check in/out',
                         icon: Icons.access_time,
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Attendance feature coming soon!')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const AttendanceScreen(),
+                            ),
                           );
                         },
                       ),
