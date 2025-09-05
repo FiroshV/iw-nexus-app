@@ -37,7 +37,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
   ];
   
   final List<String> roles = [
-    'employee',
     'manager',
     'field_staff',
     'telecaller',
@@ -66,10 +65,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
     switch (role) {
       case 'field_staff':
         return 'Field Staff';
-      case 'telecaller':
-        return 'Telecaller';
       default:
-        return role.toUpperCase();
+        return role[0].toUpperCase() + role.substring(1).toLowerCase();
     }
   }
 
