@@ -71,17 +71,20 @@ lib/
 ## Configuration Files
 
 ### 1. `api_config.dart`
+
 - Environment detection (dev/staging/production)
 - Base URL management with environment variable support
 - HTTP timeouts, retry settings, and other configurations
 - App-specific headers and user agent
 
 ### 2. `api_endpoints.dart`
+
 - All API endpoints as constants
 - Helper methods for dynamic endpoints (user/{id})
 - Query builders for complex endpoints with parameters
 
 ### 3. `http_client_config.dart`
+
 - Enhanced HTTP client with request/response interceptors
 - Network logging for development
 - Connection pooling and keep-alive settings
@@ -116,6 +119,7 @@ APP_VERSION=1.0.0
 ## Development vs Production
 
 The service automatically detects the build mode:
+
 - **Debug Mode**: Uses development URLs and enables logging
 - **Profile Mode**: Uses staging URLs
 - **Release Mode**: Uses production URLs and disables logging
@@ -123,11 +127,13 @@ The service automatically detects the build mode:
 ## Adding New Endpoints
 
 1. Add the endpoint constant to `api_endpoints.dart`:
+
 ```dart
 static const String newFeature = '/new-feature';
 ```
 
 2. Add the method to `api_service.dart`:
+
 ```dart
 /// Description of the new endpoint
 static Future<ApiResponse<Map<String, dynamic>>> newFeature() async {

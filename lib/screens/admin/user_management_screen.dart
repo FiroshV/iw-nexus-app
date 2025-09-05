@@ -274,7 +274,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
             const SizedBox(width: 6),
             Text(
-              '${selected ?? 'All'}',
+              selected ?? 'All',
               style: TextStyle(
                 color: isSelected ? Colors.white : const Color(0xFF272579),
                 fontWeight: FontWeight.w600,
