@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -586,16 +587,22 @@ class _DashboardPageState extends State<DashboardPage> {
         title: Row(
           children: [
             Container(
+              width: 30,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+                shape: BoxShape.circle,
+                color: Colors.white,
+                // borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
-              child: const Icon(Icons.business, color: Colors.white, size: 20),
+              child: SvgPicture.asset(
+                'assets/logo_1.svg',
+                height: 20,
+                width: 20,
+              ),
             ),
             const SizedBox(width: 12),
             const Expanded(

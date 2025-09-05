@@ -4,11 +4,7 @@ class LoadingWidget extends StatelessWidget {
   final String? message;
   final bool showMessage;
 
-  const LoadingWidget({
-    super.key,
-    this.message,
-    this.showMessage = true,
-  });
+  const LoadingWidget({super.key, this.message, this.showMessage = true});
 
   @override
   Widget build(BuildContext context) {
@@ -18,37 +14,22 @@ class LoadingWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo
-            const Icon(
-              Icons.business,
-              size: 80,
-              color: Color(0xFF272579),
-            ),
-            const SizedBox(height: 24),
-            
             // Loading spinner
             const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF272579)),
             ),
-            
             if (showMessage && message != null) ...[
               const SizedBox(height: 24),
               Text(
                 message!,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             ] else if (showMessage) ...[
               const SizedBox(height: 24),
               const Text(
                 'Loading...',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ],
           ],
@@ -79,13 +60,9 @@ class ConnectivityErrorWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Error icon
-              const Icon(
-                Icons.wifi_off,
-                size: 80,
-                color: Colors.red,
-              ),
+              const Icon(Icons.wifi_off, size: 80, color: Colors.red),
               const SizedBox(height: 24),
-              
+
               // Error title
               const Text(
                 'Connection Error',
@@ -96,18 +73,16 @@ class ConnectivityErrorWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               // Error message
               Text(
-                message ?? 'Unable to connect to the server. Please check your internet connection and try again.',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                message ??
+                    'Unable to connect to the server. Please check your internet connection and try again.',
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              
+
               // Retry button
               ElevatedButton.icon(
                 onPressed: onRetry,
