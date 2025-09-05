@@ -8,6 +8,7 @@ import 'widgets/loading_widget.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/branch_management_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
@@ -851,10 +852,25 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
 
                         _buildDashboardCard(
+                          title: 'Branches',
+                          subtitle: 'Manage office locations',
+                          icon: Icons.business,
+                          color: const Color(0xFF0071bf),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const BranchManagementScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        _buildDashboardCard(
                           title: 'Reports',
                           subtitle: 'Analytics & insights',
                           icon: Icons.bar_chart_rounded,
-                          color: const Color(0xFF0071bf),
+                          color: const Color(0xFF5cfbd8),
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(

@@ -1152,6 +1152,144 @@ class ApiService {
     );
   }
 
+  // ============================================================================
+  // BRANCH MANAGEMENT ENDPOINTS
+  // ============================================================================
+  
+  /// Get list of branches with pagination and filtering
+  /// 
+  /// Parameters:
+  /// - [page]: Page number (default: 1)
+  /// - [limit]: Items per page (default: 10)
+  /// - [search]: Search query for branch name, ID, city, or state
+  /// - [status]: Filter by status - 'active', 'inactive', 'temporarily_closed', or 'all'
+  /// 
+  /// Returns:
+  /// - Success: List of branches with pagination info
+  /// - Error: Failed to fetch branches
+  static Future<ApiResponse<Map<String, dynamic>>> getBranches({
+    int page = 1,
+    int limit = 10,
+    String? search,
+    String? status,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+    
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+    
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+    
+    final uri = Uri(path: '/branches', queryParameters: queryParams);
+    
+    return await _makeRequest<Map<String, dynamic>>(
+      uri.toString(),
+      HttpMethods.get,
+    );
+  }
+
+  /// Get single branch details by ID
+  /// 
+  /// Parameters:
+  /// - [branchId]: The MongoDB ObjectId of the branch
+  /// 
+  /// Returns:
+  /// - Success: Branch details with employee list
+  /// - Error: Branch not found or access denied
+  static Future<ApiResponse<Map<String, dynamic>>> getBranchById(String branchId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches/$branchId',
+      HttpMethods.get,
+    );
+  }
+
+  /// Create a new branch
+  /// 
+  /// Parameters:
+  /// - [branchData]: Map containing branch information:
+  ///   - branchName (required): Name of the branch
+  ///   - branchAddress (required): Address object with street, city, state, pincode, country
+  ///   - branchManager (optional): User ID of the branch manager
+  ///   - contactInfo (optional): Contact information with phone and email
+  ///   - status (optional): Branch status - defaults to 'active'
+  ///   - establishedDate (optional): Date when branch was established
+  /// 
+  /// Returns:
+  /// - Success: Created branch with auto-generated branchId
+  /// - Error: Validation errors or creation failure
+  static Future<ApiResponse<Map<String, dynamic>>> createBranch(Map<String, dynamic> branchData) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches',
+      HttpMethods.post,
+      body: branchData,
+    );
+  }
+
+  /// Update an existing branch
+  /// 
+  /// Parameters:
+  /// - [branchId]: The MongoDB ObjectId of the branch to update
+  /// - [branchData]: Map containing updated branch information
+  /// 
+  /// Returns:
+  /// - Success: Updated branch data
+  /// - Error: Branch not found, validation errors, or update failure
+  static Future<ApiResponse<Map<String, dynamic>>> updateBranch(String branchId, Map<String, dynamic> branchData) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches/$branchId',
+      HttpMethods.put,
+      body: branchData,
+    );
+  }
+
+  /// Delete a branch
+  /// 
+  /// Parameters:
+  /// - [branchId]: The MongoDB ObjectId of the branch to delete
+  /// 
+  /// Returns:
+  /// - Success: Confirmation message
+  /// - Error: Branch not found, has active employees, or deletion failure
+  static Future<ApiResponse<Map<String, dynamic>>> deleteBranch(String branchId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches/$branchId',
+      HttpMethods.delete,
+    );
+  }
+
+  /// Get users assigned to a specific branch
+  /// 
+  /// Parameters:
+  /// - [branchId]: The MongoDB ObjectId of the branch
+  /// 
+  /// Returns:
+  /// - Success: List of users with branch info and summary
+  /// - Error: Branch not found or access denied
+  static Future<ApiResponse<Map<String, dynamic>>> getBranchUsers(String branchId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches/$branchId/users',
+      HttpMethods.get,
+    );
+  }
+
+  /// Get branch management statistics
+  /// 
+  /// Returns:
+  /// - Success: Branch statistics including counts and distribution
+  /// - Error: Failed to fetch statistics
+  static Future<ApiResponse<Map<String, dynamic>>> getBranchStats() async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/branches/admin/stats',
+      HttpMethods.get,
+    );
+  }
+
   // Health check and connectivity test
   static Future<ApiResponse<Map<String, dynamic>>> healthCheck() async {
     return await _makeRequest<Map<String, dynamic>>(
