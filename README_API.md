@@ -43,7 +43,6 @@ final response = await ApiService.checkUserExists(
 final users = await ApiService.getAllUsers(
   page: 1,
   limit: 20,
-  department: 'Engineering',
 );
 
 // Attendance

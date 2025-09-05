@@ -20,37 +20,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   bool hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  
-  String? selectedDepartment;
+
   String? selectedRole;
   String? selectedStatus;
   bool showFilters = false;
-  
-  final List<String> departments = [
-    'All',
-    'HR',
-    'Engineering',
-    'Marketing',
-    'Sales',
-    'Finance',
-    'Operations',
-    'Admin'
-  ];
-  
-  final List<String> roles = [
-    'All',
-    'employee',
-    'manager',
-    'hr',
-    'admin'
-  ];
-  
-  final List<String> statuses = [
-    'All',
-    'active',
-    'inactive',
-    'terminated'
-  ];
+
+  final List<String> roles = ['All', 'employee', 'manager', 'hr', 'admin'];
+
+  final List<String> statuses = ['All', 'active', 'inactive', 'terminated'];
 
   @override
   void initState() {
@@ -67,7 +44,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
       if (hasMore && !isLoading) {
         _loadMoreUsers();
       }
@@ -89,7 +67,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       final response = await ApiService.getAllUsers(
         page: currentPage,
         limit: 20,
-        department: selectedDepartment == 'All' ? null : selectedDepartment,
         role: selectedRole == 'All' ? null : selectedRole,
         status: selectedStatus == 'All' ? null : selectedStatus,
         search: _searchController.text.isEmpty ? null : _searchController.text,
@@ -98,7 +75,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       if (response.success && response.data != null) {
         List<Map<String, dynamic>> newUsers;
         Map<String, dynamic>? pagination;
-        
+
         // Handle different response formats
         if (response.data is List) {
           // Direct array response
@@ -114,14 +91,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           newUsers = [];
           pagination = null;
         }
-        
+
         setState(() {
           if (refresh || currentPage == 1) {
             users = newUsers;
           } else {
             users.addAll(newUsers);
           }
-          
+
           if (pagination != null) {
             totalPages = pagination['total'] ?? 1;
             hasMore = currentPage < totalPages;
@@ -130,7 +107,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             totalPages = 1;
             hasMore = false;
           }
-          
+
           isLoading = false;
           error = null;
         });
@@ -162,7 +139,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Deletion'),
-        content: Text('Are you sure you want to deactivate $userName? This action will terminate their account.'),
+        content: Text(
+          'Are you sure you want to deactivate $userName? This action will terminate their account.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -212,13 +191,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildFilterChip('Department', selectedDepartment, departments, (value) {
-            setState(() {
-              selectedDepartment = value;
-            });
-            _loadUsers(refresh: true);
-          }),
-          const SizedBox(width: 8),
           _buildFilterChip('Role', selectedRole, roles, (value) {
             setState(() {
               selectedRole = value;
@@ -237,32 +209,39 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String? selected, List<String> options, Function(String) onSelected) {
+  Widget _buildFilterChip(
+    String label,
+    String? selected,
+    List<String> options,
+    Function(String) onSelected,
+  ) {
     final isSelected = selected != null && selected != 'All';
     return PopupMenuButton<String>(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder: (context) => options.map((option) => 
-        PopupMenuItem(
-          value: option,
-          child: Row(
-            children: [
-              Icon(
-                _getFilterIcon(label),
-                size: 16,
-                color: const Color(0xFF272579),
+      itemBuilder: (context) => options
+          .map(
+            (option) => PopupMenuItem(
+              value: option,
+              child: Row(
+                children: [
+                  Icon(
+                    _getFilterIcon(label),
+                    size: 16,
+                    color: const Color(0xFF272579),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(option),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(option),
-            ],
-          ),
-        )
-      ).toList(),
+            ),
+          )
+          .toList(),
       onSelected: onSelected,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: isSelected 
+            colors: isSelected
                 ? [const Color(0xFF272579), const Color(0xFF0071bf)]
                 : [Colors.white, const Color(0xFFfbf8ff)],
             begin: Alignment.topLeft,
@@ -270,18 +249,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF272579).withValues(alpha:0.3)
-                : const Color(0xFF272579).withValues(alpha:0.2),
+            color: isSelected
+                ? const Color(0xFF272579).withValues(alpha: 0.3)
+                : const Color(0xFF272579).withValues(alpha: 0.2),
             width: 1,
           ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: const Color(0xFF272579).withValues(alpha:0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF272579).withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -307,7 +288,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha:0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -326,8 +307,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   IconData _getFilterIcon(String filterType) {
     switch (filterType) {
-      case 'Department':
-        return Icons.business_rounded;
       case 'Role':
         return Icons.badge_rounded;
       case 'Status':
@@ -338,31 +317,32 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Widget _buildUserCard(Map<String, dynamic> user) {
-    final String fullName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final String fullName =
+        '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
     final String employeeId = user['employeeId'] ?? '';
     final String email = user['email'] ?? '';
-    final String department = user['department'] ?? '';
-    final String role = user['role'] ?? '';
+    // final String role = user['role'] ?? '';
     final String status = user['status'] ?? '';
-    
+    final String designation = user['designation'] ?? '';
+
     Color statusColor;
     Color statusBackgroundColor;
     switch (status.toLowerCase()) {
       case 'active':
         statusColor = const Color(0xFF5cfbd8);
-        statusBackgroundColor = const Color(0xFF5cfbd8).withValues(alpha:0.1);
+        statusBackgroundColor = const Color(0xFF5cfbd8).withValues(alpha: 0.1);
         break;
       case 'inactive':
         statusColor = Colors.orange;
-        statusBackgroundColor = Colors.orange.withValues(alpha:0.1);
+        statusBackgroundColor = Colors.orange.withValues(alpha: 0.1);
         break;
       case 'terminated':
         statusColor = Colors.red;
-        statusBackgroundColor = Colors.red.withValues(alpha:0.1);
+        statusBackgroundColor = Colors.red.withValues(alpha: 0.1);
         break;
       default:
         statusColor = Colors.grey;
-        statusBackgroundColor = Colors.grey.withValues(alpha:0.1);
+        statusBackgroundColor = Colors.grey.withValues(alpha: 0.1);
     }
 
     return Container(
@@ -371,27 +351,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFfbf8ff),
-          ],
+          colors: [Colors.white, const Color(0xFFfbf8ff)],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha:0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: const Color(0xFF272579).withValues(alpha:0.05),
+            color: const Color(0xFF272579).withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF272579).withValues(alpha:0.08),
+          color: const Color(0xFF272579).withValues(alpha: 0.08),
           width: 1,
         ),
       ),
@@ -414,7 +391,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF272579).withValues(alpha:0.3),
+                        color: const Color(0xFF272579).withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -431,9 +408,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: 16),
-                
+
                 // User Info
                 Expanded(
                   child: Column(
@@ -461,7 +438,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               color: statusBackgroundColor,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: statusColor.withValues(alpha:0.3),
+                                color: statusColor.withValues(alpha: 0.3),
                                 width: 1,
                               ),
                             ),
@@ -477,9 +454,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 6),
-                      
+
                       Row(
                         children: [
                           Icon(
@@ -498,9 +475,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       Row(
                         children: [
                           Icon(
@@ -522,16 +499,39 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.work_rounded,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Designation: $designation',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                
+
                 // Actions Menu
                 PopupMenuButton(
                   icon: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF272579).withValues(alpha:0.1),
+                      color: const Color(0xFF272579).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -551,7 +551,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0071bf).withValues(alpha:0.1),
+                              color: const Color(
+                                0xFF0071bf,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
@@ -576,7 +578,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha:0.1),
+                                color: Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
@@ -600,11 +602,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   onSelected: (value) {
                     switch (value) {
                       case 'edit':
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => EditUserScreen(user: user),
-                          ),
-                        ).then((_) => _loadUsers(refresh: true));
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    EditUserScreen(user: user),
+                              ),
+                            )
+                            .then((_) => _loadUsers(refresh: true));
                         break;
                       case 'delete':
                         _deleteUser(user['_id'], fullName);
@@ -614,81 +619,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
               ],
             ),
-            
-            // Department and Role
-            if (department.isNotEmpty || role.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF272579).withValues(alpha:0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF272579).withValues(alpha:0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    if (department.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0071bf).withValues(alpha:0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.business_rounded,
-                          size: 16,
-                          color: const Color(0xFF0071bf),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        department,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      if (role.isNotEmpty) ...[
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12),
-                          width: 1,
-                          height: 16,
-                          color: Colors.grey[300],
-                        ),
-                      ],
-                    ],
-                    if (role.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF5cfbd8).withValues(alpha:0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 16,
-                          color: const Color(0xFF5cfbd8),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        role.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -715,10 +645,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha:0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha:0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
@@ -770,7 +700,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha:0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -789,21 +719,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               borderRadius: BorderRadius.circular(16),
                               color: const Color(0xFFf8f9fa),
                               border: Border.all(
-                                color: const Color(0xFF272579).withValues(alpha:0.1),
+                                color: const Color(
+                                  0xFF272579,
+                                ).withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),
                             child: TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
-                                hintText: 'Search by name, email, or employee ID...',
+                                hintText:
+                                    'Search by name, email, or employee ID...',
                                 hintStyle: TextStyle(
                                   color: Colors.grey[500],
                                   fontSize: 14,
                                 ),
                                 prefixIcon: Icon(
                                   Icons.search_rounded,
-                                  color: const Color(0xFF272579).withValues(alpha:0.6),
+                                  color: const Color(
+                                    0xFF272579,
+                                  ).withValues(alpha: 0.6),
                                 ),
                                 suffixIcon: _searchController.text.isNotEmpty
                                     ? IconButton(
@@ -825,11 +760,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               ),
                               onChanged: (value) {
                                 // Debounce search
-                                Future.delayed(const Duration(milliseconds: 500), () {
-                                  if (_searchController.text == value) {
-                                    _loadUsers(refresh: true);
-                                  }
-                                });
+                                Future.delayed(
+                                  const Duration(milliseconds: 500),
+                                  () {
+                                    if (_searchController.text == value) {
+                                      _loadUsers(refresh: true);
+                                    }
+                                  },
+                                );
                               },
                             ),
                           ),
@@ -848,23 +786,34 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             decoration: BoxDecoration(
                               gradient: showFilters
                                   ? const LinearGradient(
-                                      colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                                      colors: [
+                                        Color(0xFF272579),
+                                        Color(0xFF0071bf),
+                                      ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     )
                                   : null,
-                              color: showFilters ? null : const Color(0xFFf8f9fa),
+                              color: showFilters
+                                  ? null
+                                  : const Color(0xFFf8f9fa),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: showFilters
-                                    ? const Color(0xFF272579).withValues(alpha:0.3)
-                                    : const Color(0xFF272579).withValues(alpha:0.1),
+                                    ? const Color(
+                                        0xFF272579,
+                                      ).withValues(alpha: 0.3)
+                                    : const Color(
+                                        0xFF272579,
+                                      ).withValues(alpha: 0.1),
                                 width: 1,
                               ),
                               boxShadow: showFilters
                                   ? [
                                       BoxShadow(
-                                        color: const Color(0xFF272579).withValues(alpha:0.2),
+                                        color: const Color(
+                                          0xFF272579,
+                                        ).withValues(alpha: 0.2),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -872,10 +821,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   : null,
                             ),
                             child: Icon(
-                              showFilters ? Icons.filter_list_rounded : Icons.filter_list_outlined,
+                              showFilters
+                                  ? Icons.filter_list_rounded
+                                  : Icons.filter_list_outlined,
                               color: showFilters
                                   ? Colors.white
-                                  : const Color(0xFF272579).withValues(alpha:0.7),
+                                  : const Color(
+                                      0xFF272579,
+                                    ).withValues(alpha: 0.7),
                               size: 20,
                             ),
                           ),
@@ -883,7 +836,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // Filter chips
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
@@ -898,7 +851,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ],
               ),
             ),
-            
+
             // Users list
             Expanded(
               child: error != null
@@ -911,7 +864,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha:0.1),
+                                color: Colors.red.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Icon(
@@ -961,69 +914,71 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                     )
                   : users.isEmpty
-                      ? isLoading
-                          ? const LoadingWidget(message: 'Loading users...')
-                          : Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(40),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF272579).withValues(alpha:0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Icon(
-                                        Icons.people_outline_rounded,
-                                        size: 48,
-                                        color: const Color(0xFF272579),
-                                      ),
+                  ? isLoading
+                        ? const LoadingWidget(message: 'Loading users...')
+                        : Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(40),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF272579,
+                                      ).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'No users found',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.grey[800],
-                                      ),
+                                    child: Icon(
+                                      Icons.people_outline_rounded,
+                                      size: 48,
+                                      color: const Color(0xFF272579),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Try adjusting your search or filters',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[600],
-                                      ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    'No users found',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.grey[800],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Try adjusting your search or filters',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(20),
-                          itemCount: users.length + (hasMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index >= users.length) {
-                              return Container(
-                                padding: const EdgeInsets.all(20),
-                                alignment: Alignment.center,
-                                child: const CircularProgressIndicator(
-                                  color: Color(0xFF272579),
-                                  strokeWidth: 2,
-                                ),
-                              );
-                            }
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: _buildUserCard(users[index]),
-                            );
-                          },
-                        ),
+                            ),
+                          )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount: users.length + (hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= users.length) {
+                          return Container(
+                            padding: const EdgeInsets.all(20),
+                            alignment: Alignment.center,
+                            child: const CircularProgressIndicator(
+                              color: Color(0xFF272579),
+                              strokeWidth: 2,
+                            ),
+                          );
+                        }
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: _buildUserCard(users[index]),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -1038,7 +993,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF272579).withValues(alpha:0.3),
+              color: const Color(0xFF272579).withValues(alpha: 0.3),
               blurRadius: 16,
               offset: const Offset(0, 8),
               spreadRadius: 0,
@@ -1047,11 +1002,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
         child: FloatingActionButton.extended(
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const AddUserScreen(),
-              ),
-            ).then((_) => _loadUsers(refresh: true));
+            Navigator.of(context)
+                .push(
+                  MaterialPageRoute(
+                    builder: (context) => const AddUserScreen(),
+                  ),
+                )
+                .then((_) => _loadUsers(refresh: true));
           },
           backgroundColor: Colors.transparent,
           elevation: 0,

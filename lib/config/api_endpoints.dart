@@ -52,7 +52,6 @@ class ApiEndpoints {
   static String buildUsersQuery({
     int page = 1,
     int limit = 20,
-    String? department,
     String? role,
     String? status,
     String? search,
@@ -61,7 +60,6 @@ class ApiEndpoints {
     params.add('page=$page');
     params.add('limit=$limit');
     
-    if (department != null) params.add('department=${Uri.encodeComponent(department)}');
     if (role != null) params.add('role=${Uri.encodeComponent(role)}');
     if (status != null) params.add('status=${Uri.encodeComponent(status)}');
     if (search != null) params.add('search=${Uri.encodeComponent(search)}');
@@ -120,7 +118,6 @@ class QueryParams {
   static const String endDate = 'endDate';
   static const String status = 'status';
   static const String role = 'role';
-  static const String department = 'department';
   static const String year = 'year';
   static const String month = 'month';
 }

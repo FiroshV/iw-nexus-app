@@ -305,15 +305,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           color: Color(0xFF272579),
                         ),
                       ),
-
-                      if (currentUser!['department'] != null)
-                        Text(
-                          currentUser!['department'].toString(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -766,7 +757,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(height: 8),
                         if (currentUser != null) ...[
                           Text(
-                            '${currentUser!['designation'] ?? ''} • ${currentUser!['department'] ?? ''}',
+                            '${currentUser!['designation'] ?? ''}',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,

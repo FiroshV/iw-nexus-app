@@ -886,7 +886,6 @@ class ApiService {
   /// - [lastName]: User's last name (required)
   /// - [email]: User's email address (required, must be unique)
   /// - [phoneNumber]: User's phone number (required, must be unique)
-  /// - [department]: User's department (optional)
   /// - [role]: User's role - 'employee', 'manager', 'admin', etc. (required)
   /// - [designation]: User's job title/designation (required)
   /// - [dateOfJoining]: Date when user joined (ISO string, optional)
@@ -906,7 +905,6 @@ class ApiService {
   ///   phoneNumber: '+1234567890',
   ///   role: 'employee',
   ///   designation: 'Software Engineer',
-  ///   department: 'Engineering',
   /// );
   /// 
   /// if (response.success) {
@@ -918,7 +916,6 @@ class ApiService {
     required String lastName,
     required String email,
     required String phoneNumber,
-    String? department,
     required String role,
     required String designation,
     String? dateOfJoining,
@@ -933,7 +930,6 @@ class ApiService {
         'lastName': lastName,
         'email': email,
         'phoneNumber': phoneNumber,
-        if (department != null) 'department': department,
         'role': role,
         'designation': designation,
         if (dateOfJoining != null) 'dateOfJoining': dateOfJoining,
@@ -946,7 +942,6 @@ class ApiService {
   static Future<ApiResponse<Map<String, dynamic>>> getAllUsers({
     int page = 1,
     int limit = 20,
-    String? department,
     String? role,
     String? status,
     String? search,
@@ -954,7 +949,6 @@ class ApiService {
     final endpoint = ApiEndpoints.buildUsersQuery(
       page: page,
       limit: limit,
-      department: department,
       role: role,
       status: status,
       search: search,

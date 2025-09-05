@@ -19,7 +19,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
   
-  String? selectedDepartment;
   String? selectedRole;
   String? selectedStatus;
   String? selectedManagerId;
@@ -29,16 +28,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
   bool isLoadingManagers = false;
   bool isSubmitting = false;
 
-  final List<String> departments = [
-    'HR',
-    'Engineering',
-    'Marketing',
-    'Sales',
-    'Finance',
-    'Operations',
-    'Admin'
-  ];
-  
   final List<String> roles = [
     'employee',
     'manager',
@@ -66,7 +55,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _phoneController.text = widget.user['phoneNumber'] ?? '';
     _designationController.text = widget.user['designation'] ?? '';
     
-    selectedDepartment = widget.user['department'];
     selectedRole = widget.user['role'];
     selectedStatus = widget.user['status'];
     selectedManagerId = widget.user['managerId']?['_id'];
@@ -147,7 +135,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
-        'department': selectedDepartment!,
         'role': selectedRole!,
         'designation': _designationController.text.trim(),
         'status': selectedStatus!,
@@ -321,31 +308,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      
-                      DropdownButtonFormField<String>(
-                        value: selectedDepartment,
-                        decoration: const InputDecoration(
-                          labelText: 'Department *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.business),
-                        ),
-                        items: departments.map((dept) => 
-                          DropdownMenuItem(value: dept, child: Text(dept))
-                        ).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedDepartment = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select a department';
-                          }
-                          return null;
-                        },
-                      ),
-                      
                       const SizedBox(height: 16),
                       
                       DropdownButtonFormField<String>(

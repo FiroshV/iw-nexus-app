@@ -18,7 +18,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
   
-  String? selectedDepartment;
   String? selectedRole;
   String? selectedManagerId;
   DateTime? selectedJoiningDate;
@@ -34,16 +33,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
   static const Color surfaceLight = Color(0xFFfbf8ff);
   static const Color backgroundColor = Color(0xFFf8f9fa);
 
-  final List<String> departments = [
-    'HR',
-    'Engineering',
-    'Marketing',
-    'Sales',
-    'Finance',
-    'Operations',
-    'Admin'
-  ];
-  
   final List<String> roles = [
     'manager',
     'field_staff',
@@ -157,7 +146,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
         phoneNumber: _phoneController.text.trim(),
-        department: selectedDepartment,
         role: selectedRole!,
         designation: _designationController.text.trim(),
         dateOfJoining: selectedJoiningDate?.toIso8601String(),
@@ -300,7 +288,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
       title: 'Work Information',
       icon: Icons.work_outlined,
       children: [
-        _buildDepartmentDropdown(),
         _buildRoleDropdown(),
         _buildTextField(
           controller: _designationController,
@@ -441,49 +428,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
         fontWeight: FontWeight.w500,
         color: Colors.black87,
       ),
-    );
-  }
-
-  Widget _buildDepartmentDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedDepartment,
-      decoration: InputDecoration(
-        labelText: 'Department',
-        prefixIcon: const Icon(Icons.business_outlined, color: primaryBlue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceLight,
-        labelStyle: TextStyle(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      items: [
-        const DropdownMenuItem<String>(value: null, child: Text('No Department')),
-        ...departments.map((dept) => DropdownMenuItem(
-          value: dept,
-          child: Text(
-            dept,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        )),
-      ],
-      onChanged: (value) => setState(() => selectedDepartment = value),
     );
   }
 
