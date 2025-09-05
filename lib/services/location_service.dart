@@ -360,7 +360,7 @@ class LocationService {
       'headingAccuracy': position.headingAccuracy,
       'speed': position.speed,
       'speedAccuracy': position.speedAccuracy,
-      'timestamp': position.timestamp?.millisecondsSinceEpoch,
+      'timestamp': position.timestamp.millisecondsSinceEpoch,
       // Additional precision metadata
       'isMocked': position.isMocked,
       'floor': position.floor,

@@ -128,14 +128,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
 
       // Debug logging for late clock-in detection
-      print('🔍 Clock-in response: Success=${response.success}');
-      print('🔍 Response message: ${response.message}');
-      print('🔍 Response data: ${response.data}');
-      print('🔍 Response data type: ${response.data.runtimeType}');
+      debugPrint('🔍 Clock-in response: Success=${response.success}');
+      debugPrint('🔍 Response message: ${response.message}');
+      debugPrint('🔍 Response data: ${response.data}');
+      debugPrint('🔍 Response data type: ${response.data.runtimeType}');
       if (response.data is Map) {
-        print('🔍 RequiresReason: ${response.data?['requiresReason']}');
-        print('🔍 ReasonType: ${response.data?['reasonType']}');
-        print('🔍 LateBy: ${response.data?['lateBy']}');
+        debugPrint('🔍 RequiresReason: ${response.data?['requiresReason']}');
+        debugPrint('🔍 ReasonType: ${response.data?['reasonType']}');
+        debugPrint('🔍 LateBy: ${response.data?['lateBy']}');
       }
 
       // Enhanced late detection with multiple checks
@@ -146,21 +146,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       if (!response.success && response.data?['requiresReason'] == true) {
         requiresLateReason = true;
         lateByMinutes = response.data?['lateBy'] ?? 0;
-        print('🔍 Backend detected late arrival: $lateByMinutes minutes');
+        debugPrint('🔍 Backend detected late arrival: $lateByMinutes minutes');
       }
       // Secondary check: Error message contains late reason requirement
       else if (!response.success && response.message.toLowerCase().contains('late reason is required')) {
         requiresLateReason = true;
         // Try to extract late minutes from message or use client-side calculation
         lateByMinutes = _calculateClientSideLateMinutes();
-        print('🔍 Error message indicates late arrival, client-side calculated: $lateByMinutes minutes');
+        debugPrint('🔍 Error message indicates late arrival, client-side calculated: $lateByMinutes minutes');
       }
       // Tertiary check: 400 status with specific message pattern
       else if (!response.success && response.statusCode == 400 && 
                (response.message.contains('work hours') || response.message.contains('late'))) {
         requiresLateReason = true;
         lateByMinutes = _calculateClientSideLateMinutes();
-        print('🔍 Status 400 with work hours message, client-side calculated: $lateByMinutes minutes');
+        debugPrint('🔍 Status 400 with work hours message, client-side calculated: $lateByMinutes minutes');
       }
 
       if (requiresLateReason) {
@@ -168,29 +168,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _isLoading = false;
         });
         
-        print('🔍 Showing late reason dialog for $lateByMinutes minutes late');
+        debugPrint('🔍 Showing late reason dialog for $lateByMinutes minutes late');
         final lateReason = await _showLateReasonDialog(lateByMinutes: lateByMinutes);
         
         if (lateReason == null) {
           // User cancelled
-          print('🔍 User cancelled late reason dialog');
+          debugPrint('🔍 User cancelled late reason dialog');
           return;
         }
         
-        print('🔍 User provided late reason: $lateReason');
+        debugPrint('🔍 User provided late reason: $lateReason');
         setState(() {
           _isLoading = true;
         });
 
         // Retry check-in with late reason
-        print('🔍 Retrying check-in with late reason');
+        debugPrint('🔍 Retrying check-in with late reason');
         response = await ApiService.checkIn(
           location: _locationService.positionToMap(position),
           notes: 'Clock-in from mobile app',
           lateReason: lateReason,
         );
         
-        print('🔍 Retry response: Success=${response.success}, Message=${response.message}');
+        debugPrint('🔍 Retry response: Success=${response.success}, Message=${response.message}');
       }
 
       if (mounted) {
@@ -206,7 +206,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           if (lateBy > 0) {
             successMessage = 'Clocked in successfully ($lateBy minutes late)';
             if (lateReason != null) {
-              print('🔍 Late reason recorded: $lateReason');
+              debugPrint('🔍 Late reason recorded: $lateReason');
             }
           }
           
@@ -219,7 +219,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             errorMessage = 'Failed to process late clock-in. Please check your connection and try again.';
           }
           _showError(errorMessage);
-          print('🔍 Final clock-in failed: ${response.message}');
+          debugPrint('🔍 Final clock-in failed: ${response.message}');
         }
       }
     } catch (e) {
@@ -348,7 +348,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         return difference.inMinutes;
       }
     } catch (e) {
-      print('Error calculating client-side late minutes: $e');
+      debugPrint('Error calculating client-side late minutes: $e');
     }
     return 0; // Default to 0 if calculation fails
   }
@@ -393,114 +393,183 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final isCheckedIn = checkIn != null && checkIn['time'] != null;
     final isCheckedOut = checkOut != null && checkOut['time'] != null;
 
-    return Card(
-      margin: const EdgeInsets.all(20),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      margin: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            const Color(0xFFfbf8ff),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0xFF272579).withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF272579).withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         child: Column(
           children: [
             // Status indicator
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
               decoration: BoxDecoration(
-                color: isCheckedOut 
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : isCheckedIn 
-                        ? const Color(0xFF0071bf).withValues(alpha: 0.1)
-                        : Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isCheckedOut 
+                      ? [const Color(0xFF5cfbd8).withValues(alpha: 0.15), Colors.green.withValues(alpha: 0.1)]
+                      : isCheckedIn 
+                          ? [const Color(0xFF0071bf).withValues(alpha: 0.15), const Color(0xFF272579).withValues(alpha: 0.1)]
+                          : [Colors.orange.withValues(alpha: 0.15), Colors.amber.withValues(alpha: 0.1)],
+                ),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isCheckedOut 
-                      ? Colors.green
+                      ? const Color(0xFF5cfbd8).withValues(alpha: 0.3)
                       : isCheckedIn 
-                          ? const Color(0xFF0071bf)
-                          : Colors.orange,
+                          ? const Color(0xFF0071bf).withValues(alpha: 0.3)
+                          : Colors.orange.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isCheckedOut ? Icons.check_circle : 
-                    isCheckedIn ? Icons.work : Icons.schedule,
-                    color: isCheckedOut ? Colors.green : 
-                           isCheckedIn ? const Color(0xFF0071bf) : Colors.orange,
-                    size: 18,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: (isCheckedOut ? const Color(0xFF5cfbd8) : 
+                             isCheckedIn ? const Color(0xFF0071bf) : Colors.orange).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isCheckedOut ? Icons.check_circle_rounded : 
+                      isCheckedIn ? Icons.work_rounded : Icons.schedule_rounded,
+                      color: isCheckedOut ? const Color(0xFF5cfbd8) : 
+                             isCheckedIn ? const Color(0xFF0071bf) : Colors.orange,
+                      size: 18,
+                    ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Text(
                     _getStatusText(),
                     style: TextStyle(
-                      color: isCheckedOut ? Colors.green : 
+                      color: isCheckedOut ? const Color(0xFF5cfbd8) : 
                              isCheckedIn ? const Color(0xFF0071bf) : Colors.orange,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ],
               ),
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
             
-            // Time information
-            Row(
+            // Time information cards
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Clock in time
-                Expanded(
+                // Clock in time card
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF272579).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF272579).withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
                   child: Column(
                     children: [
-                      Text(
-                        'Clocked In',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Icon(
+                        Icons.login_rounded,
+                        color: const Color(0xFF272579),
+                        size: 24,
                       ),
                       const SizedBox(height: 8),
                       Text(
+                        'Clock In',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
                         _getClockInTimeDisplay(),
                         style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                           color: Color(0xFF272579),
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                // Divider
-                Container(
-                  height: 40,
-                  width: 1,
-                  color: Colors.grey[300],
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                ),
+                const SizedBox(height: 16),
                 
-                // Hours worked
-                Expanded(
+                // Hours worked card
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0071bf).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
                   child: Column(
                     children: [
-                      Text(
-                        'Hours Worked',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Icon(
+                        Icons.timer_rounded,
+                        color: const Color(0xFF0071bf),
+                        size: 24,
                       ),
                       const SizedBox(height: 8),
                       Text(
+                        'Hours',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
                         _getHoursWorked(),
                         style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                           color: Color(0xFF0071bf),
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
@@ -509,51 +578,92 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ],
             ),
             
+            if (isCheckedOut) ...[
+              const SizedBox(height: 16),
+              // Clock out time card when checked out
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5cfbd8).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF5cfbd8).withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      color: const Color(0xFF5cfbd8),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Clocked Out',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _getClockOutTimeDisplay(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF5cfbd8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
             const SizedBox(height: 32),
             
             // Action button
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : (_getButtonAction()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _getButtonColor(),
                   foregroundColor: Colors.white,
-                  elevation: 2,
+                  elevation: 0,
+                  shadowColor: _getButtonColor().withValues(alpha: 0.3),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 22,
+                        height: 22,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: 2.5,
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : Text(_getButtonText()),
+                    : Text(
+                      _getButtonText(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: Color(0xFF272579)
+                      ),
+                    ),
               ),
             ),
-            
-            if (!isCheckedOut) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Location will be automatically captured',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
           ],
         ),
       ),
@@ -580,6 +690,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final checkIn = _todayAttendance?['checkIn'];
     if (checkIn != null && checkIn['time'] != null) {
       final istTime = TimezoneUtil.parseToIST(checkIn['time']);
+      return TimezoneUtil.timeOnlyIST(istTime);
+    }
+    return '--:--';
+  }
+
+  String _getClockOutTimeDisplay() {
+    final checkOut = _todayAttendance?['checkOut'];
+    if (checkOut != null && checkOut['time'] != null) {
+      final istTime = TimezoneUtil.parseToIST(checkOut['time']);
       return TimezoneUtil.timeOnlyIST(istTime);
     }
     return '--:--';
@@ -647,35 +766,197 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  Widget _buildLocationInfo() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            const Color(0xFFfbf8ff),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF272579).withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.location_on_rounded,
+                    color: const Color(0xFF0071bf),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Location Tracking',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your location is automatically captured when clocking in/out for accurate attendance tracking.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF5cfbd8).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF5cfbd8).withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.security_rounded,
+                    color: const Color(0xFF5cfbd8),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your location data is securely stored and only used for attendance purposes.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Attendance'),
-        backgroundColor: const Color(0xFF272579),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadTodayAttendance,
-            tooltip: 'Refresh',
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF272579), Color(0xFF0071bf)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-        ],
-      ),
-      body: _isLoading && _todayAttendance == null
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF272579),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
-            )
-          : SingleChildScrollView(
+              child: const Icon(
+                Icons.schedule,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildAttendanceCard(),
-                  const SizedBox(height: 32), // Bottom spacing
+                  Text(
+                    'Attendance',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  Text(
+                    'Track your work hours',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
+          ],
+        ),
+        foregroundColor: Colors.white,
+      ),
+      backgroundColor: const Color(0xFFf8f9fa),
+      body: RefreshIndicator(
+        onRefresh: _loadTodayAttendance,
+        color: const Color(0xFF272579),
+        child: _isLoading && _todayAttendance == null
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF272579),
+                ),
+              )
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _buildAttendanceCard(),
+                    const SizedBox(height: 24),
+                    _buildLocationInfo(),
+                    const SizedBox(height: 32), // Bottom spacing
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

@@ -382,8 +382,8 @@ class _DashboardPageState extends State<DashboardPage> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isDestructive
-              ? Colors.red.withOpacity(0.1)
-              : const Color(0xFF0071bf).withOpacity(0.1),
+              ? Colors.red.withValues(alpha: 0.1)
+              : const Color(0xFF0071bf).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
@@ -485,20 +485,20 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 16,
             offset: const Offset(0, 6),
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: const Color(0xFF272579).withOpacity(0.05),
+            color: const Color(0xFF272579).withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF272579).withOpacity(0.08),
+          color: const Color(0xFF272579).withValues(alpha: 0.08),
           width: 1,
         ),
       ),
@@ -516,11 +516,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: (color ?? const Color(0xFF0071bf)).withOpacity(0.12),
+                    color: (color ?? const Color(0xFF0071bf)).withValues(
+                      alpha: 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: (color ?? const Color(0xFF0071bf)).withOpacity(
-                        0.2,
+                      color: (color ?? const Color(0xFF0071bf)).withValues(
+                        alpha: 0.2,
                       ),
                       width: 1,
                     ),
@@ -585,10 +587,10 @@ class _DashboardPageState extends State<DashboardPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
@@ -639,10 +641,10 @@ class _DashboardPageState extends State<DashboardPage> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -683,10 +685,10 @@ class _DashboardPageState extends State<DashboardPage> {
                     icon: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -726,7 +728,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),

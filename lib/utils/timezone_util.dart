@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -36,15 +37,15 @@ class TimezoneUtil {
       
       // Set IST location
       _istLocation = tz.getLocation('Asia/Kolkata');
-      
-      print('🌍 Timezone initialized: Device=$_deviceTimezone, App=Asia/Kolkata');
+
+      debugPrint('🌍 Timezone initialized: Device=$_deviceTimezone, App=Asia/Kolkata');
     } catch (e) {
-      print('❌ Timezone initialization error: $e');
+      debugPrint('❌ Timezone initialization error: $e');
       // Fallback: try to set location anyway
       try {
         _istLocation = tz.getLocation('Asia/Kolkata');
       } catch (e2) {
-        print('❌ Critical: Could not set Asia/Kolkata timezone: $e2');
+        debugPrint('❌ Critical: Could not set Asia/Kolkata timezone: $e2');
       }
     }
   }
@@ -55,7 +56,7 @@ class TimezoneUtil {
       // Try to initialize with default database
       tz.initializeTimeZones();
     } catch (e) {
-      print('Warning: Could not initialize timezone database: $e');
+      debugPrint('Warning: Could not initialize timezone database: $e');
       // In production, you might want to bundle timezone data
       rethrow;
     }
@@ -65,7 +66,7 @@ class TimezoneUtil {
   /// Returns TZDateTime for timezone-aware operations
   static tz.TZDateTime nowIST() {
     if (_istLocation == null) {
-      print('Warning: IST location not initialized, using system timezone');
+      debugPrint('Warning: IST location not initialized, using system timezone');
       return tz.TZDateTime.now(tz.local);
     }
     return tz.TZDateTime.now(_istLocation!);
@@ -74,7 +75,7 @@ class TimezoneUtil {
   /// Convert UTC DateTime to IST TZDateTime
   static tz.TZDateTime utcToIST(DateTime utcDateTime) {
     if (_istLocation == null) {
-      print('Warning: IST location not initialized, using system timezone');
+      debugPrint('Warning: IST location not initialized, using system timezone');
       return tz.TZDateTime.from(utcDateTime, tz.local);
     }
     
@@ -120,7 +121,7 @@ class TimezoneUtil {
         }
       }
     } catch (e) {
-      print('Error parsing datetime string: $isoString, error: $e');
+      debugPrint('Error parsing datetime string: $isoString, error: $e');
     }
     
     // Fallback: treat as current IST time
@@ -171,7 +172,7 @@ class TimezoneUtil {
       final checkOut = parseToIST(checkOutTime);
       return formatDurationFromIST(checkIn, checkOut);
     } catch (e) {
-      print('Error calculating work hours: $e');
+      debugPrint('Error calculating work hours: $e');
       return '0h 0m';
     }
   }
