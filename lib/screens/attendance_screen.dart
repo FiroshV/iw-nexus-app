@@ -427,65 +427,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
-          children: [
-            // Status indicator
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isCheckedOut 
-                      ? [const Color(0xFF5cfbd8).withValues(alpha: 0.15), Colors.green.withValues(alpha: 0.1)]
-                      : isCheckedIn 
-                          ? [const Color(0xFF0071bf).withValues(alpha: 0.15), const Color(0xFF272579).withValues(alpha: 0.1)]
-                          : [Colors.orange.withValues(alpha: 0.15), Colors.amber.withValues(alpha: 0.1)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isCheckedOut 
-                      ? const Color(0xFF5cfbd8).withValues(alpha: 0.3)
-                      : isCheckedIn 
-                          ? const Color(0xFF0071bf).withValues(alpha: 0.3)
-                          : Colors.orange.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: (isCheckedOut ? const Color(0xFF5cfbd8) : 
-                             isCheckedIn ? const Color(0xFF0071bf) : Colors.orange).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isCheckedOut ? Icons.check_circle_rounded : 
-                      isCheckedIn ? Icons.work_rounded : Icons.schedule_rounded,
-                      color: isCheckedOut ? const Color(0xFF5cfbd8) : 
-                             isCheckedIn ? const Color(0xFF0071bf) : Colors.orange,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    _getStatusText(),
-                    style: TextStyle(
-                      color: isCheckedOut ? const Color(0xFF5cfbd8) : 
-                             isCheckedIn ? const Color(0xFF0071bf) : Colors.orange,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 36),
-            
+          children: [            
             // Time information cards
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -503,12 +445,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.login_rounded,
-                        color: const Color(0xFF272579),
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
                       Text(
                         'Clock In',
                         style: TextStyle(
@@ -592,35 +528,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     width: 1,
                   ),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      color: const Color(0xFF5cfbd8),
-                      size: 24,
+                    Text(
+                      'Clocked Out',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Clocked Out',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _getClockOutTimeDisplay(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF5cfbd8),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      _getClockOutTimeDisplay(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0071bf),
+                      ),
                     ),
                   ],
                 ),
