@@ -311,7 +311,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                       const SizedBox(height: 16),
                       
                       DropdownButtonFormField<String>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role *',
                           border: OutlineInputBorder(),
@@ -336,7 +336,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                       const SizedBox(height: 16),
                       
                       DropdownButtonFormField<String>(
-                        value: selectedStatus,
+                        initialValue: selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status *',
                           border: OutlineInputBorder(),
@@ -416,7 +416,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                       const SizedBox(height: 16),
                       
                       DropdownButtonFormField<String>(
-                        value: selectedManagerId,
+                        initialValue: selectedManagerId,
                         decoration: const InputDecoration(
                           labelText: 'Manager (Optional)',
                           border: OutlineInputBorder(),
