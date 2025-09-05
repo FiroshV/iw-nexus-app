@@ -14,16 +14,9 @@ class AddEditBranchScreen extends StatefulWidget {
   State<AddEditBranchScreen> createState() => _AddEditBranchScreenState();
 }
 
-class _AddEditBranchScreenState extends State<AddEditBranchScreen>
-    with TickerProviderStateMixin {
+class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
-
-  // Animation controllers
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   // Controllers
   final _branchNameController = TextEditingController();
@@ -98,38 +91,13 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen>
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _initializeForm();
     _loadAvailableManagers();
   }
 
-  void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0.0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
-
-    _fadeController.forward();
-    _slideController.forward();
-  }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
     _branchNameController.dispose();
     _streetController.dispose();
     _cityController.dispose();
@@ -356,32 +324,41 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildSliverAppBar(),
-              SliverToBoxAdapter(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (widget.isEditing) _buildBranchIdCard(),
-                      _buildBranchInfoSection(),
-                      _buildAddressSection(),
-                      _buildContactSection(),
-                      const SizedBox(height: 32),
-                      _buildSaveButton(),
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              ),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [brandPrimary, primaryBlue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Text(
+          widget.isEditing ? 'Edit Branch' : 'Add Branch',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.isEditing) _buildBranchIdCard(),
+              _buildBranchInfoSection(),
+              _buildAddressSection(),
+              _buildContactSection(),
+              const SizedBox(height: 32),
+              _buildSaveButton(),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -389,116 +366,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen>
     );
   }
 
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
-      expandedHeight: 200,
-      floating: false,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [brandPrimary, primaryBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: FlexibleSpaceBar(
-          title: Text(
-            widget.isEditing ? 'Edit Branch' : 'Add Branch',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          background: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 80, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _buildAnimatedIcon(),
-                      const SizedBox(width: 16),
-                      Text(
-                        widget.isEditing
-                            ? 'Update Branch Details'
-                            : 'Create New Branch',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        if (isSaving)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-          )
-        else
-          TextButton.icon(
-            onPressed: _saveBranch,
-            icon: const Icon(Icons.check, color: Colors.white, size: 18),
-            label: const Text(
-              'Save',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 
-  Widget _buildAnimatedIcon() {
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 1000),
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Icon(
-              widget.isEditing
-                  ? Icons.edit_location_outlined
-                  : Icons.add_business_outlined,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildBranchIdCard() {
     return Container(
