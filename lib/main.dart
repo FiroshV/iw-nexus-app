@@ -6,12 +6,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/loading_widget.dart';
+import 'widgets/id_card_widget.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/id_card_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -251,6 +253,28 @@ class _DashboardPageState extends State<DashboardPage> {
     final lastName = currentUser!['lastName']?.toString() ?? '';
     final fullName = '$firstName $lastName'.trim();
     return fullName.isNotEmpty ? fullName : 'User';
+  }
+
+  void _handleIdCardDownload(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => IDCardScreen(
+          userData: currentUser,
+          action: IDCardAction.download,
+        ),
+      ),
+    );
+  }
+
+  void _handleIdCardShare(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => IDCardScreen(
+          userData: currentUser,
+          action: IDCardAction.share,
+        ),
+      ),
+    );
   }
 
   void _showProfileMenu(BuildContext context) {
@@ -716,58 +740,12 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Welcome section
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome back,',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          currentUser != null
-                              ? '${currentUser!['firstName'] ?? ''} ${currentUser!['lastName'] ?? ''}'
-                                    .trim()
-                              : 'User',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (currentUser != null) ...[
-                          Text(
-                            '${currentUser!['designation'] ?? ''}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  // Welcome section with flip functionality
+                  IDCardWidget(
+                    userData: currentUser,
+                    onDownload: () => _handleIdCardDownload(context),
+                    onShare: () => _handleIdCardShare(context),
+                    showWelcomeCard: true,
                   ),
 
                   const SizedBox(height: 24),

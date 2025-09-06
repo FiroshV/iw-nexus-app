@@ -1305,6 +1305,56 @@ class ApiService {
     }
   }
 
+  // ID Card Management
+  static Future<ApiResponse> generateIdCard({
+    String? userId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl${ApiEndpoints.generateIdCard}'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          if (userId != null) 'userId': userId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Backend returns PDF as binary data
+        return ApiResponse(
+          success: true,
+          message: 'ID card generated successfully',
+          data: response.bodyBytes, // Binary PDF data
+          statusCode: response.statusCode,
+        );
+      } else {
+        // Try to parse error response
+        try {
+          final Map<String, dynamic> errorData = jsonDecode(response.body);
+          return ApiResponse(
+            success: false,
+            message: errorData['message'] ?? 'Failed to generate ID card',
+            statusCode: response.statusCode,
+            error: errorData['error']?.toString(),
+          );
+        } catch (e) {
+          return ApiResponse(
+            success: false,
+            message: 'Failed to generate ID card',
+            statusCode: response.statusCode,
+            error: 'Server error: ${response.statusCode}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('🔥 ID card generation error: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Failed to generate ID card',
+        error: e.toString(),
+      );
+    }
+  }
+
   // Cleanup
   static void dispose() {
     HttpClientConfig.dispose();

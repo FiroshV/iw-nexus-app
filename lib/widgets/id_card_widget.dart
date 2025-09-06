@@ -1,0 +1,653 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+class IDCardWidget extends StatefulWidget {
+  final Map<String, dynamic>? userData;
+  final VoidCallback? onDownload;
+  final VoidCallback? onShare;
+  final bool showFullCard;
+  final bool showWelcomeCard;
+
+  const IDCardWidget({
+    super.key,
+    this.userData,
+    this.onDownload,
+    this.onShare,
+    this.showFullCard = false,
+    this.showWelcomeCard = false,
+  });
+
+  @override
+  State<IDCardWidget> createState() => _IDCardWidgetState();
+}
+
+class _IDCardWidgetState extends State<IDCardWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _flipAnimation;
+  bool _isFlipped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _flipAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _flipCard() {
+    if (!_isFlipped) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
+    
+    HapticFeedback.lightImpact();
+  }
+
+  String _getUserInitials() {
+    if (widget.userData == null) return 'U';
+    final firstName = widget.userData!['firstName']?.toString() ?? '';
+    final lastName = widget.userData!['lastName']?.toString() ?? '';
+
+    if (firstName.isNotEmpty && lastName.isNotEmpty) {
+      return '${firstName[0]}${lastName[0]}'.toUpperCase();
+    } else if (firstName.isNotEmpty) {
+      return firstName[0].toUpperCase();
+    } else if (lastName.isNotEmpty) {
+      return lastName[0].toUpperCase();
+    }
+    return 'U';
+  }
+
+  String _getUserDisplayName() {
+    if (widget.userData == null) return 'User';
+    final firstName = widget.userData!['firstName']?.toString() ?? '';
+    final lastName = widget.userData!['lastName']?.toString() ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    return fullName.isNotEmpty ? fullName : 'User';
+  }
+
+  Widget _buildFrontCard() {
+    if (widget.showWelcomeCard) {
+      return _buildWelcomeCard();
+    }
+    return _buildFullIdCard();
+  }
+
+  Widget _buildWelcomeCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF272579), Color(0xFF0071bf)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome back,',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+          ),
+          Text(
+            widget.userData != null
+                ? '${widget.userData!['firstName'] ?? ''} ${widget.userData!['lastName'] ?? ''}'
+                      .trim()
+                : 'User',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (widget.userData != null) ...[
+            Text(
+              '${widget.userData!['designation'] ?? ''}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+            ),
+          ],
+          
+          // Subtle tap hint
+          const SizedBox(height: 16),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap for ID card actions',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullIdCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF272579), Color(0xFF0071bf)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Company Logo and Text
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: SvgPicture.asset(
+                  'assets/company_logo.svg',
+                  width: 24,
+                  height: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Move with',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    Text(
+                      'Strategy',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // User Photo
+          Center(
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.2),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 38,
+                backgroundColor: const Color(0xFF5cfbd8),
+                child: Text(
+                  _getUserInitials(),
+                  style: const TextStyle(
+                    color: Color(0xFF272579),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // User Name
+          Center(
+            child: Text(
+              _getUserDisplayName(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          
+          const SizedBox(height: 4),
+          
+          // Designation
+          if (widget.userData != null) ...[
+            Center(
+              child: Text(
+                widget.userData!['designation']?.toString() ?? '',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 20),
+          
+          // Company Footer
+          const Center(
+            child: Column(
+              children: [
+                Text(
+                  'idalWEALTH',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                Text(
+                  'Advisory Private Limited',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Tap hint
+          const SizedBox(height: 16),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap to view actions',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackCard() {
+    if (widget.showWelcomeCard) {
+      return _buildCompactBackCard();
+    }
+    return _buildFullBackCard();
+  }
+
+  Widget _buildCompactBackCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0071bf), Color(0xFF272579)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Text(
+            'ID Card Actions',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'Download or share your employee ID card',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Action Buttons - Compact Row Layout
+          Row(
+            children: [
+              // Download Button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: widget.onDownload,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text(
+                    'Download',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF272579),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              // Share Button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: widget.onShare,
+                  icon: const Icon(Icons.share, size: 16),
+                  label: const Text(
+                    'Share',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5cfbd8),
+                    foregroundColor: const Color(0xFF272579),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Back to front hint
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap to go back',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullBackCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0071bf), Color(0xFF272579)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ID Card Actions Header
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.credit_card,
+                  color: Color(0xFF272579),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ID Card',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'Download or share your ID',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Action Buttons
+          Column(
+            children: [
+              // Download Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: widget.onDownload,
+                  icon: const Icon(Icons.download, color: Color(0xFF272579)),
+                  label: const Text(
+                    'Download ID Card',
+                    style: TextStyle(
+                      color: Color(0xFF272579),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF272579),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Share Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: widget.onShare,
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  label: const Text(
+                    'Share ID Card',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5cfbd8),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Back to front hint
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap to go back',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _flipCard,
+      child: AnimatedBuilder(
+        animation: _flipAnimation,
+        builder: (context, child) {
+          final isShowingFront = _flipAnimation.value < 0.5;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(_flipAnimation.value * 3.14159),
+            child: isShowingFront
+                ? _buildFrontCard()
+                : Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()..rotateY(3.14159),
+                    child: _buildBackCard(),
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
