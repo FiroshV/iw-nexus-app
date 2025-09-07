@@ -124,7 +124,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       // First attempt - check-in without late reason
       var response = await ApiService.checkIn(
         location: _locationService.positionToMap(position),
-        notes: 'Clock-in from mobile app',
+        notes: 'Clock-in from phone app',
       );
 
       // Debug logging for late clock-in detection
@@ -186,7 +186,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         debugPrint('🔍 Retrying check-in with late reason');
         response = await ApiService.checkIn(
           location: _locationService.positionToMap(position),
-          notes: 'Clock-in from mobile app',
+          notes: 'Clock-in from phone app',
           lateReason: lateReason,
         );
         
@@ -272,7 +272,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       final response = await ApiService.checkOut(
         location: _locationService.positionToMap(position),
-        notes: 'Clock-out from mobile app',
+        notes: 'Clock-out from phone app',
       );
 
       if (mounted) {
@@ -388,9 +388,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildAttendanceCard() {
-    final checkIn = _todayAttendance?['checkIn'];
     final checkOut = _todayAttendance?['checkOut'];
-    final isCheckedIn = checkIn != null && checkIn['time'] != null;
     final isCheckedOut = checkOut != null && checkOut['time'] != null;
 
     return Container(
@@ -630,20 +628,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return '--:--';
   }
 
-  String _getStatusText() {
-    final checkIn = _todayAttendance?['checkIn'];
-    final checkOut = _todayAttendance?['checkOut'];
-    final isCheckedIn = checkIn != null && checkIn['time'] != null;
-    final isCheckedOut = checkOut != null && checkOut['time'] != null;
-    
-    if (isCheckedOut) {
-      return 'Work Complete';
-    } else if (isCheckedIn) {
-      return 'Currently Working';
-    } else {
-      return 'Not Clocked In';
-    }
-  }
 
   Color _getButtonColor() {
     final checkIn = _todayAttendance?['checkIn'];

@@ -23,8 +23,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _emailController = TextEditingController();
   final _designationController = TextEditingController();
   final _addressController = TextEditingController();
-  final _homeMobileController = TextEditingController();
-  final _mobileController = TextEditingController();
+  final _homePhoneController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   DateTime? _selectedDateOfBirth;
   String? _selectedBloodGroup;
@@ -49,8 +49,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _emailController.dispose();
     _designationController.dispose();
     _addressController.dispose();
-    _homeMobileController.dispose();
-    _mobileController.dispose();
+    _homePhoneController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -85,8 +85,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _emailController.text = _currentUser!['email'] ?? '';
       _designationController.text = _currentUser!['designation'] ?? '';
       _addressController.text = _currentUser!['address'] ?? '';
-      _homeMobileController.text = _currentUser!['homeMobileNumber'] ?? '';
-      _mobileController.text = _currentUser!['mobileNumber'] ?? '';
+      _homePhoneController.text = _currentUser!['homePhoneNumber'] ?? '';
+      _phoneController.text = _currentUser!['phoneNumber'] ?? '';
       _selectedBloodGroup = _currentUser!['bloodGroup'];
       
       if (_currentUser!['dateOfBirth'] != null) {
@@ -108,8 +108,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'lastName': _lastNameController.text.trim(),
         'designation': _designationController.text.trim(),
         'address': _addressController.text.trim(),
-        'homeMobileNumber': _homeMobileController.text.trim(),
-        'mobileNumber': _mobileController.text.trim(),
+        'homePhoneNumber': _homePhoneController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
       };
 
       if (_selectedDateOfBirth != null) {
@@ -128,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
         _showSuccessSnackBar('Profile updated successfully!');
       } else {
-        _showErrorSnackBar(response.message ?? 'Failed to update profile');
+        _showErrorSnackBar(response.message);
       }
     } catch (e) {
       _showErrorSnackBar('Error updating profile: $e');
@@ -440,7 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.message ?? 'Profile photo updated successfully'),
+              content: Text(response.message),
               backgroundColor: Colors.green,
             ),
           );
@@ -449,7 +449,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.message ?? 'Failed to upload profile photo'),
+              content: Text(response.message),
               backgroundColor: Colors.red,
             ),
           );
@@ -489,7 +489,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.message ?? 'Profile photo removed successfully'),
+              content: Text(response.message),
               backgroundColor: Colors.green,
             ),
           );
@@ -498,7 +498,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.message ?? 'Failed to remove profile photo'),
+              content: Text(response.message),
               backgroundColor: Colors.red,
             ),
           );
@@ -716,15 +716,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
 
                           _buildTextField(
-                            controller: _homeMobileController,
+                            controller: _homePhoneController,
                             label: 'Home',
                             icon: Icons.phone_outlined,
                             keyboardType: TextInputType.phone,
                           ),
 
                           _buildTextField(
-                            controller: _mobileController,
-                            label: 'Mobile',
+                            controller: _phoneController,
+                            label: 'Phone',
                             icon: Icons.phone_outlined,
                             keyboardType: TextInputType.phone,
                           ),

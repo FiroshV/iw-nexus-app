@@ -159,6 +159,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (confirmed == true) {
       try {
         final response = await ApiService.deleteUser(userId);
+        if (!mounted) return;
         if (response.success) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -176,6 +177,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           );
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete user: $e'),

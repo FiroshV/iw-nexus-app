@@ -226,25 +226,23 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> verifyOtpAndLogin({
     required String signInId,
     required String code,
+    String? provider,
   }) async {
     _setLoading(true);
     _clearError();
 
     try {
-      // Check if this is a Firebase phone verification (signInId starts with phone number)
-      if (signInId.startsWith('+')) {
+      // Check if this is a Firebase phone verification
+      if (provider == 'firebase') {
         // This is Firebase phone authentication - simplified flow
         final firebaseResponse = await FirebasePhoneAuthService.verifyPhoneOTP(code);
         
         if (firebaseResponse['success'] == true) {
-          // Firebase verification successful - directly notify backend and create session
-          final firebaseUser = firebaseResponse['user'];
-          final firebaseUid = firebaseUser['uid'];
-          final phoneNumber = firebaseUser['phoneNumber'];
+          // Firebase verification successful - send ID token to backend
+          final idToken = firebaseResponse['idToken'];
           
-          final backendResponse = await ApiService.notifyFirebaseSignin(
-            firebaseUid: firebaseUid,
-            phoneNumber: phoneNumber,
+          final backendResponse = await ApiService.verifyFirebaseToken(
+            idToken: idToken,
           );
           
           if (backendResponse.success) {
@@ -335,14 +333,17 @@ class AuthProvider extends ChangeNotifier {
   Future<ApiResponse<Map<String, dynamic>>> resendOtp({
     required String signInId,
     required String method,
+    String? provider,
+    String? identifier,
   }) async {
     _setLoading(true);
     _clearError();
 
     try {
-      if (method == 'phone' && signInId.startsWith('+')) {
+      if (provider == 'firebase' && method == 'phone') {
         // Use Firebase for phone OTP resend
-        final firebaseResponse = await FirebasePhoneAuthService.resendPhoneOTP(signInId);
+        final phoneNumber = identifier ?? signInId; // Use identifier if available, fallback to signInId
+        final firebaseResponse = await FirebasePhoneAuthService.resendPhoneOTP(phoneNumber);
         
         if (firebaseResponse['success'] == true) {
           return ApiResponse<Map<String, dynamic>>(
@@ -350,7 +351,7 @@ class AuthProvider extends ChangeNotifier {
             message: firebaseResponse['message'],
             data: {
               'signInId': firebaseResponse['verificationId'],
-              'identifier': signInId,
+              'identifier': identifier ?? signInId,
               'provider': 'firebase'
             },
           );

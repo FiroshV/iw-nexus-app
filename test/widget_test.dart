@@ -36,6 +36,6 @@ void main() {
     // Check for key text elements
     expect(find.text('IW Nexus'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Mobile'), findsOneWidget);
+    expect(find.text('Phone'), findsOneWidget);
   });
 }

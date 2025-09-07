@@ -20,16 +20,16 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   bool hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  
+
   String? selectedStatus;
   bool showFilters = false;
   Timer? _debounceTimer;
-  
+
   final List<String> statuses = [
     'All',
     'active',
     'inactive',
-    'temporarily_closed'
+    'temporarily_closed',
   ];
 
   @override
@@ -48,7 +48,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
       if (hasMore && !isLoading) {
         _loadMoreBranches();
       }
@@ -90,7 +91,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
             } else {
               branches.addAll(newBranches);
             }
-            
+
             currentPage = pagination['currentPage'] ?? 1;
             totalPages = pagination['totalPages'] ?? 1;
             hasMore = pagination['hasNext'] ?? false;
@@ -118,11 +119,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
 
   Future<void> _loadMoreBranches() async {
     if (isLoading || !hasMore) return;
-    
+
     setState(() {
       isLoading = true;
     });
-    
+
     currentPage++;
     await _loadBranches();
   }
@@ -131,138 +132,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
     await _loadBranches(refresh: true);
   }
 
-  void _showFilterBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Filter Branches',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF272579),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            // Status filter
-            const Text(
-              'Status',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF272579),
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: selectedStatus,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              items: statuses.map((status) {
-                return DropdownMenuItem<String>(
-                  value: status,
-                  child: Text(status == 'All' ? 'All Status' : status.replaceAll('_', ' ').toUpperCase()),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedStatus = value;
-                });
-              },
-            ),
-            
-            const SizedBox(height: 24),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        selectedStatus = null;
-                        _searchController.clear();
-                      });
-                      Navigator.pop(context);
-                      _refreshBranches();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Clear Filters'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _refreshBranches();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF272579),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Apply Filters'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showDeleteConfirmation(Branch branch) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             'Delete Branch',
             style: TextStyle(
@@ -292,7 +169,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text(
                 'Delete',
@@ -314,12 +193,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   Future<void> _deleteBranch(Branch branch) async {
     try {
       final response = await ApiService.deleteBranch(branch.id);
-      
+
       if (mounted) {
         if (response.success) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Branch "${branch.branchName}" deleted successfully'),
+              content: Text(
+                'Branch "${branch.branchName}" deleted successfully',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -416,7 +297,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AddEditBranchScreen(branch: branch),
+                            builder: (context) =>
+                                AddEditBranchScreen(branch: branch),
                           ),
                         ).then((result) {
                           if (result == true) {
@@ -452,57 +334,59 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                    child: Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       '${branch.branchAddress.city}, ${branch.branchAddress.state}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                    child: Icon(
+                      Icons.person,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'Manager: ${branch.managerName}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -511,18 +395,20 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                   Flexible(
                     child: Text(
                       '${branch.employeeCount} employees',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(branch.status).withValues(alpha: 0.1),
+                      color: _getStatusColor(
+                        branch.status,
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -577,16 +463,6 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.white),
-            onPressed: _showFilterBottomSheet,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _refreshBranches,
-          ),
-        ],
       ),
       backgroundColor: const Color(0xFFf8f9fa),
       body: Column(
@@ -611,11 +487,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
             ),
           ),
-          
+
           // Content
           Expanded(
             child: error != null
@@ -650,51 +529,51 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                     ),
                   )
                 : branches.isEmpty && !isLoading
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.business_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No branches found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Add your first branch to get started',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.business_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _refreshBranches,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          itemCount: branches.length + (isLoading ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index >= branches.length) {
-                              return const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(child: CircularProgressIndicator()),
-                              );
-                            }
-                            return _buildBranchCard(branches[index]);
-                          },
+                        const SizedBox(height: 16),
+                        Text(
+                          'No branches found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add your first branch to get started',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _refreshBranches,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: branches.length + (isLoading ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= branches.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        return _buildBranchCard(branches[index]);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),

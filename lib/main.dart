@@ -233,20 +233,6 @@ class _DashboardPageState extends State<DashboardPage> {
     return isAdminResult;
   }
 
-  String _getUserInitials() {
-    if (currentUser == null) return 'U';
-    final firstName = currentUser!['firstName']?.toString() ?? '';
-    final lastName = currentUser!['lastName']?.toString() ?? '';
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '${firstName[0]}${lastName[0]}'.toUpperCase();
-    } else if (firstName.isNotEmpty) {
-      return firstName[0].toUpperCase();
-    } else if (lastName.isNotEmpty) {
-      return lastName[0].toUpperCase();
-    }
-    return 'U';
-  }
 
   String _getUserDisplayName() {
     if (currentUser == null) return 'User';

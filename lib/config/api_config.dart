@@ -61,7 +61,7 @@ class ApiConfig {
   static Map<String, String> get appHeaders {
     return {
       ...defaultHeaders,
-      'User-Agent': 'IWNexus-Mobile/${_getAppVersion()}',
+      'User-Agent': 'IWNexus-Phone/${_getAppVersion()}',
       'X-App-Platform': _getPlatform(),
       'X-App-Environment': _getEnvironment(),
     };

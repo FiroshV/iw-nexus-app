@@ -7,12 +7,14 @@ class OTPVerificationPage extends StatefulWidget {
   final String signInId;
   final String loginMethod;
   final String loginValue;
+  final String? provider;
 
   const OTPVerificationPage({
     super.key,
     required this.signInId,
     required this.loginMethod,
     required this.loginValue,
+    this.provider,
   });
 
   @override
@@ -113,6 +115,7 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       final success = await authProvider.verifyOtpAndLogin(
         signInId: widget.signInId,
         code: _getOTPValue(),
+        provider: widget.provider,
       );
 
       setState(() {
@@ -168,6 +171,8 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       final response = await authProvider.resendOtp(
         signInId: widget.signInId,
         method: widget.loginMethod,
+        provider: widget.provider,
+        identifier: widget.loginValue,
       );
 
       setState(() {
@@ -225,7 +230,7 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
         return '$maskedUsername@$domain';
       }
     } else {
-      // Mobile number with +91 prefix
+      // Phone number with +91 prefix
       String phoneNumber = widget.loginValue;
       
       // Handle cases where phone number already has +91 prefix

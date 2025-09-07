@@ -34,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
 
   String? _validateLogin(String? value) {
     if (value == null || value.isEmpty) {
-      return _isEmailMode ? 'Please enter your email' : 'Please enter your mobile number';
+      return _isEmailMode ? 'Please enter your email' : 'Please enter your phone number';
     }
     
     if (_isEmailMode) {
@@ -44,10 +44,10 @@ class _LoginPageState extends State<LoginPage> {
         return 'Please enter a valid email address';
       }
     } else {
-      // Mobile number validation (10 digits for Indian numbers)
-      final mobileRegex = RegExp(r'^[0-9]{10}$');
-      if (!mobileRegex.hasMatch(value)) {
-        return 'Please enter a valid 10-digit mobile number';
+      // Phone number validation (10 digits for Indian numbers)
+      final phoneRegex = RegExp(r'^[0-9]{10}$');
+      if (!phoneRegex.hasMatch(value)) {
+        return 'Please enter a valid 10-digit phone number';
       }
     }
     
@@ -89,6 +89,7 @@ class _LoginPageState extends State<LoginPage> {
                 signInId: response.data?['signInId'] ?? '',
                 loginMethod: _isEmailMode ? 'email' : 'phone',
                 loginValue: response.data?['identifier'] ?? (_isEmailMode ? _loginController.text : _getFormattedPhoneNumber()),
+                provider: response.data?['provider'],
               ),
             ),
           );

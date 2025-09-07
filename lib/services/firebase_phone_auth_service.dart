@@ -44,7 +44,7 @@ class FirebasePhoneAuthService {
           if (!completer.isCompleted) {
             completer.complete({
               'success': true,
-              'message': 'OTP sent to your phone number',
+              'message': 'OTP sent to your mobile number',
               'verificationId': verificationId,
             });
           }
@@ -162,7 +162,7 @@ class FirebasePhoneAuthService {
           if (!completer.isCompleted) {
             completer.complete({
               'success': true,
-              'message': 'OTP resent to your phone number',
+              'message': 'OTP resent to your mobile number',
               'verificationId': verificationId,
             });
           }
