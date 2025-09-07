@@ -21,20 +21,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
-  String? selectedRole;
-  String? selectedStatus;
-  bool showFilters = false;
-
-  final List<String> roles = [
-    'All',
-    'Field Agent',
-    'Telecaller',
-    'Manager',
-    'Director',
-    'admin',
-  ];
-
-  final List<String> statuses = ['All', 'active', 'inactive', 'terminated'];
 
   @override
   void initState() {
@@ -74,8 +60,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       final response = await ApiService.getAllUsers(
         page: currentPage,
         limit: 20,
-        role: selectedRole == 'All' ? null : selectedRole,
-        status: selectedStatus == 'All' ? null : selectedStatus,
         search: _searchController.text.isEmpty ? null : _searchController.text,
       );
 
@@ -195,135 +179,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-  Widget _buildFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildFilterChip('Role', selectedRole, roles, (value) {
-            setState(() {
-              selectedRole = value;
-            });
-            _loadUsers(refresh: true);
-          }),
-          const SizedBox(width: 8),
-          _buildFilterChip('Status', selectedStatus, statuses, (value) {
-            setState(() {
-              selectedStatus = value;
-            });
-            _loadUsers(refresh: true);
-          }),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildFilterChip(
-    String label,
-    String? selected,
-    List<String> options,
-    Function(String) onSelected,
-  ) {
-    final isSelected = selected != null && selected != 'All';
-    return PopupMenuButton<String>(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder: (context) => options
-          .map(
-            (option) => PopupMenuItem(
-              value: option,
-              child: Row(
-                children: [
-                  Icon(
-                    _getFilterIcon(label),
-                    size: 16,
-                    color: const Color(0xFF272579),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(option),
-                ],
-              ),
-            ),
-          )
-          .toList(),
-      onSelected: onSelected,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isSelected
-                ? [const Color(0xFF272579), const Color(0xFF0071bf)]
-                : [Colors.white, const Color(0xFFfbf8ff)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF272579).withValues(alpha: 0.3)
-                : const Color(0xFF272579).withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF272579).withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _getFilterIcon(label),
-              size: 16,
-              color: isSelected ? Colors.white : const Color(0xFF272579),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              selected ?? 'All',
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF272579),
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () => onSelected('All'),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 12,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _getFilterIcon(String filterType) {
-    switch (filterType) {
-      case 'Role':
-        return Icons.badge_rounded;
-      case 'Status':
-        return Icons.circle_rounded;
-      default:
-        return Icons.filter_list_rounded;
-    }
-  }
 
   Widget _buildUserCard(Map<String, dynamic> user) {
     final String fullName =
@@ -781,82 +637,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              showFilters = !showFilters;
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: showFilters
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF272579),
-                                        Color(0xFF0071bf),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    )
-                                  : null,
-                              color: showFilters
-                                  ? null
-                                  : const Color(0xFFf8f9fa),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: showFilters
-                                    ? const Color(
-                                        0xFF272579,
-                                      ).withValues(alpha: 0.3)
-                                    : const Color(
-                                        0xFF272579,
-                                      ).withValues(alpha: 0.1),
-                                width: 1,
-                              ),
-                              boxShadow: showFilters
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFF272579,
-                                        ).withValues(alpha: 0.2),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Icon(
-                              showFilters
-                                  ? Icons.filter_list_rounded
-                                  : Icons.filter_list_outlined,
-                              color: showFilters
-                                  ? Colors.white
-                                  : const Color(
-                                      0xFF272579,
-                                    ).withValues(alpha: 0.7),
-                              size: 20,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
 
-                  // Filter chips
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: showFilters
-                        ? Padding(
-                            key: const ValueKey('filters'),
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                            child: _buildFilterChips(),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('no-filters')),
-                  ),
                 ],
               ),
             ),
