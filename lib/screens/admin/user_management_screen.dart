@@ -25,7 +25,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   String? selectedStatus;
   bool showFilters = false;
 
-  final List<String> roles = ['All', 'employee', 'manager', 'hr', 'admin'];
+  final List<String> roles = [
+    'All',
+    'Field Agent',
+    'Telecaller',
+    'Manager',
+    'Director',
+    'admin',
+  ];
 
   final List<String> statuses = ['All', 'active', 'inactive', 'terminated'];
 

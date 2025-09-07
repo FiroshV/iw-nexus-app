@@ -977,7 +977,7 @@ class ApiService {
   /// - [lastName]: User's last name (required)
   /// - [email]: User's email address (required, must be unique)
   /// - [phoneNumber]: User's phone number (required, must be unique)
-  /// - [role]: User's role - 'employee', 'manager', 'admin', etc. (required)
+  /// - [role]: User's role - 'admin', 'manager', 'director', 'field_staff', 'telecaller' (required)
   /// - [designation]: User's job title/designation (required)
   /// - [dateOfJoining]: Date when user joined (ISO string, optional)
   /// - [managerId]: ID of the user's manager (optional)
@@ -994,7 +994,7 @@ class ApiService {
   ///   lastName: 'Doe',
   ///   email: 'john.doe@company.com',
   ///   phoneNumber: '+1234567890',
-  ///   role: 'employee',
+  ///   role: 'field_staff',
   ///   designation: 'Software Engineer',
   /// );
   /// 

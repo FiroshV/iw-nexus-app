@@ -29,9 +29,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   bool isSubmitting = false;
 
   final List<String> roles = [
-    'employee',
     'manager',
-    'hr',
     'admin'
   ];
   

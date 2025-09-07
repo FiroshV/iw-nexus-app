@@ -10,6 +10,7 @@ import 'widgets/id_card_widget.dart';
 import 'widgets/user_avatar.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
+import 'services/access_control_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
 import 'screens/attendance_screen.dart';
@@ -224,14 +225,13 @@ class _DashboardPageState extends State<DashboardPage> {
   bool get isAdmin {
     debugPrint('🔍 Debug: Current user data: $currentUser');
     debugPrint('🔍 Debug: User role: ${currentUser?['role']}');
-    final userRole = currentUser?['role']?.toString().toLowerCase();
-    final isAdminResult =
-        userRole == 'admin' ||
-        userRole == 'administrator' ||
-        userRole == 'director';
+    final userRole = currentUser?['role']?.toString();
+    final isAdminResult = AccessControlService.isAdmin(userRole);
     debugPrint('🔍 Debug: Is admin check result: $isAdminResult');
     return isAdminResult;
   }
+
+  String get userRole => currentUser?['role']?.toString() ?? '';
 
 
   String _getUserDisplayName() {
@@ -760,8 +760,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         },
                       ),
 
-                      // Admin-only: User Management
-                      if (isAdmin) ...[
+                      // User Management - accessible to admin, hr, manager, director
+                      if (AccessControlService.hasAccess(userRole, 'user_management', 'view')) ...[
                         _buildDashboardCard(
                           title: 'Employees',
                           subtitle: 'Manage team members',
@@ -776,7 +776,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             );
                           },
                         ),
+                      ],
 
+                      // Branch Management - accessible to admin, manager, director
+                      if (AccessControlService.hasAccess(userRole, 'branch_management', 'view')) ...[
                         _buildDashboardCard(
                           title: 'Branches',
                           subtitle: 'Manage office locations',
@@ -791,7 +794,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             );
                           },
                         ),
+                      ],
 
+                      // Reports - accessible to admin, hr, manager, director
+                      if (AccessControlService.hasAccess(userRole, 'reports', 'attendance_reports')) ...[
                         _buildDashboardCard(
                           title: 'Reports',
                           subtitle: 'Analytics & insights',
