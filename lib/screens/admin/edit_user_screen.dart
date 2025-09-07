@@ -4,7 +4,7 @@ import '../../services/api_service.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Map<String, dynamic> user;
-  
+
   const EditUserScreen({super.key, required this.user});
 
   @override
@@ -19,11 +19,11 @@ class _EditUserScreenState extends State<EditUserScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
-  
+
   String? selectedRole;
   String? selectedManagerId;
   DateTime? selectedJoiningDate;
-  
+
   List<Map<String, dynamic>> managers = [];
   bool isLoadingManagers = false;
   bool isSubmitting = false;
@@ -42,7 +42,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     'director',
     'admin',
   ];
-  
+
   @override
   void initState() {
     super.initState();
@@ -56,14 +56,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _emailController.text = widget.user['email'] ?? '';
     _phoneController.text = widget.user['phoneNumber'] ?? '';
     _designationController.text = widget.user['designation'] ?? '';
-    
+
     // Ensure the user's role exists in the available roles list
     final userRole = widget.user['role'];
     selectedRole = roles.contains(userRole) ? userRole : null;
-    
-    
+
     selectedManagerId = widget.user['managerId']?['_id'];
-    
+
     if (widget.user['dateOfJoining'] != null) {
       selectedJoiningDate = DateTime.parse(widget.user['dateOfJoining']);
     }
@@ -113,7 +112,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
             managers = List<Map<String, dynamic>>.from(response.data as List);
           } else if (response.data is Map<String, dynamic>) {
             final responseMap = response.data as Map<String, dynamic>;
-            managers = List<Map<String, dynamic>>.from(responseMap['data'] ?? []);
+            managers = List<Map<String, dynamic>>.from(
+              responseMap['data'] ?? [],
+            );
           } else {
             managers = [];
           }
@@ -146,9 +147,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
               surface: surfaceLight,
               onSurface: Colors.black87,
             ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: surfaceLight,
-            ),
+            dialogTheme: const DialogThemeData(backgroundColor: surfaceLight),
           ),
           child: child!,
         );
@@ -180,7 +179,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'role': selectedRole!,
         'designation': _designationController.text.trim(),
         if (selectedManagerId != null) 'managerId': selectedManagerId,
-        if (selectedJoiningDate != null) 'dateOfJoining': selectedJoiningDate!.toIso8601String(),
+        if (selectedJoiningDate != null)
+          'dateOfJoining': selectedJoiningDate!.toIso8601String(),
       };
 
       final response = await ApiService.updateUser(
@@ -222,7 +222,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
           message,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: brandPrimary,
           ),
         ),
         backgroundColor: backgroundColor,
@@ -235,8 +235,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String fullName = '${widget.user['firstName'] ?? ''} ${widget.user['lastName'] ?? ''}'.trim();
-    
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -494,17 +492,21 @@ class _EditUserScreenState extends State<EditUserScreen> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      items: roles.map((role) => DropdownMenuItem(
-        value: role,
-        child: Text(
-          _formatRoleDisplay(role),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-      )).toList(),
+      items: roles
+          .map(
+            (role) => DropdownMenuItem(
+              value: role,
+              child: Text(
+                _formatRoleDisplay(role),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          )
+          .toList(),
       onChanged: (value) => setState(() => selectedRole = value),
       validator: (value) => value == null ? 'Please select a role' : null,
     );
@@ -552,27 +554,27 @@ class _EditUserScreenState extends State<EditUserScreen> {
         ...managers
             .where((manager) => manager['_id'] != widget.user['_id'])
             .map((manager) {
-          final firstName = manager['firstName'] ?? '';
-          final lastName = manager['lastName'] ?? '';
-          final employeeId = manager['employeeId'] ?? '';
-          final fullName = '$firstName $lastName'.trim();
-          final displayText = employeeId.isNotEmpty
-              ? '$fullName ($employeeId)'
-              : fullName;
+              final firstName = manager['firstName'] ?? '';
+              final lastName = manager['lastName'] ?? '';
+              final employeeId = manager['employeeId'] ?? '';
+              final fullName = '$firstName $lastName'.trim();
+              final displayText = employeeId.isNotEmpty
+                  ? '$fullName ($employeeId)'
+                  : fullName;
 
-          return DropdownMenuItem<String>(
-            value: manager['_id'] ?? manager['id'],
-            child: Text(
-              displayText,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          );
-        }),
+              return DropdownMenuItem<String>(
+                value: manager['_id'] ?? manager['id'],
+                child: Text(
+                  displayText,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              );
+            }),
       ],
       onChanged: (value) => setState(() => selectedManagerId = value),
     );
@@ -660,10 +662,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   SizedBox(width: 16),
                   Text(
                     'Updating...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
               )
@@ -674,10 +673,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   SizedBox(width: 8),
                   Text(
                     'Update User',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

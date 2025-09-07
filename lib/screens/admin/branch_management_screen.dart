@@ -21,16 +21,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
-  String? selectedStatus;
   bool showFilters = false;
   Timer? _debounceTimer;
-
-  final List<String> statuses = [
-    'All',
-    'active',
-    'inactive',
-    'temporarily_closed',
-  ];
 
   @override
   void initState() {
@@ -71,7 +63,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       final response = await ApiService.getBranches(
         page: currentPage,
         limit: 20,
-        status: selectedStatus == 'All' ? null : selectedStatus,
+        status: null,
         search: _searchController.text.isEmpty ? null : _searchController.text,
       );
 
@@ -351,7 +343,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '${branch.branchAddress.city}, ${branch.branchAddress.state}',
+                      branch.branchName,
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -400,26 +392,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        branch.status,
-                      ).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      branch.status.displayName,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _getStatusColor(branch.status),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                 
                 ],
               ),
             ],
@@ -427,17 +400,6 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
         ),
       ),
     );
-  }
-
-  Color _getStatusColor(BranchStatus status) {
-    switch (status) {
-      case BranchStatus.active:
-        return Colors.green;
-      case BranchStatus.inactive:
-        return Colors.red;
-      case BranchStatus.temporarilyClosed:
-        return Colors.orange;
-    }
   }
 
   @override

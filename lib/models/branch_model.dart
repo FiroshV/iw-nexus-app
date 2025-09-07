@@ -1,62 +1,3 @@
-class BranchAddress {
-  final String street;
-  final String city;
-  final String state;
-  final String pincode;
-  final String country;
-
-  BranchAddress({
-    required this.street,
-    required this.city,
-    required this.state,
-    required this.pincode,
-    required this.country,
-  });
-
-  factory BranchAddress.fromJson(Map<String, dynamic> json) {
-    return BranchAddress(
-      street: json['street'] ?? '',
-      city: json['city'] ?? '',
-      state: json['state'] ?? '',
-      pincode: json['pincode'] ?? '',
-      country: json['country'] ?? 'India',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'street': street,
-      'city': city,
-      'state': state,
-      'pincode': pincode,
-      'country': country,
-    };
-  }
-
-  String get fullAddress {
-    return '$street, $city, $state - $pincode, $country';
-  }
-
-  BranchAddress copyWith({
-    String? street,
-    String? city,
-    String? state,
-    String? pincode,
-    String? country,
-  }) {
-    return BranchAddress(
-      street: street ?? this.street,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      pincode: pincode ?? this.pincode,
-      country: country ?? this.country,
-    );
-  }
-
-  @override
-  String toString() => fullAddress;
-}
-
 class ContactInfo {
   final String? phone;
   final String? email;
@@ -201,7 +142,7 @@ class Branch {
   final String id;
   final String branchId;
   final String branchName;
-  final BranchAddress branchAddress;
+  final String branchAddress;
   final BranchManager? branchManager;
   final ContactInfo contactInfo;
   final BranchStatus status;
@@ -229,7 +170,7 @@ class Branch {
       id: json['_id'] ?? json['id'] ?? '',
       branchId: json['branchId'] ?? '',
       branchName: json['branchName'] ?? '',
-      branchAddress: BranchAddress.fromJson(json['branchAddress'] ?? {}),
+      branchAddress: json['branchAddress'] ?? '',
       branchManager: json['branchManager'] != null 
           ? BranchManager.fromJson(json['branchManager'])
           : null,
@@ -249,7 +190,7 @@ class Branch {
       '_id': id,
       'branchId': branchId,
       'branchName': branchName,
-      'branchAddress': branchAddress.toJson(),
+      'branchAddress': branchAddress,
       'branchManager': branchManager?.toJson(),
       'contactInfo': contactInfo.toJson(),
       'status': status.toJson(),
@@ -264,7 +205,7 @@ class Branch {
   Map<String, dynamic> toCreateJson() {
     final Map<String, dynamic> json = {
       'branchName': branchName,
-      'branchAddress': branchAddress.toJson(),
+      'branchAddress': branchAddress,
       'contactInfo': contactInfo.toJson(),
       'status': status.toJson(),
     };
@@ -284,7 +225,7 @@ class Branch {
     String? id,
     String? branchId,
     String? branchName,
-    BranchAddress? branchAddress,
+    String? branchAddress,
     BranchManager? branchManager,
     ContactInfo? contactInfo,
     BranchStatus? status,
@@ -307,8 +248,6 @@ class Branch {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
-  String get fullAddress => branchAddress.fullAddress;
 
   String get managerName => branchManager?.fullName ?? 'Not Assigned';
 
@@ -340,42 +279,12 @@ class BranchValidation {
     return null;
   }
 
-  static String? validateStreet(String? value) {
+  static String? validateAddress(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Street address is required';
+      return 'Branch address is required';
     }
-    if (value.trim().length > 200) {
-      return 'Street address must not exceed 200 characters';
-    }
-    return null;
-  }
-
-  static String? validateCity(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'City is required';
-    }
-    if (value.trim().length > 50) {
-      return 'City must not exceed 50 characters';
-    }
-    return null;
-  }
-
-  static String? validateState(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'State is required';
-    }
-    if (value.trim().length > 50) {
-      return 'State must not exceed 50 characters';
-    }
-    return null;
-  }
-
-  static String? validatePincode(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Pincode is required';
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
-      return 'Pincode must be exactly 6 digits';
+    if (value.trim().length > 500) {
+      return 'Branch address must not exceed 500 characters';
     }
     return null;
   }

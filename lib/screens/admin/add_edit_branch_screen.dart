@@ -20,66 +20,17 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
 
   // Controllers
   final _branchNameController = TextEditingController();
-  final _streetController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
-  final _pincodeController = TextEditingController();
-  final _countryController = TextEditingController();
+  final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
 
   // State variables
   bool isLoading = false;
   bool isSaving = false;
-  String? selectedStatus;
   String? selectedManagerId;
   DateTime? selectedEstablishedDate;
   List<Map<String, dynamic>> availableManagers = [];
   bool loadingManagers = false;
-
-  // Constants
-  static const List<String> branchStatuses = [
-    'active',
-    'inactive',
-    'temporarily_closed',
-  ];
-  static const List<String> indianStates = [
-    'Andhra Pradesh',
-    'Arunachal Pradesh',
-    'Assam',
-    'Bihar',
-    'Chhattisgarh',
-    'Goa',
-    'Gujarat',
-    'Haryana',
-    'Himachal Pradesh',
-    'Jharkhand',
-    'Karnataka',
-    'Kerala',
-    'Madhya Pradesh',
-    'Maharashtra',
-    'Manipur',
-    'Meghalaya',
-    'Mizoram',
-    'Nagaland',
-    'Odisha',
-    'Punjab',
-    'Rajasthan',
-    'Sikkim',
-    'Tamil Nadu',
-    'Telangana',
-    'Tripura',
-    'Uttar Pradesh',
-    'Uttarakhand',
-    'West Bengal',
-    'Delhi',
-    'Puducherry',
-    'Chandigarh',
-    'Dadra and Nagar Haveli',
-    'Daman and Diu',
-    'Lakshadweep',
-    'Andaman and Nicobar Islands',
-  ];
 
   // Company colors
   static const Color brandPrimary = Color(0xFF272579);
@@ -99,11 +50,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
   @override
   void dispose() {
     _branchNameController.dispose();
-    _streetController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
-    _pincodeController.dispose();
-    _countryController.dispose();
+    _addressController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _scrollController.dispose();
@@ -114,20 +61,12 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     if (widget.isEditing) {
       final branch = widget.branch!;
       _branchNameController.text = branch.branchName;
-      _streetController.text = branch.branchAddress.street;
-      _cityController.text = branch.branchAddress.city;
-      _stateController.text = branch.branchAddress.state;
-      _pincodeController.text = branch.branchAddress.pincode;
-      _countryController.text = branch.branchAddress.country;
+      _addressController.text = branch.branchAddress;
       _phoneController.text = branch.contactInfo.phone ?? '';
       _emailController.text = branch.contactInfo.email ?? '';
-      selectedStatus = branch.status.toJson();
       selectedManagerId = branch.branchManager?.id;
       selectedEstablishedDate = branch.establishedDate;
-    } else {
-      selectedStatus = 'active';
-      _countryController.text = 'India';
-    }
+    } 
   }
 
   Future<void> _loadAvailableManagers() async {
@@ -225,11 +164,6 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     }
     debugPrint('🔄 Saving branch... 2');
 
-    if (selectedStatus == null) {
-      _showSnackBar('Please select a branch status', Colors.red);
-      return;
-    }
-
     setState(() {
       isSaving = true;
     });
@@ -237,13 +171,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     try {
       final branchData = {
         'branchName': _branchNameController.text.trim(),
-        'branchAddress': {
-          'street': _streetController.text.trim(),
-          'city': _cityController.text.trim(),
-          'state': _stateController.text.trim(),
-          'pincode': _pincodeController.text.trim(),
-          'country': _countryController.text.trim(),
-        },
+        'branchAddress':  _addressController.text.trim(),
         'contactInfo': {
           'phone': _phoneController.text.trim().isNotEmpty
               ? _phoneController.text.trim()
@@ -252,7 +180,6 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
               ? _emailController.text.trim()
               : null,
         },
-        'status': selectedStatus,
         'establishedDate': selectedEstablishedDate?.toIso8601String(),
       };
 
@@ -309,7 +236,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
           message,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: brandPrimary,
           ),
         ),
         backgroundColor: backgroundColor,
@@ -467,7 +394,6 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
           isRequired: true,
           validator: BranchValidation.validateBranchName,
         ),
-        _buildStatusDropdown(),
         _buildManagerDropdown(),
         _buildDateField(),
       ],
@@ -480,38 +406,13 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
       icon: Icons.location_on_outlined,
       children: [
         _buildTextField(
-          controller: _streetController,
-          label: 'Street Address',
-          icon: Icons.home_outlined,
-          maxLines: 2,
+          controller: _addressController,
+          label: 'Branch Address',
+          icon: Icons.location_on_outlined,
+          maxLines: 3,
           isRequired: true,
-          validator: BranchValidation.validateStreet,
-        ),
-        _buildTextField(
-          controller: _cityController,
-          label: 'City',
-          icon: Icons.location_city_outlined,
-          isRequired: true,
-          validator: BranchValidation.validateCity,
-        ),
-        _buildStateDropdown(),
-        _buildTextField(
-          controller: _pincodeController,
-          label: 'Pincode',
-          icon: Icons.pin_drop_outlined,
-          keyboardType: TextInputType.number,
-          isRequired: true,
-          validator: BranchValidation.validatePincode,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
-          ],
-        ),
-        _buildTextField(
-          controller: _countryController,
-          label: 'Country',
-          icon: Icons.public_outlined,
-          readOnly: true,
+          validator: BranchValidation.validateAddress,
+          hintText: 'Enter complete branch address',
         ),
       ],
     );
@@ -668,98 +569,6 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
         fontWeight: FontWeight.w500,
         color: Colors.black87,
       ),
-    );
-  }
-
-  Widget _buildStatusDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedStatus,
-      decoration: InputDecoration(
-        labelText: 'Status *',
-        prefixIcon: const Icon(Icons.info_outline, color: primaryBlue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceLight,
-        labelStyle: TextStyle(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      items: branchStatuses.map((status) {
-        return DropdownMenuItem<String>(
-          value: status,
-          child: Text(
-            _getStatusDisplayName(status),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) => setState(() => selectedStatus = value),
-      validator: (value) =>
-          value == null || value.isEmpty ? 'Please select a status' : null,
-    );
-  }
-
-  Widget _buildStateDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: indianStates.contains(_stateController.text)
-          ? _stateController.text
-          : null,
-      decoration: InputDecoration(
-        labelText: 'State *',
-        prefixIcon: const Icon(Icons.map_outlined, color: primaryBlue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceLight,
-        labelStyle: TextStyle(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      isExpanded: true,
-      items: indianStates.map((state) {
-        return DropdownMenuItem<String>(
-          value: state,
-          child: Text(
-            state,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) => setState(() => _stateController.text = value ?? ''),
-      validator: (value) =>
-          value == null || value.isEmpty ? 'Please select a state' : null,
     );
   }
 
@@ -933,16 +742,4 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     );
   }
 
-  String _getStatusDisplayName(String status) {
-    switch (status) {
-      case 'active':
-        return 'Active';
-      case 'inactive':
-        return 'Inactive';
-      case 'temporarily_closed':
-        return 'Temporarily Closed';
-      default:
-        return status.replaceAll('_', ' ').toUpperCase();
-    }
-  }
 }

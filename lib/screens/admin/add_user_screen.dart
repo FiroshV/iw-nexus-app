@@ -186,7 +186,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
           message,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: brandPrimary,
           ),
         ),
         backgroundColor: backgroundColor,
