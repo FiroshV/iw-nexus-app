@@ -748,7 +748,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       // Attendance card
                       _buildDashboardCard(
                         title: 'Attendance',
-                        subtitle: 'Check in/out & tracking',
+                        subtitle: 'Check in/out',
                         icon: Icons.schedule,
                         color: const Color(0xFF5cfbd8),
                         onTap: () {

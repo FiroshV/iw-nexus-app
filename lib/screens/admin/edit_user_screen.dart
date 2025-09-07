@@ -36,9 +36,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
   static const Color backgroundColor = Color(0xFFf8f9fa);
 
   final List<String> roles = [
-    'manager',
     'field_staff',
     'telecaller',
+    'manager',
     'director',
     'admin',
   ];
@@ -252,7 +252,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
           ),
         ),
         title: Text(
-          'Edit $fullName',
+          'Edit User Details',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 20,
