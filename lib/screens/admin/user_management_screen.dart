@@ -83,10 +83,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }
 
         setState(() {
+          // Filter out admin users
+          final filteredUsers = newUsers.where((user) => 
+            user['role'] != 'admin'
+          ).toList();
+          
           if (refresh || currentPage == 1) {
-            users = newUsers;
+            users = filteredUsers;
           } else {
-            users.addAll(newUsers);
+            users.addAll(filteredUsers);
           }
 
           if (pagination != null) {
@@ -224,11 +229,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    gradient: user['avatar'] != null
+                        ? null
+                        : const LinearGradient(
+                            colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -238,16 +245,47 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Text(
-                      fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                  child: user['avatar'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            user['avatar'],
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                 ),
 
                 const SizedBox(width: 16),
