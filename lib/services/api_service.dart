@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../config/api_endpoints.dart';
 import '../config/http_client_config.dart';
@@ -876,6 +878,95 @@ class ApiService {
     );
   }
 
+  /// Upload profile photo
+  static Future<ApiResponse<Map<String, dynamic>>> uploadProfilePhoto(
+    File imageFile,
+  ) async {
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final dio = Dio();
+      
+      // Prepare multipart form data
+      final formData = FormData.fromMap({
+        'photo': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      debugPrint('Uploading profile photo to $baseUrl/api/users/profile/photo');
+      // Make the request
+      final response = await dio.put(
+        '$baseUrl/users/profile/photo',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+
+      // Handle success response
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: response.data['data'],
+          message: response.data['message'],
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: response.data['message'] ?? 'Upload failed',
+          error: response.data['error'],
+        );
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          errorMessage = 'Upload timeout. Please check your internet connection.';
+          break;
+        case DioExceptionType.badResponse:
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errorMessage = data['message'];
+          } else {
+            errorMessage = 'Upload failed. Please try again.';
+          }
+          break;
+        default:
+          errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: errorMessage,
+        error: e.toString(),
+      );
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'An unexpected error occurred during upload',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Delete profile photo
+  static Future<ApiResponse<Map<String, dynamic>>> deleteProfilePhoto() async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/api/users/profile/photo',
+      HttpMethods.delete,
+    );
+  }
+
   // User Management endpoints (Admin only)
   /// Creates a new user in the system (Admin only).
   /// 
@@ -1306,16 +1397,11 @@ class ApiService {
   }
 
   // ID Card Management
-  static Future<ApiResponse> generateIdCard({
-    String? userId,
-  }) async {
+  static Future<ApiResponse> generateIdCard() async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl${ApiEndpoints.generateIdCard}'),
         headers: await _getHeaders(),
-        body: jsonEncode({
-          if (userId != null) 'userId': userId,
-        }),
       );
 
       if (response.statusCode == 200) {

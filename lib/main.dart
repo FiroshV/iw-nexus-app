@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/id_card_widget.dart';
+import 'widgets/user_avatar.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'screens/admin/user_management_screen.dart';
@@ -232,20 +233,6 @@ class _DashboardPageState extends State<DashboardPage> {
     return isAdminResult;
   }
 
-  String _getUserInitials() {
-    if (currentUser == null) return 'U';
-    final firstName = currentUser!['firstName']?.toString() ?? '';
-    final lastName = currentUser!['lastName']?.toString() ?? '';
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '${firstName[0]}${lastName[0]}'.toUpperCase();
-    } else if (firstName.isNotEmpty) {
-      return firstName[0].toUpperCase();
-    } else if (lastName.isNotEmpty) {
-      return lastName[0].toUpperCase();
-    }
-    return 'U';
-  }
 
   String _getUserDisplayName() {
     if (currentUser == null) return 'User';
@@ -305,16 +292,16 @@ class _DashboardPageState extends State<DashboardPage> {
             // Profile header
             Row(
               children: [
-                CircleAvatar(
+                UserAvatar(
+                  avatarUrl: currentUser?['avatar'],
+                  firstName: currentUser?['firstName'],
+                  lastName: currentUser?['lastName'],
                   radius: 30,
                   backgroundColor: const Color(0xFF5cfbd8),
-                  child: Text(
-                    _getUserInitials(),
-                    style: const TextStyle(
-                      color: Color(0xFF272579),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  textStyle: const TextStyle(
+                    color: Color(0xFF272579),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -676,16 +663,16 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircleAvatar(
+                          UserAvatar(
+                            avatarUrl: currentUser?['avatar'],
+                            firstName: currentUser?['firstName'],
+                            lastName: currentUser?['lastName'],
                             radius: 14,
                             backgroundColor: const Color(0xFF5cfbd8),
-                            child: Text(
-                              _getUserInitials(),
-                              style: const TextStyle(
-                                color: Color(0xFF272579),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            textStyle: const TextStyle(
+                              color: Color(0xFF272579),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(width: 8),

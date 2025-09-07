@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'user_avatar.dart';
 
 class IDCardWidget extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -63,20 +64,6 @@ class _IDCardWidgetState extends State<IDCardWidget>
     HapticFeedback.lightImpact();
   }
 
-  String _getUserInitials() {
-    if (widget.userData == null) return 'U';
-    final firstName = widget.userData!['firstName']?.toString() ?? '';
-    final lastName = widget.userData!['lastName']?.toString() ?? '';
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '${firstName[0]}${lastName[0]}'.toUpperCase();
-    } else if (firstName.isNotEmpty) {
-      return firstName[0].toUpperCase();
-    } else if (lastName.isNotEmpty) {
-      return lastName[0].toUpperCase();
-    }
-    return 'U';
-  }
 
   String _getUserDisplayName() {
     if (widget.userData == null) return 'User';
@@ -249,16 +236,16 @@ class _IDCardWidgetState extends State<IDCardWidget>
                   width: 2,
                 ),
               ),
-              child: CircleAvatar(
+              child: UserAvatar(
+                avatarUrl: widget.userData?['avatar'],
+                firstName: widget.userData?['firstName'],
+                lastName: widget.userData?['lastName'],
                 radius: 38,
                 backgroundColor: const Color(0xFF5cfbd8),
-                child: Text(
-                  _getUserInitials(),
-                  style: const TextStyle(
-                    color: Color(0xFF272579),
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                  ),
+                textStyle: const TextStyle(
+                  color: Color(0xFF272579),
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

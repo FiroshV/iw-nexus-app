@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_widget.dart';
+import '../widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,6 +15,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isUploadingPhoto = false;
 
   // Form controllers
   final _firstNameController = TextEditingController();
@@ -30,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   Map<String, dynamic>? _currentUser;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -154,20 +159,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _getUserInitials() {
-    if (_currentUser == null) return 'U';
-    final firstName = _currentUser!['firstName']?.toString() ?? '';
-    final lastName = _currentUser!['lastName']?.toString() ?? '';
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '${firstName[0]}${lastName[0]}'.toUpperCase();
-    } else if (firstName.isNotEmpty) {
-      return firstName[0].toUpperCase();
-    } else if (lastName.isNotEmpty) {
-      return lastName[0].toUpperCase();
-    }
-    return 'U';
-  }
 
   Future<void> _selectDateOfBirth() async {
     final DateTime? picked = await showDatePicker(
@@ -362,6 +353,175 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _showImagePickerDialog() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Profile Photo'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              if (_currentUser?['avatar'] != null)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteProfilePhoto();
+                  },
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        await _uploadProfilePhoto(File(image.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to select image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadProfilePhoto(File imageFile) async {
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final response = await ApiService.uploadProfilePhoto(imageFile);
+      
+      if (response.success && response.data != null) {
+        setState(() {
+          _currentUser = response.data!['user'];
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Profile photo updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Failed to upload profile photo'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteProfilePhoto() async {
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final response = await ApiService.deleteProfilePhoto();
+      
+      if (response.success) {
+        setState(() {
+          _currentUser = response.data;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Profile photo removed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message ?? 'Failed to remove profile photo'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -436,19 +596,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       child: Column(
                         children: [
-                          CircleAvatar(
+                          UserAvatarWithUpload(
+                            avatarUrl: _currentUser?['avatar'],
+                            firstName: _currentUser?['firstName'],
+                            lastName: _currentUser?['lastName'],
                             radius: 40,
-                            backgroundColor: const Color(0xFF5cfbd8),
-                            child: Text(
-                              _currentUser != null
-                                  ? _getUserInitials()
-                                  : 'U',
-                              style: const TextStyle(
-                                color: Color(0xFF272579),
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            isLoading: _isUploadingPhoto,
+                            onTap: _showImagePickerDialog,
                           ),
                           const SizedBox(height: 16),
                           Text(
