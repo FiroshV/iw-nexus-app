@@ -21,7 +21,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
 
-
   @override
   void initState() {
     super.initState();
@@ -179,36 +178,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-
-
   Widget _buildUserCard(Map<String, dynamic> user) {
     final String fullName =
         '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
     final String employeeId = user['employeeId'] ?? '';
     final String email = user['email'] ?? '';
     // final String role = user['role'] ?? '';
-    final String status = user['status'] ?? '';
     final String designation = user['designation'] ?? '';
-
-    Color statusColor;
-    Color statusBackgroundColor;
-    switch (status.toLowerCase()) {
-      case 'active':
-        statusColor = const Color(0xFF5cfbd8);
-        statusBackgroundColor = const Color(0xFF5cfbd8).withValues(alpha: 0.1);
-        break;
-      case 'inactive':
-        statusColor = Colors.orange;
-        statusBackgroundColor = Colors.orange.withValues(alpha: 0.1);
-        break;
-      case 'terminated':
-        statusColor = Colors.red;
-        statusBackgroundColor = Colors.red.withValues(alpha: 0.1);
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusBackgroundColor = Colors.grey.withValues(alpha: 0.1);
-    }
 
     return Container(
       decoration: BoxDecoration(
@@ -291,29 +267,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF272579),
                                 letterSpacing: -0.2,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusBackgroundColor,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: statusColor.withValues(alpha: 0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              status.toUpperCase(),
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -435,34 +388,33 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         ],
                       ),
                     ),
-                    if (status.toLowerCase() != 'terminated')
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.delete_rounded,
-                                size: 16,
-                                color: Colors.red,
-                              ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Delete User',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: const Icon(
+                              Icons.delete_rounded,
+                              size: 16,
+                              color: Colors.red,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Delete User',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
                   ],
                   onSelected: (value) {
                     switch (value) {
@@ -640,7 +592,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ],
                     ),
                   ),
-
                 ],
               ),
             ),
