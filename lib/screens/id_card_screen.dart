@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../services/api_service.dart';
 
-enum IDCardAction { download, share }
+enum IDCardAction { share }
 
 class IDCardScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -36,9 +36,7 @@ class _IDCardScreenState extends State<IDCardScreen> {
   Future<void> _executeAction() async {
     setState(() {
       _isProcessing = true;
-      _statusMessage = widget.action == IDCardAction.download
-          ? 'Generating ID card for download...'
-          : 'Generating ID card for sharing...';
+      _statusMessage = 'Generating ID card for sharing...';
     });
 
     try {
@@ -52,21 +50,15 @@ class _IDCardScreenState extends State<IDCardScreen> {
       // Convert response to PDF file
       final pdfFile = await _createPdfFileFromResponse(response.data);
       
-      if (widget.action == IDCardAction.download) {
-        await _saveToDownloads(pdfFile);
-      } else {
-        await _shareFile(pdfFile);
-      }
+      await _shareFile(pdfFile);
 
       setState(() {
         _isProcessing = false;
-        _statusMessage = widget.action == IDCardAction.download
-            ? 'ID card saved to downloads!'
-            : 'ID card shared successfully!';
+        _statusMessage = 'ID card shared successfully!';
       });
 
       // Auto close after 2 seconds
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
           Navigator.of(context).pop();
         }
@@ -100,22 +92,6 @@ class _IDCardScreenState extends State<IDCardScreen> {
     return file;
   }
 
-  Future<void> _saveToDownloads(File pdfFile) async {
-    try {
-      final downloadsDirectory = await getExternalStorageDirectory();
-      if (downloadsDirectory != null) {
-        final fileName = 'ID_Card_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        final savedFile = File('${downloadsDirectory.path}/$fileName');
-        await pdfFile.copy(savedFile.path);
-        
-        // Show success feedback
-        HapticFeedback.heavyImpact();
-      }
-    } catch (e) {
-      throw Exception('Failed to save file: $e');
-    }
-  }
-
   Future<void> _shareFile(File pdfFile) async {
     try {
       await Share.shareXFiles(
@@ -135,9 +111,7 @@ class _IDCardScreenState extends State<IDCardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.action == IDCardAction.download ? 'Download ID Card' : 'Share ID Card',
-        ),
+        title: const Text('Share ID Card'),
         backgroundColor: const Color(0xFF272579),
         foregroundColor: Colors.white,
       ),
@@ -226,17 +200,6 @@ class _IDCardScreenState extends State<IDCardScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'Close',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ],
             ],
           ),

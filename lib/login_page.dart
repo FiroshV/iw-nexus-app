@@ -230,7 +230,7 @@ class _LoginPageState extends State<LoginPage> {
                         : [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
                         labelText: _isEmailMode ? 'Email Address' : 'Mobile Number',
-                        hintText: _isEmailMode ? 'example@company.com' : '9876543210',
+                        hintText: '',
                         prefixIcon: Icon(_isEmailMode ? Icons.email : Icons.phone),
                         prefixText: _isEmailMode ? null : '+91 ',
                         prefixStyle: const TextStyle(

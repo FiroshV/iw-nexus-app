@@ -5,7 +5,6 @@ import 'user_avatar.dart';
 
 class IDCardWidget extends StatefulWidget {
   final Map<String, dynamic>? userData;
-  final VoidCallback? onDownload;
   final VoidCallback? onShare;
   final bool showFullCard;
   final bool showWelcomeCard;
@@ -13,7 +12,6 @@ class IDCardWidget extends StatefulWidget {
   const IDCardWidget({
     super.key,
     this.userData,
-    this.onDownload,
     this.onShare,
     this.showFullCard = false,
     this.showWelcomeCard = false,
@@ -373,7 +371,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
             ),
           ),
           Text(
-            'Download or share your employee ID card',
+            'Share your employee ID card',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -382,59 +380,29 @@ class _IDCardWidgetState extends State<IDCardWidget>
           
           const SizedBox(height: 20),
           
-          // Action Buttons - Compact Row Layout
-          Row(
-            children: [
-              // Download Button
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.onDownload,
-                  icon: const Icon(Icons.download, size: 16),
-                  label: const Text(
-                    'Download',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF272579),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 2,
-                  ),
+          // Share Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onShare,
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text(
+                'Share ID Card',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              
-              const SizedBox(width: 12),
-              
-              // Share Button
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.onShare,
-                  icon: const Icon(Icons.share, size: 16),
-                  label: const Text(
-                    'Share',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5cfbd8),
-                    foregroundColor: const Color(0xFF272579),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 2,
-                  ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5cfbd8),
+                foregroundColor: const Color(0xFF272579),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 2,
               ),
-            ],
+            ),
           ),
           
           const SizedBox(height: 16),
@@ -515,7 +483,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
                       ),
                     ),
                     Text(
-                      'Download or share your ID',
+                      'Share your ID',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -530,61 +498,29 @@ class _IDCardWidgetState extends State<IDCardWidget>
           
           const SizedBox(height: 40),
           
-          // Action Buttons
-          Column(
-            children: [
-              // Download Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onDownload,
-                  icon: const Icon(Icons.download, color: Color(0xFF272579)),
-                  label: const Text(
-                    'Download ID Card',
-                    style: TextStyle(
-                      color: Color(0xFF272579),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF272579),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
+          // Share Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onShare,
+              icon: const Icon(Icons.share, color: Colors.white),
+              label: const Text(
+                'Share ID Card',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              
-              const SizedBox(height: 16),
-              
-              // Share Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onShare,
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  label: const Text(
-                    'Share ID Card',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5cfbd8),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5cfbd8),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 2,
               ),
-            ],
+            ),
           ),
           
           const SizedBox(height: 40),

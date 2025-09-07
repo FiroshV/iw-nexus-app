@@ -233,6 +233,20 @@ class _DashboardPageState extends State<DashboardPage> {
     return isAdminResult;
   }
 
+  String _getUserInitials() {
+    if (currentUser == null) return 'U';
+    final firstName = currentUser!['firstName']?.toString() ?? '';
+    final lastName = currentUser!['lastName']?.toString() ?? '';
+
+    if (firstName.isNotEmpty && lastName.isNotEmpty) {
+      return '${firstName[0]}${lastName[0]}'.toUpperCase();
+    } else if (firstName.isNotEmpty) {
+      return firstName[0].toUpperCase();
+    } else if (lastName.isNotEmpty) {
+      return lastName[0].toUpperCase();
+    }
+    return 'U';
+  }
 
   String _getUserDisplayName() {
     if (currentUser == null) return 'User';
@@ -240,17 +254,6 @@ class _DashboardPageState extends State<DashboardPage> {
     final lastName = currentUser!['lastName']?.toString() ?? '';
     final fullName = '$firstName $lastName'.trim();
     return fullName.isNotEmpty ? fullName : 'User';
-  }
-
-  void _handleIdCardDownload(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => IDCardScreen(
-          userData: currentUser,
-          action: IDCardAction.download,
-        ),
-      ),
-    );
   }
 
   void _handleIdCardShare(BuildContext context) {
@@ -730,7 +733,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   // Welcome section with flip functionality
                   IDCardWidget(
                     userData: currentUser,
-                    onDownload: () => _handleIdCardDownload(context),
                     onShare: () => _handleIdCardShare(context),
                     showWelcomeCard: true,
                   ),
