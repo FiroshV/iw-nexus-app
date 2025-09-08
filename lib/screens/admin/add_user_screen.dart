@@ -473,9 +473,13 @@ class _AddUserScreenState extends State<AddUserScreen> {
   }
 
   Widget _buildManagerDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedManagerId,
-      decoration: InputDecoration(
+    return SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<String>(
+        key: ValueKey(selectedManagerId), // Force rebuild when selectedManagerId changes
+        initialValue: selectedManagerId,
+        isExpanded: true, // This prevents overflow in the button itself
+        decoration: InputDecoration(
         labelText: 'Manager',
         prefixIcon: isLoadingManagers
             ? const SizedBox(
@@ -514,17 +518,14 @@ class _AddUserScreenState extends State<AddUserScreen> {
         ...managers.map((manager) {
           final firstName = manager['firstName'] ?? '';
           final lastName = manager['lastName'] ?? '';
-          final employeeId = manager['employeeId'] ?? '';
           final fullName = '$firstName $lastName'.trim();
-          final displayText = employeeId.isNotEmpty
-              ? '$fullName ($employeeId)'
-              : fullName;
 
           return DropdownMenuItem<String>(
             value: manager['_id'] ?? manager['id'],
             child: Text(
-              displayText,
+              fullName,
               overflow: TextOverflow.ellipsis,
+              maxLines: 1,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -535,6 +536,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         }),
       ],
       onChanged: (value) => setState(() => selectedManagerId = value),
+      ),
     );
   }
 

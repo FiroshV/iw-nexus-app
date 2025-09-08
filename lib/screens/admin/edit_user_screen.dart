@@ -61,7 +61,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     final userRole = widget.user['role'];
     selectedRole = roles.contains(userRole) ? userRole : null;
 
-    selectedManagerId = widget.user['managerId']?['_id'];
+    // selectedManagerId will be set in _loadManagers() after data is loaded
 
     if (widget.user['dateOfJoining'] != null) {
       selectedJoiningDate = DateTime.parse(widget.user['dateOfJoining']);
@@ -118,6 +118,21 @@ class _EditUserScreenState extends State<EditUserScreen> {
           } else {
             managers = [];
           }
+          
+          // Set selectedManagerId after managers are loaded
+          final currentManagerId = widget.user['managerId']?['_id'];
+          if (currentManagerId != null) {
+            // Check if the current manager exists in the loaded managers list
+            final managerExists = managers.any((manager) => 
+              (manager['_id'] ?? manager['id']) == currentManagerId);
+            if (managerExists) {
+              selectedManagerId = currentManagerId;
+            } else {
+              // If manager doesn't exist in list, set to null
+              selectedManagerId = null;
+            }
+          }
+          
           isLoadingManagers = false;
         });
       } else {
@@ -513,9 +528,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
   }
 
   Widget _buildManagerDropdown() {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedManagerId,
-      decoration: InputDecoration(
+    return SizedBox(
+      width: double.infinity,
+      child: DropdownButtonFormField<String>(
+        key: ValueKey(selectedManagerId), // Force rebuild when selectedManagerId changes
+        initialValue: selectedManagerId,
+        isExpanded: true, // This prevents overflow in the button itself
+        decoration: InputDecoration(
         labelText: 'Manager',
         prefixIcon: isLoadingManagers
             ? const SizedBox(
@@ -556,17 +575,14 @@ class _EditUserScreenState extends State<EditUserScreen> {
             .map((manager) {
               final firstName = manager['firstName'] ?? '';
               final lastName = manager['lastName'] ?? '';
-              final employeeId = manager['employeeId'] ?? '';
               final fullName = '$firstName $lastName'.trim();
-              final displayText = employeeId.isNotEmpty
-                  ? '$fullName ($employeeId)'
-                  : fullName;
 
               return DropdownMenuItem<String>(
                 value: manager['_id'] ?? manager['id'],
                 child: Text(
-                  displayText,
+                  fullName,
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -577,6 +593,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
             }),
       ],
       onChanged: (value) => setState(() => selectedManagerId = value),
+      ),
     );
   }
 
