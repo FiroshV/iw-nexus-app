@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
+import 'services/profile_service.dart';
+import 'screens/profile_screen.dart';
 
 class OTPVerificationPage extends StatefulWidget {
   final String signInId;
@@ -123,16 +125,32 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       });
 
       if (success && mounted) {
-        // Login successful, AuthWrapper will handle navigation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login successful! Welcome to IW Nexus'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // Login successful - check if profile is complete
+        final userData = authProvider.user;
+        final isProfileComplete = ProfileService.isProfileComplete(userData);
         
-        // Navigate back to main app (AuthWrapper will handle the authenticated state)
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (isProfileComplete) {
+          // Profile is complete - show success message and go to dashboard
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Login successful! Welcome to IW Nexus'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Navigate back to main app (AuthWrapper will handle the authenticated state)
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        } else {
+          // Profile is incomplete - navigate to profile screen with popup
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          
+          // Navigate to profile screen with completion dialog flag
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ProfileScreen(showCompletionDialog: true),
+            ),
+          );
+        }
       } else if (mounted) {
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -217,6 +235,7 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       }
     }
   }
+
 
   String _getMaskedValue() {
     if (widget.loginMethod == 'email') {

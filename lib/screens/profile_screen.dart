@@ -6,7 +6,12 @@ import '../widgets/loading_widget.dart';
 import '../widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool showCompletionDialog;
+  
+  const ProfileScreen({
+    super.key,
+    this.showCompletionDialog = false,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -40,6 +45,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUserProfile();
+    
+    // Show completion dialog if requested
+    if (widget.showCompletionDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showProfileCompletionDialog();
+      });
+    }
   }
 
   @override
@@ -156,6 +168,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  void _showProfileCompletionDialog() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          icon: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF272579).withValues(alpha: 0.1),
+              
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.credit_card,
+              size: 30,
+              color: Color(0xFF272579),
+            ),
+          ),
+          title: const Text(
+            'Complete Your Profile',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF272579),
+              fontSize: 20,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: const Text(
+            'Please complete your profile information to generate your ID card and access all features.',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF272579),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Complete Profile',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
