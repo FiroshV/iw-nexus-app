@@ -13,7 +13,7 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final LocationService _locationService = LocationService();
-  
+
   bool _isLoading = false;
   Map<String, dynamic>? _todayAttendance;
 
@@ -21,6 +21,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void initState() {
     super.initState();
     _loadTodayAttendance();
+    // Pre-fetch location aggressively for ultra-fast performance
+    _locationService.preFetchLocation();
+    // Pre-fetch again after a short delay to ensure we have fresh location
+    Future.delayed(const Duration(seconds: 2), () {
+      _locationService.preFetchLocation();
+    });
   }
 
   Future<void> _loadTodayAttendance() async {
@@ -89,14 +95,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
 
     try {
-      // Get current location first
-      final locationResult = await _locationService.getCurrentPosition();
-      
+      // Start location fetch immediately in parallel with UI update
+      final locationFuture = _locationService.getCurrentPosition();
+
+      // Get location result (should be very fast with our optimizations)
+      final locationResult = await locationFuture;
+
       if (!locationResult.success) {
         setState(() {
           _isLoading = false;
         });
-        
+
         if (locationResult.canOpenSettings) {
           _showLocationSettingsDialog(locationResult.message);
         } else {
@@ -106,20 +115,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
 
       final position = locationResult.position!;
-      
-      // Check accuracy and warn user if needed
-      if (!_locationService.hasGoodAccuracy(position)) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        final shouldContinue = await _showAccuracyWarning(position.accuracy);
-        if (!shouldContinue) return;
-        
-        setState(() {
-          _isLoading = true;
-        });
-      }
+
+      // Location obtained - continue with ultra-fast processing
 
       // First attempt - check-in without late reason
       var response = await ApiService.checkIn(
@@ -127,70 +124,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         notes: 'Clock-in from phone app',
       );
 
-      // Debug logging for late clock-in detection
-      debugPrint('🔍 Clock-in response: Success=${response.success}');
-      debugPrint('🔍 Response message: ${response.message}');
-      debugPrint('🔍 Response data: ${response.data}');
-      debugPrint('🔍 Response data type: ${response.data.runtimeType}');
-      if (response.data is Map) {
-        debugPrint('🔍 RequiresReason: ${response.data?['requiresReason']}');
-        debugPrint('🔍 ReasonType: ${response.data?['reasonType']}');
-        debugPrint('🔍 LateBy: ${response.data?['lateBy']}');
-      }
+      // Process response quickly
 
       // Enhanced late detection with multiple checks
       bool requiresLateReason = false;
       int lateByMinutes = 0;
-      
-      // Primary check: Backend indicates late reason required
+
+      // Quick late detection checks
       if (!response.success && response.data?['requiresReason'] == true) {
         requiresLateReason = true;
         lateByMinutes = response.data?['lateBy'] ?? 0;
-        debugPrint('🔍 Backend detected late arrival: $lateByMinutes minutes');
-      }
-      // Secondary check: Error message contains late reason requirement
-      else if (!response.success && response.message.toLowerCase().contains('late reason is required')) {
-        requiresLateReason = true;
-        // Try to extract late minutes from message or use client-side calculation
-        lateByMinutes = _calculateClientSideLateMinutes();
-        debugPrint('🔍 Error message indicates late arrival, client-side calculated: $lateByMinutes minutes');
-      }
-      // Tertiary check: 400 status with specific message pattern
-      else if (!response.success && response.statusCode == 400 && 
-               (response.message.contains('work hours') || response.message.contains('late'))) {
+      } else if (!response.success &&
+          response.message.toLowerCase().contains('late reason is required')) {
         requiresLateReason = true;
         lateByMinutes = _calculateClientSideLateMinutes();
-        debugPrint('🔍 Status 400 with work hours message, client-side calculated: $lateByMinutes minutes');
+      } else if (!response.success &&
+          response.statusCode == 400 &&
+          (response.message.contains('work hours') ||
+              response.message.contains('late'))) {
+        requiresLateReason = true;
+        lateByMinutes = _calculateClientSideLateMinutes();
       }
 
       if (requiresLateReason) {
         setState(() {
           _isLoading = false;
         });
-        
-        debugPrint('🔍 Showing late reason dialog for $lateByMinutes minutes late');
-        final lateReason = await _showLateReasonDialog(lateByMinutes: lateByMinutes);
-        
+
+        final lateReason = await _showLateReasonDialog(
+          lateByMinutes: lateByMinutes,
+        );
+
         if (lateReason == null) {
-          // User cancelled
-          debugPrint('🔍 User cancelled late reason dialog');
           return;
         }
-        
-        debugPrint('🔍 User provided late reason: $lateReason');
         setState(() {
           _isLoading = true;
         });
 
         // Retry check-in with late reason
-        debugPrint('🔍 Retrying check-in with late reason');
         response = await ApiService.checkIn(
           location: _locationService.positionToMap(position),
           notes: 'Clock-in from phone app',
           lateReason: lateReason,
         );
-        
-        debugPrint('🔍 Retry response: Success=${response.success}, Message=${response.message}');
       }
 
       if (mounted) {
@@ -200,26 +177,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
         if (response.success) {
           final lateBy = response.data?['lateBy'] ?? 0;
-          final lateReason = response.data?['lateReason'];
-          
+
           String successMessage = 'Clocked in successfully!';
           if (lateBy > 0) {
-            successMessage = 'Clocked in successfully ($lateBy minutes late)';
-            if (lateReason != null) {
-              debugPrint('🔍 Late reason recorded: $lateReason');
-            }
+            successMessage = 'Clocked in successfully';
           }
-          
+
           _showSuccess(successMessage);
           await _loadTodayAttendance();
         } else {
           // Enhanced error reporting
           String errorMessage = response.message;
-          if (response.data is Map && response.data?['requiresReason'] == true) {
-            errorMessage = 'Failed to process late clock-in. Please check your connection and try again.';
+          if (response.data is Map &&
+              response.data?['requiresReason'] == true) {
+            errorMessage =
+                'Failed to process late clock-in. Please check your connection and try again.';
           }
           _showError(errorMessage);
-          debugPrint('🔍 Final clock-in failed: ${response.message}');
         }
       }
     } catch (e) {
@@ -238,14 +212,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
 
     try {
-      // Get current location first
-      final locationResult = await _locationService.getCurrentPosition();
-      
+      // Start location fetch immediately in parallel with UI update
+      final locationFuture = _locationService.getCurrentPosition();
+
+      // Get location result (should be very fast with our optimizations)
+      final locationResult = await locationFuture;
+
       if (!locationResult.success) {
         setState(() {
           _isLoading = false;
         });
-        
+
         if (locationResult.canOpenSettings) {
           _showLocationSettingsDialog(locationResult.message);
         } else {
@@ -255,20 +232,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
 
       final position = locationResult.position!;
-      
-      // Check accuracy and warn user if needed
-      if (!_locationService.hasGoodAccuracy(position)) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        final shouldContinue = await _showAccuracyWarning(position.accuracy);
-        if (!shouldContinue) return;
-        
-        setState(() {
-          _isLoading = true;
-        });
-      }
+
+      // Location obtained - continue with ultra-fast processing
 
       final response = await ApiService.checkOut(
         location: _locationService.positionToMap(position),
@@ -297,37 +262,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  Future<bool> _showAccuracyWarning(double accuracy) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Location Accuracy Warning'),
-          content: Text(
-            'Your current location accuracy is ${_locationService.getAccuracyDescription(accuracy)}. '
-            'This may affect the accuracy of your attendance record. Do you want to continue?',
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF272579),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Continue'),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-          ],
-        );
-      },
-    );
-    
-    return result ?? false;
-  }
-
   /// Calculate how late the user is based on client-side time
   /// This is a fallback when backend doesn't provide late minutes
   int _calculateClientSideLateMinutes() {
@@ -342,7 +276,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         9, // 9 AM
         0, // 0 minutes
       );
-      
+
       if (now.isAfter(workStartTime)) {
         final difference = now.difference(workStartTime);
         return difference.inMinutes;
@@ -353,9 +287,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return 0; // Default to 0 if calculation fails
   }
 
-  Future<String?> _showLateReasonDialog({
-    required int lateByMinutes,
-  }) async {
+  Future<String?> _showLateReasonDialog({required int lateByMinutes}) async {
     return await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -398,10 +330,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFfbf8ff),
-          ],
+          colors: [Colors.white, const Color(0xFFfbf8ff)],
         ),
         boxShadow: [
           BoxShadow(
@@ -425,7 +354,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
-          children: [            
+          children: [
             // Time information cards
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -465,9 +394,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Hours worked card
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -511,7 +440,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
               ],
             ),
-            
+
             if (isCheckedOut) ...[
               const SizedBox(height: 16),
               // Clock out time card when checked out
@@ -550,9 +479,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 32),
-            
+
             // Action button
             SizedBox(
               width: double.infinity,
@@ -574,18 +503,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : Text(
-                      _getButtonText(),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                        color: Color(0xFF272579)
+                        _getButtonText(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                          color: Colors.white, //Color(0xFF272579)
+                        ),
                       ),
-                    ),
               ),
             ),
           ],
@@ -600,7 +531,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return '${_todayAttendance!['totalWorkingHours'].toStringAsFixed(1)}h';
     } else if (_todayAttendance?['checkIn']?['time'] != null) {
       // Live calculation when clocked in
-      final checkInTime = TimezoneUtil.parseToIST(_todayAttendance!['checkIn']['time']);
+      final checkInTime = TimezoneUtil.parseToIST(
+        _todayAttendance!['checkIn']['time'],
+      );
       final now = TimezoneUtil.nowIST();
       final duration = now.difference(checkInTime);
       final hours = duration.inMinutes / 60.0;
@@ -628,7 +561,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return '--:--';
   }
 
-
   Color _getButtonColor() {
     final checkIn = _todayAttendance?['checkIn'];
     final checkOut = _todayAttendance?['checkOut'];
@@ -651,7 +583,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final isCheckedOut = checkOut != null && checkOut['time'] != null;
 
     if (_isLoading) {
-      return isCheckedIn && !isCheckedOut ? 'Clocking Out...' : 'Clocking In...';
+      return isCheckedIn && !isCheckedOut
+          ? 'Clocking Out...'
+          : 'Clocking In...';
     } else if (isCheckedOut) {
       return 'Clock In Again';
     } else if (isCheckedIn) {
@@ -683,10 +617,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFfbf8ff),
-          ],
+          colors: [Colors.white, const Color(0xFFfbf8ff)],
         ),
         boxShadow: [
           BoxShadow(
@@ -808,11 +739,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   width: 1,
                 ),
               ),
-              child: const Icon(
-                Icons.schedule,
-                color: Colors.white,
-                size: 20,
-              ),
+              child: const Icon(Icons.schedule, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -850,9 +777,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         color: const Color(0xFF272579),
         child: _isLoading && _todayAttendance == null
             ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF272579),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF272579)),
               )
             : SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -873,7 +798,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
 class _LateReasonDialog extends StatefulWidget {
   final int lateByMinutes;
-  
+
   const _LateReasonDialog({required this.lateByMinutes});
 
   @override
@@ -913,10 +838,7 @@ class _LateReasonDialogState extends State<_LateReasonDialog> {
           const SizedBox(height: 8),
           Text(
             'Minimum 10 characters required',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -938,7 +860,9 @@ class _LateReasonDialogState extends State<_LateReasonDialog> {
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Please provide at least 10 characters for the reason'),
+                  content: Text(
+                    'Please provide at least 10 characters for the reason',
+                  ),
                   backgroundColor: Colors.red,
                 ),
               );

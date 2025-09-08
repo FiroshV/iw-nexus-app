@@ -2,6 +2,7 @@
 <network-security-config>
     <!-- Allow HTTP traffic for development -->
     <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">ec2-43-205-126-57.ap-south-1.compute.amazonaws.com</domain>
         <domain includeSubdomains="false">192.168.1.18</domain>
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">10.0.0.0</domain>

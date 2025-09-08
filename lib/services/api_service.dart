@@ -395,9 +395,9 @@ class ApiService {
         
         lastResponse = result;
         
-        // Wait before retrying (exponential backoff)
+        // Wait before retrying (faster linear backoff for better performance)
         if (attempt < maxRetries - 1) {
-          await Future.delayed(Duration(seconds: (attempt + 1) * 2));
+          await Future.delayed(Duration(seconds: attempt + 1)); // 1s, 2s instead of 2s, 4s, 6s
         }
         
       } catch (e) {
@@ -411,7 +411,7 @@ class ApiService {
         
         // Don't retry for certain errors
         if (e.toString().contains('SocketException') && attempt < maxRetries - 1) {
-          await Future.delayed(Duration(seconds: (attempt + 1) * 2));
+          await Future.delayed(Duration(seconds: attempt + 1)); // Faster retry for network errors
           continue;
         }
         
@@ -1128,6 +1128,8 @@ class ApiService {
         if (notes != null) 'notes': notes,
         if (lateReason != null) 'lateReason': lateReason,
       },
+      timeout: const Duration(seconds: 5), // Ultra-fast timeout for attendance
+      maxRetries: 1, // Single attempt for fastest response
     );
   }
 
@@ -1170,6 +1172,8 @@ class ApiService {
         if (location != null) 'location': location,
         if (notes != null) 'notes': notes,
       },
+      timeout: const Duration(seconds: 5), // Ultra-fast timeout for attendance
+      maxRetries: 1, // Single attempt for fastest response
     );
   }
 
@@ -1198,6 +1202,8 @@ class ApiService {
     return await _makeRequest<Map<String, dynamic>>(
       ApiEndpoints.todayAttendance,
       HttpMethods.get,
+      timeout: const Duration(seconds: 4), // Ultra-fast timeout for attendance data
+      maxRetries: 1, // Single attempt for fastest response
     );
   }
 

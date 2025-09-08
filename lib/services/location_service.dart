@@ -181,10 +181,19 @@ class LocationService {
     }
   }
 
-  /// Get current position with error handling
+  /// Get current position with ultra-fast performance
   Future<LocationResult> getCurrentPosition() async {
     try {
-      debugPrint('📍 Getting current location...');
+      // Try cached position first for instant response
+      if (_lastKnownPosition != null && _isRecentPosition()) {
+        return LocationResult(
+          success: true,
+          message: 'Using cached location',
+          position: _lastKnownPosition!,
+          accuracy: _lastKnownPosition!.accuracy,
+          isFromCache: true,
+        );
+      }
       
       // Check permissions first
       final permissionResult = await requestLocationPermission();
@@ -196,37 +205,38 @@ class LocationService {
         );
       }
 
-      // Get current position with highest precision
+      // Ultra-fast location strategy with immediate fallbacks
       Position position;
       try {
-        // First attempt: Get best accuracy position
+        // First attempt: Get medium accuracy with very fast timeout
         position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best,
-          timeLimit: const Duration(seconds: 45),
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 5),
         ).timeout(
-          const Duration(seconds: 45),
+          const Duration(seconds: 5),
           onTimeout: () async {
-            // Fallback: Try with reduced accuracy but still good precision
+            // Immediate fallback: Try last known position
+            final lastKnown = await Geolocator.getLastKnownPosition();
+            if (lastKnown != null) {
+              return lastKnown;
+            }
+            // Final fallback: Try low accuracy for fastest possible response
             return await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
+              desiredAccuracy: LocationAccuracy.low,
             ).timeout(
-              const Duration(seconds: 30),
+              const Duration(seconds: 3),
               onTimeout: () {
-                throw TimeoutException('Location request timed out', const Duration(seconds: 45));
+                throw TimeoutException('All location methods failed', const Duration(seconds: 8));
               },
             );
           },
         );
       } catch (e) {
-        debugPrint('❌ Error getting current position: $e');
-        
         // Try to get last known position as fallback
         try {
           position = await Geolocator.getLastKnownPosition() ?? 
-            (throw Exception('No last known position available'));
-          debugPrint('🔄 Using last known position as fallback');
+            (throw Exception('No location available'));
         } catch (e2) {
-          debugPrint('❌ Could not get last known position: $e2');
           rethrow;
         }
       }
@@ -299,12 +309,12 @@ class LocationService {
     }
   }
 
-  /// Check if last known position is recent (within 5 minutes)
+  /// Check if last known position is recent (within 3 minutes for ultra-fast performance)
   bool _isRecentPosition() {
     if (_lastPositionUpdate == null) return false;
     final now = TimezoneUtil.nowIST();
     final difference = now.difference(_lastPositionUpdate!);
-    return difference.inMinutes <= 5;
+    return difference.inMinutes <= 3;
   }
 
   /// Open device location settings
@@ -338,6 +348,55 @@ class LocationService {
     _lastPositionUpdate = null;
   }
 
+  /// Pre-fetch location in background for ultra-fast subsequent calls
+  Future<void> preFetchLocation() async {
+    try {
+      // Skip if we already have a recent position
+      if (_lastKnownPosition != null && _isRecentPosition()) {
+        return;
+      }
+      
+      // Check permissions first (quick check)
+      final permissionResult = await requestLocationPermission();
+      if (!permissionResult.granted) {
+        return;
+      }
+
+      // Ultra-fast background location fetch with aggressive fallbacks
+      Position? position;
+      
+      try {
+        // Try fastest method first
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 3),
+        ).timeout(const Duration(seconds: 3));
+      } catch (e) {
+        try {
+          // Immediate fallback to last known position
+          position = await Geolocator.getLastKnownPosition();
+        } catch (e2) {
+          // Final fallback: try low accuracy for any location
+          try {
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.low,
+            ).timeout(const Duration(seconds: 2));
+          } catch (e3) {
+            // Silent fail for background operation
+            return;
+          }
+        }
+      }
+
+      if (position != null) {
+        _lastKnownPosition = position;
+        _lastPositionUpdate = TimezoneUtil.nowIST();
+      }
+    } catch (e) {
+      // Silent fail - this is background operation
+    }
+  }
+
   /// Calculate distance between two positions in meters
   double calculateDistance(Position start, Position end) {
     return Geolocator.distanceBetween(
@@ -367,9 +426,9 @@ class LocationService {
     };
   }
 
-  /// Check if position has good accuracy (less than 20 meters for high precision)
+  /// Check if position has good accuracy (less than 100 meters - only warn for very poor GPS)
   bool hasGoodAccuracy(Position position) {
-    return position.accuracy <= 20.0;
+    return position.accuracy <= 100.0;
   }
   
   /// Check if position has excellent accuracy (less than 10 meters)
