@@ -52,5 +52,18 @@
 	<string>This app needs location access to track your attendance check-in and check-out locations for work.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>This app needs location access to track your attendance check-in and check-out locations for work.</string>
+	<!-- Firebase URL schemes for phone authentication -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>REVERSED_CLIENT_ID</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.303335506080-vt28nps11nefkq0md1kj8pn6m0nqjjhk</string>
+				<string>app-1-303335506080-ios-be83bebdbc64d0099549c5</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
