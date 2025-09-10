@@ -510,11 +510,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       )
                     : Text(
                         _getButtonText(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
-                          color: Colors.white, //Color(0xFF272579)
+                          color: _getButtonText() == 'Clock In'? Color(0xFF272579) :Colors.white,
                         ),
                       ),
               ),
