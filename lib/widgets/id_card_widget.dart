@@ -71,6 +71,116 @@ class _IDCardWidgetState extends State<IDCardWidget>
     return fullName.isNotEmpty ? fullName : 'User';
   }
 
+  Widget _getEmploymentStatusTag() {
+    debugPrint('User employmentType: ${widget.userData?['employmentType']?.toString()}');
+    final employmentType = widget.userData?['employmentType']?.toString() ?? 'permanent';
+    final isTemporary = employmentType.toLowerCase() == 'temporary';
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isTemporary ? () {
+        HapticFeedback.lightImpact();
+        _showTemporaryInfoDialog();
+      } : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isTemporary
+            ? const Color(0xFFFF9800).withValues(alpha: 0.9)
+            : const Color(0xFF5cfbd8),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isTemporary) ...[
+              Icon(
+                Icons.info_outline,
+                size: 10,
+                color: const Color(0xFF272579),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              employmentType.toUpperCase(),
+              style: TextStyle(
+                color: const Color(0xFF272579),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTemporaryInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: const Color(0xFF272579),
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Temporary Employment Status',
+                  style: const TextStyle(
+                    color: Color(0xFF272579),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'You are currently under temporary employment status based on performance evaluation criteria. Your status may be reviewed and updated based on performance milestones and company requirements.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: Colors.black87,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF272579),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildFrontCard() {
     if (widget.showWelcomeCard) {
       return _buildWelcomeCard();
@@ -100,12 +210,19 @@ class _IDCardWidgetState extends State<IDCardWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Welcome back,',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome back,',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
+              ),
+              _getEmploymentStatusTag(),
+            ],
           ),
           Text(
             widget.userData != null

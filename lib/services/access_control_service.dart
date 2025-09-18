@@ -16,6 +16,13 @@ class AccessControlService {
       'view_profile': ['admin', 'manager', 'director', 'field_staff', 'telecaller']
     },
 
+    // Employment Status Management
+    'employment_status': {
+      'view': ['admin', 'director', 'manager'],
+      'edit': ['admin', 'director', 'manager'],
+      'edit_manager': ['admin', 'director']
+    },
+
     // Branch Management Features  
     'branch_management': {
       'view': ['admin', 'manager', 'director'],
@@ -226,12 +233,37 @@ class AccessControlService {
     }
   }
 
+  /// Check if user can edit employment status based on target user's role
+  ///
+  /// [requesterRole] - The requesting user's role
+  /// [targetUserRole] - The target user's role
+  ///
+  /// Returns true if requester can edit target's employment status
+  static bool canEditEmploymentStatus(String? requesterRole, String? targetUserRole) {
+    if (requesterRole == null || targetUserRole == null) {
+      return false;
+    }
+
+    // Admin and director can edit anyone's employment status
+    if (hasAccess(requesterRole, 'employment_status', 'edit_manager')) {
+      return true;
+    }
+
+    // Manager can only edit employment status for general employees (not other managers/directors)
+    if (hasAccess(requesterRole, 'employment_status', 'edit')) {
+      final managerRoles = ['manager', 'director', 'admin'];
+      return !managerRoles.contains(targetUserRole.toLowerCase());
+    }
+
+    return false;
+  }
+
   /// Debug method to print all permissions for a role
-  /// 
+  ///
   /// [userRole] - The user's role
   static void debugPermissions(String? userRole) {
     if (!kDebugMode) return;
-    
+
     debugPrint('🔐 Permissions for role: $userRole');
     for (final feature in _accessPermissions.keys) {
       final actions = getAllowedActions(userRole, feature);

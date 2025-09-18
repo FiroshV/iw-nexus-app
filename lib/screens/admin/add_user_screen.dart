@@ -20,6 +20,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   
   String? selectedRole;
   String? selectedManagerId;
+  String? selectedEmploymentType = 'permanent';
   DateTime? selectedJoiningDate;
   
   List<Map<String, dynamic>> managers = [];
@@ -148,6 +149,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         phoneNumber: _phoneController.text.trim(),
         role: selectedRole!,
         designation: _designationController.text.trim(),
+        employmentType: selectedEmploymentType!,
         dateOfJoining: selectedJoiningDate?.toIso8601String(),
         managerId: selectedManagerId,
       );
@@ -296,6 +298,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
           isRequired: true,
           validator: UserValidation.validateDesignation,
         ),
+        _buildEmploymentTypeDropdown(),
         _buildDateField(),
         _buildManagerDropdown(),
       ],
@@ -469,6 +472,60 @@ class _AddUserScreenState extends State<AddUserScreen> {
       )).toList(),
       onChanged: (value) => setState(() => selectedRole = value),
       validator: (value) => value == null ? 'Please select a role' : null,
+    );
+  }
+
+  Widget _buildEmploymentTypeDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: selectedEmploymentType,
+      decoration: InputDecoration(
+        labelText: 'Employment Type *',
+        prefixIcon: const Icon(Icons.business_center_outlined, color: primaryBlue),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
+        ),
+        filled: true,
+        fillColor: surfaceLight,
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'permanent',
+          child: Text(
+            'Permanent',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        DropdownMenuItem(
+          value: 'temporary',
+          child: Text(
+            'Temporary',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
+      onChanged: (value) => setState(() => selectedEmploymentType = value),
+      validator: (value) => value == null ? 'Please select employment type' : null,
     );
   }
 

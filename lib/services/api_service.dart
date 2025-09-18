@@ -1009,6 +1009,7 @@ class ApiService {
     required String phoneNumber,
     required String role,
     required String designation,
+    String? employmentType,
     String? dateOfJoining,
     String? managerId,
     Map<String, dynamic>? workSchedule,
@@ -1023,6 +1024,7 @@ class ApiService {
         'phoneNumber': phoneNumber,
         'role': role,
         'designation': designation,
+        if (employmentType != null) 'employmentType': employmentType,
         if (dateOfJoining != null) 'dateOfJoining': dateOfJoining,
         if (managerId != null) 'managerId': managerId,
         if (workSchedule != null) 'workSchedule': workSchedule,
@@ -1066,6 +1068,18 @@ class ApiService {
       ApiEndpoints.userByIdEndpoint(userId),
       HttpMethods.put,
       body: userData,
+    );
+  }
+
+  /// Update user's employment type
+  static Future<ApiResponse<Map<String, dynamic>>> updateEmploymentType({
+    required String userId,
+    required String employmentType,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '${ApiEndpoints.userByIdEndpoint(userId)}/employment-type',
+      HttpMethods.put,
+      body: {'employmentType': employmentType},
     );
   }
 

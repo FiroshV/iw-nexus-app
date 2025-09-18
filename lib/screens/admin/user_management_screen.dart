@@ -190,6 +190,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final String email = user['email'] ?? '';
     // final String role = user['role'] ?? '';
     final String designation = user['designation'] ?? '';
+    final String employmentType = user['employmentType'] ?? 'permanent';
 
     return Container(
       decoration: BoxDecoration(
@@ -368,6 +369,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           Expanded(
                             child: Text(
                               'Designation: $designation',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.business_center_rounded,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Employment: ${employmentType.substring(0, 1).toUpperCase()}${employmentType.substring(1)}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../services/access_control_service.dart';
+import '../../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -22,6 +25,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
 
   String? selectedRole;
   String? selectedManagerId;
+  String? selectedEmploymentType;
   DateTime? selectedJoiningDate;
 
   List<Map<String, dynamic>> managers = [];
@@ -60,6 +64,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
     // Ensure the user's role exists in the available roles list
     final userRole = widget.user['role'];
     selectedRole = roles.contains(userRole) ? userRole : null;
+
+    // Set employment type
+    selectedEmploymentType = widget.user['employmentType'] ?? 'permanent';
 
     // selectedManagerId will be set in _loadManagers() after data is loaded
 
@@ -193,6 +200,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'phoneNumber': _phoneController.text.trim(),
         'role': selectedRole!,
         'designation': _designationController.text.trim(),
+        'employmentType': selectedEmploymentType!,
         if (selectedManagerId != null) 'managerId': selectedManagerId,
         if (selectedJoiningDate != null)
           'dateOfJoining': selectedJoiningDate!.toIso8601String(),
@@ -347,6 +355,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
           isRequired: true,
           validator: UserValidation.validateDesignation,
         ),
+        _buildEmploymentTypeDropdown(),
         _buildDateField(),
         _buildManagerDropdown(),
       ],
@@ -524,6 +533,71 @@ class _EditUserScreenState extends State<EditUserScreen> {
           .toList(),
       onChanged: (value) => setState(() => selectedRole = value),
       validator: (value) => value == null ? 'Please select a role' : null,
+    );
+  }
+
+  Widget _buildEmploymentTypeDropdown() {
+    // Get current user's role to check permissions
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserRole = authProvider.user?['role'];
+    final targetUserRole = widget.user['role'];
+
+    // Check if current user can edit employment type for this user
+    final canEdit = AccessControlService.canEditEmploymentStatus(
+      currentUserRole,
+      targetUserRole
+    );
+
+    return DropdownButtonFormField<String>(
+      initialValue: selectedEmploymentType,
+      decoration: InputDecoration(
+        labelText: 'Employment Type *',
+        prefixIcon: const Icon(Icons.business_center_outlined, color: primaryBlue),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
+        ),
+        filled: true,
+        fillColor: canEdit ? surfaceLight : Colors.grey.withValues(alpha: 0.1),
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      items: [
+        const DropdownMenuItem(
+          value: 'permanent',
+          child: Text(
+            'Permanent',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        const DropdownMenuItem(
+          value: 'temporary',
+          child: Text(
+            'Temporary',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+      ],
+      onChanged: canEdit ? (value) => setState(() => selectedEmploymentType = value) : null,
+      validator: (value) => value == null ? 'Please select employment type' : null,
     );
   }
 
