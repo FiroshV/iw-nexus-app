@@ -1012,6 +1012,7 @@ class ApiService {
     String? employmentType,
     String? dateOfJoining,
     String? managerId,
+    String? branchId,
     Map<String, dynamic>? workSchedule,
   }) async {
     return await _makeRequest<Map<String, dynamic>>(
@@ -1027,6 +1028,7 @@ class ApiService {
         if (employmentType != null) 'employmentType': employmentType,
         if (dateOfJoining != null) 'dateOfJoining': dateOfJoining,
         if (managerId != null) 'managerId': managerId,
+        if (branchId != null) 'branchId': branchId,
         if (workSchedule != null) 'workSchedule': workSchedule,
       },
     );
@@ -1096,6 +1098,7 @@ class ApiService {
       HttpMethods.get,
     );
   }
+
 
   // ============================================================================
   // ATTENDANCE TRACKING ENDPOINTS

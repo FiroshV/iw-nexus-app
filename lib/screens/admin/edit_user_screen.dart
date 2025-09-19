@@ -25,11 +25,14 @@ class _EditUserScreenState extends State<EditUserScreen> {
 
   String? selectedRole;
   String? selectedManagerId;
+  String? selectedBranchId;
   String? selectedEmploymentType;
   DateTime? selectedJoiningDate;
 
   List<Map<String, dynamic>> managers = [];
+  List<Map<String, dynamic>> branches = [];
   bool isLoadingManagers = false;
+  bool isLoadingBranches = false;
   bool isSubmitting = false;
 
   // Company colors
@@ -52,6 +55,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     super.initState();
     _initializeFields();
     _loadManagers();
+    _loadBranches();
   }
 
   void _initializeFields() {
@@ -69,6 +73,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     selectedEmploymentType = widget.user['employmentType'] ?? 'permanent';
 
     // selectedManagerId will be set in _loadManagers() after data is loaded
+    // selectedBranchId will be set in _loadBranches() after data is loaded
 
     if (widget.user['dateOfJoining'] != null) {
       selectedJoiningDate = DateTime.parse(widget.user['dateOfJoining']);
@@ -154,6 +159,52 @@ class _EditUserScreenState extends State<EditUserScreen> {
     }
   }
 
+  Future<void> _loadBranches() async {
+    setState(() {
+      isLoadingBranches = true;
+    });
+
+    try {
+      final response = await ApiService.getBranches(
+        page: 1,
+        limit: 100, // Get all branches for dropdown
+      );
+      if (response.success && response.data != null) {
+        setState(() {
+          final data = response.data as Map<String, dynamic>;
+          final branchList = data['branches'] as List<dynamic>? ?? [];
+          branches = branchList
+              .map((json) => json as Map<String, dynamic>)
+              .toList();
+
+          // Set selectedBranchId after branches are loaded
+          final currentBranchId = widget.user['branchId']?['_id'];
+          if (currentBranchId != null) {
+            // Check if the current branch exists in the loaded branches list
+            final branchExists = branches.any((branch) =>
+              (branch['_id'] ?? branch['id']) == currentBranchId);
+            if (branchExists) {
+              selectedBranchId = currentBranchId;
+            } else {
+              // If branch doesn't exist in list, set to null
+              selectedBranchId = null;
+            }
+          }
+
+          isLoadingBranches = false;
+        });
+      } else {
+        setState(() {
+          isLoadingBranches = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingBranches = false;
+      });
+    }
+  }
+
   Future<void> _selectJoiningDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -202,6 +253,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'designation': _designationController.text.trim(),
         'employmentType': selectedEmploymentType!,
         if (selectedManagerId != null) 'managerId': selectedManagerId,
+        if (selectedBranchId != null) 'branchId': selectedBranchId,
         if (selectedJoiningDate != null)
           'dateOfJoining': selectedJoiningDate!.toIso8601String(),
       };
@@ -355,6 +407,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
           isRequired: true,
           validator: UserValidation.validateDesignation,
         ),
+        _buildBranchDropdown(),
         _buildEmploymentTypeDropdown(),
         _buildDateField(),
         _buildManagerDropdown(),
@@ -533,6 +586,65 @@ class _EditUserScreenState extends State<EditUserScreen> {
           .toList(),
       onChanged: (value) => setState(() => selectedRole = value),
       validator: (value) => value == null ? 'Please select a role' : null,
+    );
+  }
+
+  Widget _buildBranchDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: selectedBranchId,
+      decoration: InputDecoration(
+        labelText: 'Branch',
+        prefixIcon: isLoadingBranches
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                  ),
+                ),
+              )
+            : const Icon(Icons.business_outlined, color: primaryBlue),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
+        ),
+        filled: true,
+        fillColor: surfaceLight,
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      items: [
+        const DropdownMenuItem<String>(value: null, child: Text('No Branch')),
+        ...branches.map((branch) {
+          return DropdownMenuItem<String>(
+            value: branch['_id'] ?? branch['id'],
+            child: Text(
+              branch['branchName'] ?? '',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          );
+        }),
+      ],
+      onChanged: (value) => setState(() => selectedBranchId = value),
     );
   }
 

@@ -6,6 +6,7 @@ class ApiEndpoints {
   // Base paths
   static const String auth = '/auth';
   static const String users = '/users';
+  static const String branches = '/branches';
   static const String attendance = '/attendance';
   static const String health = '/health';
 

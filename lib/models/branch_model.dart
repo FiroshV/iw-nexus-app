@@ -97,46 +97,6 @@ class BranchManager {
   String toString() => fullName;
 }
 
-enum BranchStatus {
-  active,
-  inactive,
-  temporarilyClosed;
-
-  static BranchStatus fromString(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return BranchStatus.active;
-      case 'inactive':
-        return BranchStatus.inactive;
-      case 'temporarily_closed':
-        return BranchStatus.temporarilyClosed;
-      default:
-        return BranchStatus.active;
-    }
-  }
-
-  String toJson() {
-    switch (this) {
-      case BranchStatus.active:
-        return 'active';
-      case BranchStatus.inactive:
-        return 'inactive';
-      case BranchStatus.temporarilyClosed:
-        return 'temporarily_closed';
-    }
-  }
-
-  String get displayName {
-    switch (this) {
-      case BranchStatus.active:
-        return 'Active';
-      case BranchStatus.inactive:
-        return 'Inactive';
-      case BranchStatus.temporarilyClosed:
-        return 'Temporarily Closed';
-    }
-  }
-}
 
 class Branch {
   final String id;
@@ -145,7 +105,6 @@ class Branch {
   final String branchAddress;
   final BranchManager? branchManager;
   final ContactInfo contactInfo;
-  final BranchStatus status;
   final DateTime? establishedDate;
   final int employeeCount;
   final DateTime createdAt;
@@ -158,7 +117,6 @@ class Branch {
     required this.branchAddress,
     this.branchManager,
     required this.contactInfo,
-    required this.status,
     this.establishedDate,
     required this.employeeCount,
     required this.createdAt,
@@ -175,7 +133,6 @@ class Branch {
           ? BranchManager.fromJson(json['branchManager'])
           : null,
       contactInfo: ContactInfo.fromJson(json['contactInfo']),
-      status: BranchStatus.fromString(json['status'] ?? 'active'),
       establishedDate: json['establishedDate'] != null 
           ? DateTime.parse(json['establishedDate'])
           : null,
@@ -193,7 +150,6 @@ class Branch {
       'branchAddress': branchAddress,
       'branchManager': branchManager?.toJson(),
       'contactInfo': contactInfo.toJson(),
-      'status': status.toJson(),
       'establishedDate': establishedDate?.toIso8601String(),
       'employeeCount': employeeCount,
       'createdAt': createdAt.toIso8601String(),
@@ -207,7 +163,6 @@ class Branch {
       'branchName': branchName,
       'branchAddress': branchAddress,
       'contactInfo': contactInfo.toJson(),
-      'status': status.toJson(),
     };
 
     if (branchManager != null) {
@@ -228,7 +183,6 @@ class Branch {
     String? branchAddress,
     BranchManager? branchManager,
     ContactInfo? contactInfo,
-    BranchStatus? status,
     DateTime? establishedDate,
     int? employeeCount,
     DateTime? createdAt,
@@ -241,7 +195,6 @@ class Branch {
       branchAddress: branchAddress ?? this.branchAddress,
       branchManager: branchManager ?? this.branchManager,
       contactInfo: contactInfo ?? this.contactInfo,
-      status: status ?? this.status,
       establishedDate: establishedDate ?? this.establishedDate,
       employeeCount: employeeCount ?? this.employeeCount,
       createdAt: createdAt ?? this.createdAt,
@@ -250,8 +203,6 @@ class Branch {
   }
 
   String get managerName => branchManager?.fullName ?? 'Not Assigned';
-
-  bool get isActive => status == BranchStatus.active;
 
   @override
   String toString() => '$branchName ($branchId)';
