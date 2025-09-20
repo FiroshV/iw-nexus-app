@@ -3,18 +3,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'user_avatar.dart';
 
+enum CardType { idCard, visitingCard }
+
 class IDCardWidget extends StatefulWidget {
   final Map<String, dynamic>? userData;
   final VoidCallback? onShare;
+  final VoidCallback? onShareVisitingCard;
   final bool showFullCard;
   final bool showWelcomeCard;
+  final CardType cardType;
 
   const IDCardWidget({
     super.key,
     this.userData,
     this.onShare,
+    this.onShareVisitingCard,
     this.showFullCard = false,
     this.showWelcomeCard = false,
+    this.cardType = CardType.idCard,
   });
 
   @override
@@ -182,7 +188,9 @@ class _IDCardWidgetState extends State<IDCardWidget>
   }
 
   Widget _buildFrontCard() {
-    if (widget.showWelcomeCard) {
+    if (widget.cardType == CardType.visitingCard) {
+      return _buildVisitingCardFront();
+    } else if (widget.showWelcomeCard) {
       return _buildWelcomeCard();
     }
     return _buildFullIdCard();
@@ -450,7 +458,9 @@ class _IDCardWidgetState extends State<IDCardWidget>
   }
 
   Widget _buildBackCard() {
-    if (widget.showWelcomeCard) {
+    if (widget.cardType == CardType.visitingCard) {
+      return _buildVisitingCardBack();
+    } else if (widget.showWelcomeCard) {
       return _buildCompactBackCard();
     }
     return _buildFullBackCard();
@@ -480,7 +490,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
         children: [
           // Header
           Text(
-            'ID Card Actions',
+            'Card Sharing',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -488,7 +498,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
             ),
           ),
           Text(
-            'Share your employee ID card',
+            'Share your employee cards',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -497,12 +507,12 @@ class _IDCardWidgetState extends State<IDCardWidget>
           
           const SizedBox(height: 20),
           
-          // Share Button
+          // Share ID Card Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: widget.onShare,
-              icon: const Icon(Icons.share, size: 18),
+              icon: const Icon(Icons.credit_card, size: 18),
               label: const Text(
                 'Share ID Card',
                 style: TextStyle(
@@ -513,6 +523,33 @@ class _IDCardWidgetState extends State<IDCardWidget>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5cfbd8),
                 foregroundColor: const Color(0xFF272579),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Share Visiting Card Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onShareVisitingCard,
+              icon: const Icon(Icons.business_center, size: 18),
+              label: const Text(
+                'Share Visiting Card',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0071bf),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -642,6 +679,306 @@ class _IDCardWidgetState extends State<IDCardWidget>
           
           const SizedBox(height: 40),
           
+          // Back to front hint
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap to go back',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisitingCardFront() {
+    final userRole = widget.userData?['role']?.toString() ?? 'employee';
+    final isDirector = userRole.toLowerCase() == 'director';
+    final isManager = userRole.toLowerCase() == 'manager';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDirector
+              ? [const Color(0xFF272579), const Color(0xFF0071bf)]
+              : [const Color(0xFF0071bf), const Color(0xFF00b8d9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Role-based header
+          if (isDirector) ...[
+            Text(
+              'EXECUTIVE',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ] else if (isManager) ...[
+            Text(
+              'MANAGEMENT',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // User Name - large and prominent
+          Text(
+            _getUserDisplayName(),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isDirector ? 28 : 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Designation
+          if (widget.userData != null) ...[
+            Text(
+              '${widget.userData!['designation'] ?? ''}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+
+          const Spacer(),
+
+          // Company branding
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: SvgPicture.asset(
+                  'assets/company_logo.svg',
+                  width: 20,
+                  height: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'idalWEALTH',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Text(
+                      'Advisory Private Limited',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Tap hint
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Tap for contact details',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisitingCardBack() {
+    final userRole = widget.userData?['role']?.toString() ?? 'employee';
+    final isDirector = userRole.toLowerCase() == 'director';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDirector
+              ? [const Color(0xFF0071bf), const Color(0xFF272579)]
+              : [const Color(0xFF00b8d9), const Color(0xFF0071bf)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Contact Information Header
+          const Text(
+            'Contact Information',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Email
+          if (widget.userData?['email'] != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.email, color: Colors.white70, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.userData!['email'],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Phone
+          if (widget.userData?['phoneNumber'] != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.phone, color: Colors.white70, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.userData!['phoneNumber'],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Employee ID (for non-directors)
+          if (!isDirector && widget.userData?['employeeId'] != null) ...[
+            Row(
+              children: [
+                const Icon(Icons.badge, color: Colors.white70, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'ID: ${widget.userData!['employeeId']}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          const Spacer(),
+
+          // Share Visiting Card Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onShareVisitingCard,
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text(
+                'Share Visiting Card',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5cfbd8),
+                foregroundColor: const Color(0xFF272579),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // Back to front hint
           Center(
             child: Container(

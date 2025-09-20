@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../services/api_service.dart';
 
-enum IDCardAction { share }
+enum IDCardAction { share, shareVisitingCard }
 
 class IDCardScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -34,27 +34,32 @@ class _IDCardScreenState extends State<IDCardScreen> {
   }
 
   Future<void> _executeAction() async {
+    final isVisitingCard = widget.action == IDCardAction.shareVisitingCard;
+    final cardType = isVisitingCard ? 'visiting card' : 'ID card';
+
     setState(() {
       _isProcessing = true;
-      _statusMessage = 'Generating ID card for sharing...';
+      _statusMessage = 'Generating $cardType for sharing...';
     });
 
     try {
-      // Request PDF from backend
-      final response = await ApiService.generateIdCard();
-      
+      // Request PDF from backend based on action type
+      final response = isVisitingCard
+          ? await ApiService.generateVisitingCard()
+          : await ApiService.generateIdCard();
+
       if (!response.success) {
         throw Exception(response.message);
       }
 
       // Convert response to PDF file
-      final pdfFile = await _createPdfFileFromResponse(response.data);
-      
-      await _shareFile(pdfFile);
+      final pdfFile = await _createPdfFileFromResponse(response.data, isVisitingCard);
+
+      await _shareFile(pdfFile, isVisitingCard);
 
       setState(() {
         _isProcessing = false;
-        _statusMessage = 'ID card shared successfully!';
+        _statusMessage = '${cardType.substring(0, 1).toUpperCase()}${cardType.substring(1)} shared successfully!';
       });
 
       // Auto close after 2 seconds
@@ -72,12 +77,13 @@ class _IDCardScreenState extends State<IDCardScreen> {
     }
   }
 
-  Future<File> _createPdfFileFromResponse(dynamic responseData) async {
+  Future<File> _createPdfFileFromResponse(dynamic responseData, bool isVisitingCard) async {
     // The backend returns PDF as binary data
     // We need to save it to a temporary file
     final output = await getTemporaryDirectory();
-    final file = File('${output.path}/id_card_${DateTime.now().millisecondsSinceEpoch}.pdf');
-    
+    final cardType = isVisitingCard ? 'visiting_card' : 'id_card';
+    final file = File('${output.path}/${cardType}_${DateTime.now().millisecondsSinceEpoch}.pdf');
+
     if (responseData is List<int>) {
       // Direct binary data
       await file.writeAsBytes(responseData);
@@ -88,18 +94,19 @@ class _IDCardScreenState extends State<IDCardScreen> {
     } else {
       throw Exception('Invalid PDF data format received from server');
     }
-    
+
     return file;
   }
 
-  Future<void> _shareFile(File pdfFile) async {
+  Future<void> _shareFile(File pdfFile, bool isVisitingCard) async {
     try {
+      final cardType = isVisitingCard ? 'Visiting Card' : 'ID Card';
       await Share.shareXFiles(
         [XFile(pdfFile.path)],
-        text: 'My ID Card',
-        subject: 'Employee ID Card',
+        text: 'My $cardType',
+        subject: 'Employee $cardType',
       );
-      
+
       // Show success feedback
       HapticFeedback.heavyImpact();
     } catch (e) {
@@ -109,9 +116,12 @@ class _IDCardScreenState extends State<IDCardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isVisitingCard = widget.action == IDCardAction.shareVisitingCard;
+    final title = isVisitingCard ? 'Share Visiting Card' : 'Share ID Card';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Share ID Card'),
+        title: Text(title),
         backgroundColor: const Color(0xFF272579),
         foregroundColor: Colors.white,
       ),

@@ -253,6 +253,17 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  void _handleVisitingCardShare(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => IDCardScreen(
+          userData: currentUser,
+          action: IDCardAction.shareVisitingCard,
+        ),
+      ),
+    );
+  }
+
   void _showProfileMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -720,6 +731,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   IDCardWidget(
                     userData: currentUser,
                     onShare: () => _handleIdCardShare(context),
+                    onShareVisitingCard: () => _handleVisitingCardShare(context),
                     showWelcomeCard: true,
                   ),
 

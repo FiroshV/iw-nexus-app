@@ -31,6 +31,7 @@ class ApiEndpoints {
   static const String getUserProfile = '$users/profile';
   static const String updateUserProfile = '$users/profile';
   static const String generateIdCard = '$users/id-card';
+  static const String generateVisitingCard = '$users/visiting-card';
   
   // User queries
   static const String getManagers = '$users?role=manager&status=active&limit=100';

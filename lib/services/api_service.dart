@@ -1464,6 +1464,51 @@ class ApiService {
     }
   }
 
+  // Visiting Card Management
+  static Future<ApiResponse> generateVisitingCard() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl${ApiEndpoints.generateVisitingCard}'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        // Backend returns PDF as binary data
+        return ApiResponse(
+          success: true,
+          message: 'Visiting card generated successfully',
+          data: response.bodyBytes, // Binary PDF data
+          statusCode: response.statusCode,
+        );
+      } else {
+        // Try to parse error response
+        try {
+          final Map<String, dynamic> errorData = jsonDecode(response.body);
+          return ApiResponse(
+            success: false,
+            message: errorData['message'] ?? 'Failed to generate visiting card',
+            statusCode: response.statusCode,
+            error: errorData['error']?.toString(),
+          );
+        } catch (e) {
+          return ApiResponse(
+            success: false,
+            message: 'Failed to generate visiting card',
+            statusCode: response.statusCode,
+            error: 'Server error: ${response.statusCode}',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('🔥 Visiting card generation error: $e');
+      return ApiResponse(
+        success: false,
+        message: 'Failed to generate visiting card',
+        error: e.toString(),
+      );
+    }
+  }
+
   // Cleanup
   static void dispose() {
     HttpClientConfig.dispose();
