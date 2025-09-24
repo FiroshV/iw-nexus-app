@@ -154,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: TextStyle(color: Color(0xFF272579))),
         backgroundColor: const Color(0xFF5cfbd8),
         behavior: SnackBarBehavior.floating,
       ),
