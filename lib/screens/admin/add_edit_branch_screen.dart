@@ -75,46 +75,45 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     });
 
     try {
-      final response = await ApiService.getAllUsers(
-        limit: 100,
-        role: 'manager',
-        status: 'active',
-      );
-
-      if (response.success && response.data != null) {
-        final data = response.data as Map<String, dynamic>;
-        final users = data['users'] as List<dynamic>? ?? [];
-
-        if (mounted) {
-          setState(() {
-            availableManagers = users.cast<Map<String, dynamic>>();
-            loadingManagers = false;
-          });
-        }
-      } else {
-        final directorResponse = await ApiService.getAllUsers(
+      // Fetch both managers and directors in parallel
+      final results = await Future.wait([
+        ApiService.getAllUsers(
+          limit: 100,
+          role: 'manager',
+          status: 'active',
+        ),
+        ApiService.getAllUsers(
           limit: 100,
           role: 'director',
           status: 'active',
-        );
+        ),
+      ]);
 
-        if (directorResponse.success && directorResponse.data != null) {
-          final data = directorResponse.data as Map<String, dynamic>;
-          final users = data['users'] as List<dynamic>? ?? [];
+      final managerResponse = results[0];
+      final directorResponse = results[1];
 
-          if (mounted) {
-            setState(() {
-              availableManagers = users.cast<Map<String, dynamic>>();
-              loadingManagers = false;
-            });
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              loadingManagers = false;
-            });
-          }
-        }
+      List<Map<String, dynamic>> allManagers = [];
+
+      // Process manager response
+      if (managerResponse.success && managerResponse.data != null) {
+        final managerUsers = managerResponse.data as List<dynamic>? ?? [];
+        allManagers.addAll(managerUsers.cast<Map<String, dynamic>>());
+        debugPrint('📋 Loaded ${managerUsers.length} managers');
+      }
+
+      // Process director response
+      if (directorResponse.success && directorResponse.data != null) {
+        final directorUsers = directorResponse.data as List<dynamic>? ?? [];
+        allManagers.addAll(directorUsers.cast<Map<String, dynamic>>());
+        debugPrint('📋 Loaded ${directorUsers.length} directors');
+      }
+
+      if (mounted) {
+        setState(() {
+          availableManagers = allManagers;
+          loadingManagers = false;
+        });
+        debugPrint('📋 Total available managers/directors: ${allManagers.length}');
       }
     } catch (e) {
       if (mounted) {
@@ -612,11 +611,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
       items: availableManagers.map((manager) {
         final firstName = manager['firstName'] ?? '';
         final lastName = manager['lastName'] ?? '';
-        final employeeId = manager['employeeId'] ?? '';
-        final fullName = '$firstName $lastName'.trim();
-        final displayText = employeeId.isNotEmpty
-            ? '$fullName ($employeeId)'
-            : fullName;
+        String displayText = '$firstName $lastName'.trim();
 
         return DropdownMenuItem<String>(
           value: manager['_id'] ?? manager['id'],
@@ -631,7 +626,7 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
           ),
         );
       }).toList(),
-      onChanged: (value) => setState(() => selectedManagerId = value),
+      onChanged: loadingManagers ? null : (value) => setState(() => selectedManagerId = value),
     );
   }
 

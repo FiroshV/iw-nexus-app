@@ -22,18 +22,17 @@ class _EditUserScreenState extends State<EditUserScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
+  final _managerController = TextEditingController();
 
   String? selectedRole;
-  String? selectedManagerId;
   String? selectedBranchId;
   String? selectedEmploymentType;
   DateTime? selectedJoiningDate;
 
-  List<Map<String, dynamic>> managers = [];
   List<Map<String, dynamic>> branches = [];
-  bool isLoadingManagers = false;
   bool isLoadingBranches = false;
   bool isSubmitting = false;
+  String? currentManagerName;
 
   // Company colors
   static const Color brandPrimary = Color(0xFF272579);
@@ -54,7 +53,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
   void initState() {
     super.initState();
     _initializeFields();
-    _loadManagers();
     _loadBranches();
   }
 
@@ -72,12 +70,14 @@ class _EditUserScreenState extends State<EditUserScreen> {
     // Set employment type
     selectedEmploymentType = widget.user['employmentType'] ?? 'permanent';
 
-    // selectedManagerId will be set in _loadManagers() after data is loaded
     // selectedBranchId will be set in _loadBranches() after data is loaded
 
     if (widget.user['dateOfJoining'] != null) {
       selectedJoiningDate = DateTime.parse(widget.user['dateOfJoining']);
     }
+
+    // Manager will be loaded from the branch information
+    _managerController.text = currentManagerName ?? 'No Manager';
   }
 
   @override
@@ -87,6 +87,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _designationController.dispose();
+    _managerController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -110,54 +111,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
     }
   }
 
-  Future<void> _loadManagers() async {
-    setState(() {
-      isLoadingManagers = true;
-    });
-
-    try {
-      final response = await ApiService.getManagers();
-      if (response.success && response.data != null) {
-        setState(() {
-          // Handle different response formats
-          if (response.data is List) {
-            managers = List<Map<String, dynamic>>.from(response.data as List);
-          } else if (response.data is Map<String, dynamic>) {
-            final responseMap = response.data as Map<String, dynamic>;
-            managers = List<Map<String, dynamic>>.from(
-              responseMap['data'] ?? [],
-            );
-          } else {
-            managers = [];
-          }
-          
-          // Set selectedManagerId after managers are loaded
-          final currentManagerId = widget.user['managerId']?['_id'];
-          if (currentManagerId != null) {
-            // Check if the current manager exists in the loaded managers list
-            final managerExists = managers.any((manager) => 
-              (manager['_id'] ?? manager['id']) == currentManagerId);
-            if (managerExists) {
-              selectedManagerId = currentManagerId;
-            } else {
-              // If manager doesn't exist in list, set to null
-              selectedManagerId = null;
-            }
-          }
-          
-          isLoadingManagers = false;
-        });
-      } else {
-        setState(() {
-          isLoadingManagers = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        isLoadingManagers = false;
-      });
-    }
-  }
 
   Future<void> _loadBranches() async {
     setState(() {
@@ -170,6 +123,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
         limit: 100, // Get all branches for dropdown
       );
       if (response.success && response.data != null) {
+        if (!mounted) return;
         setState(() {
           final data = response.data as Map<String, dynamic>;
           final branchList = data['branches'] as List<dynamic>? ?? [];
@@ -180,25 +134,28 @@ class _EditUserScreenState extends State<EditUserScreen> {
           // Set selectedBranchId after branches are loaded
           final currentBranchId = widget.user['branchId']?['_id'];
           if (currentBranchId != null) {
-            // Check if the current branch exists in the loaded branches list
-            final branchExists = branches.any((branch) =>
-              (branch['_id'] ?? branch['id']) == currentBranchId);
+            final branchExists = branches.any(
+                (branch) => (branch['_id'] ?? branch['id']) == currentBranchId);
             if (branchExists) {
               selectedBranchId = currentBranchId;
             } else {
-              // If branch doesn't exist in list, set to null
               selectedBranchId = null;
             }
           }
 
+          // Update the manager field based on the selected branch
+          _updateManagerForSelectedBranch();
+
           isLoadingBranches = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           isLoadingBranches = false;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoadingBranches = false;
       });
@@ -252,7 +209,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'role': selectedRole!,
         'designation': _designationController.text.trim(),
         'employmentType': selectedEmploymentType!,
-        if (selectedManagerId != null) 'managerId': selectedManagerId,
         if (selectedBranchId != null) 'branchId': selectedBranchId,
         if (selectedJoiningDate != null)
           'dateOfJoining': selectedJoiningDate!.toIso8601String(),
@@ -408,9 +364,9 @@ class _EditUserScreenState extends State<EditUserScreen> {
           validator: UserValidation.validateDesignation,
         ),
         _buildBranchDropdown(),
+        _buildManagerField(),
         _buildEmploymentTypeDropdown(),
         _buildDateField(),
-        _buildManagerDropdown(),
       ],
     );
   }
@@ -644,8 +600,110 @@ class _EditUserScreenState extends State<EditUserScreen> {
           );
         }),
       ],
-      onChanged: (value) => setState(() => selectedBranchId = value),
+      onChanged: (value) {
+        setState(() {
+          selectedBranchId = value;
+          _updateManagerForSelectedBranch();
+        });
+      },
     );
+  }
+
+  Widget _buildManagerField() {
+    return TextFormField(
+      controller: _managerController,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: 'Manager',
+        prefixIcon: const Icon(Icons.supervisor_account_outlined, color: primaryBlue),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        filled: true,
+        fillColor: Colors.grey.withValues(alpha: 0.1),
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey[600],
+      ),
+    );
+  }
+
+  void _updateManagerForSelectedBranch() {
+    if (selectedBranchId == null) {
+      currentManagerName = null;
+      _managerController.text = 'No Manager';
+      return;
+    }
+
+    // Find the selected branch and get its manager
+    final selectedBranch = branches.firstWhere(
+      (branch) => (branch['_id'] ?? branch['id']) == selectedBranchId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (selectedBranch.isEmpty) {
+      currentManagerName = null;
+      _managerController.text = 'No Manager';
+      return;
+    }
+
+    currentManagerName = _extractManagerName(selectedBranch);
+    _managerController.text = currentManagerName ?? 'No Manager';
+  }
+
+  String? _extractManagerName(Map<String, dynamic> branch) {
+    final branchManager = branch['branchManager'];
+
+    // Handle null or missing branchManager
+    if (branchManager == null) {
+      return null;
+    }
+
+    // Handle populated branchManager object
+    if (branchManager is Map<String, dynamic>) {
+      // Check if it has the required fields
+      final firstName = branchManager['firstName'];
+      final lastName = branchManager['lastName'];
+
+      if (firstName != null || lastName != null) {
+        final fullName = '${firstName ?? ''} ${lastName ?? ''}'.trim();
+        return fullName.isNotEmpty ? fullName : null;
+      }
+
+      // Check if it might be an empty object
+      if (branchManager.isEmpty) {
+        return null;
+      }
+
+      // Fallback: try to extract any meaningful text
+      final keys = branchManager.keys.toList();
+      if (keys.isNotEmpty) {
+        return 'Manager (${keys.join(', ')})';
+      }
+    }
+
+    // Handle string ID (fallback case)
+    if (branchManager is String && branchManager.isNotEmpty) {
+      return 'Manager ($branchManager)';
+    }
+
+    // Handle other types
+    return null;
   }
 
   Widget _buildEmploymentTypeDropdown() {
@@ -713,75 +771,6 @@ class _EditUserScreenState extends State<EditUserScreen> {
     );
   }
 
-  Widget _buildManagerDropdown() {
-    return SizedBox(
-      width: double.infinity,
-      child: DropdownButtonFormField<String>(
-        key: ValueKey(selectedManagerId), // Force rebuild when selectedManagerId changes
-        initialValue: selectedManagerId,
-        isExpanded: true, // This prevents overflow in the button itself
-        decoration: InputDecoration(
-        labelText: 'Manager',
-        prefixIcon: isLoadingManagers
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                  ),
-                ),
-              )
-            : const Icon(Icons.supervisor_account_outlined, color: primaryBlue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceLight,
-        labelStyle: TextStyle(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      items: [
-        const DropdownMenuItem<String>(value: null, child: Text('No Manager')),
-        ...managers
-            .where((manager) => manager['_id'] != widget.user['_id'])
-            .map((manager) {
-              final firstName = manager['firstName'] ?? '';
-              final lastName = manager['lastName'] ?? '';
-              final fullName = '$firstName $lastName'.trim();
-
-              return DropdownMenuItem<String>(
-                value: manager['_id'] ?? manager['id'],
-                child: Text(
-                  fullName,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              );
-            }),
-      ],
-      onChanged: (value) => setState(() => selectedManagerId = value),
-      ),
-    );
-  }
 
   Widget _buildDateField() {
     return InkWell(

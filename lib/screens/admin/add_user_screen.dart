@@ -17,18 +17,17 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
+  final _managerController = TextEditingController();
   
   String? selectedRole;
-  String? selectedManagerId;
   String? selectedBranchId;
   String? selectedEmploymentType = 'permanent';
   DateTime? selectedJoiningDate;
 
-  List<Map<String, dynamic>> managers = [];
   List<Map<String, dynamic>> branches = [];
-  bool isLoadingManagers = false;
   bool isLoadingBranches = false;
   bool isSubmitting = false;
+  String? selectedManagerName;
 
   // Company colors
   static const Color brandPrimary = Color(0xFF272579);
@@ -49,7 +48,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   void initState() {
     super.initState();
     selectedJoiningDate = null;
-    _loadManagers();
+    _managerController.text = 'No Manager';
     _loadBranches();
   }
 
@@ -60,6 +59,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _designationController.dispose();
+    _managerController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -73,36 +73,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
     }
   }
 
-  Future<void> _loadManagers() async {
-    setState(() {
-      isLoadingManagers = true;
-    });
-
-    try {
-      final response = await ApiService.getManagers();
-      if (response.success && response.data != null) {
-        setState(() {
-          if (response.data is List) {
-            managers = List<Map<String, dynamic>>.from(response.data as List);
-          } else if (response.data is Map<String, dynamic>) {
-            final responseMap = response.data as Map<String, dynamic>;
-            managers = List<Map<String, dynamic>>.from(responseMap['data'] ?? []);
-          } else {
-            managers = [];
-          }
-          isLoadingManagers = false;
-        });
-      } else {
-        setState(() {
-          isLoadingManagers = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        isLoadingManagers = false;
-      });
-    }
-  }
 
   Future<void> _loadBranches() async {
     setState(() {
@@ -115,12 +85,43 @@ class _AddUserScreenState extends State<AddUserScreen> {
         limit: 100, // Get all branches for dropdown
       );
       if (response.success && response.data != null) {
+        print('🌿 BRANCHES: API response successful');
+        final data = response.data as Map<String, dynamic>;
+        print('🌿 BRANCHES: Response data keys: ${data.keys.toList()}');
+
+        final branchList = data['branches'] as List<dynamic>? ?? [];
+        print('🌿 BRANCHES: Found ${branchList.length} branches in response');
+
+        branches = branchList
+            .map((json) => json as Map<String, dynamic>)
+            .toList();
+
+        // Detailed logging of branch data structure
+        for (int i = 0; i < branches.length && i < 3; i++) {
+          final branch = branches[i];
+          print('🌿 BRANCHES: Branch $i structure:');
+          print('  - ID: ${branch['_id']}');
+          print('  - Name: ${branch['branchName']}');
+          print('  - Keys: ${branch.keys.toList()}');
+          print('  - branchManager: ${branch['branchManager']}');
+          print('  - branchManager type: ${branch['branchManager'].runtimeType}');
+          if (branch['branchManager'] != null) {
+            final manager = branch['branchManager'];
+            if (manager is Map<String, dynamic>) {
+              print('  - Manager keys: ${manager.keys.toList()}');
+              print('  - Manager firstName: ${manager['firstName']}');
+              print('  - Manager lastName: ${manager['lastName']}');
+              print('  - Manager _id: ${manager['_id']}');
+            } else {
+              print('  - Manager is not a Map, value: $manager');
+            }
+          } else {
+            print('  - Manager is null');
+          }
+          print('');
+        }
+
         setState(() {
-          final data = response.data as Map<String, dynamic>;
-          final branchList = data['branches'] as List<dynamic>? ?? [];
-          branches = branchList
-              .map((json) => json as Map<String, dynamic>)
-              .toList();
           isLoadingBranches = false;
         });
       } else {
@@ -186,7 +187,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
         designation: _designationController.text.trim(),
         employmentType: selectedEmploymentType!,
         dateOfJoining: selectedJoiningDate?.toIso8601String(),
-        managerId: selectedManagerId,
         branchId: selectedBranchId,
       );
 
@@ -335,9 +335,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
           validator: UserValidation.validateDesignation,
         ),
         _buildBranchDropdown(),
+        _buildManagerField(),
         _buildEmploymentTypeDropdown(),
         _buildDateField(),
-        _buildManagerDropdown(),
       ],
     );
   }
@@ -567,8 +567,160 @@ class _AddUserScreenState extends State<AddUserScreen> {
           );
         }),
       ],
-      onChanged: (value) => setState(() => selectedBranchId = value),
+      onChanged: (value) {
+        setState(() {
+          selectedBranchId = value;
+          _updateManagerForSelectedBranch();
+        });
+      },
     );
+  }
+
+  Widget _buildManagerField() {
+    print('🎨 UI: Building manager field');
+    print('🎨 UI: selectedManagerName = "$selectedManagerName"');
+
+    final managerText = selectedManagerName ?? 'No Manager';
+    print('🎨 UI: Final display text = "$managerText"');
+
+    return TextFormField(
+      controller: _managerController,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: 'Manager',
+        prefixIcon: const Icon(Icons.supervisor_account_outlined, color: primaryBlue),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+        ),
+        filled: true,
+        fillColor: Colors.grey.withValues(alpha: 0.1),
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey[600],
+      ),
+    );
+  }
+
+  void _updateManagerForSelectedBranch() {
+    print('🔍 MANAGER: _updateManagerForSelectedBranch called');
+    print('🔍 MANAGER: selectedBranchId = $selectedBranchId');
+    print('🔍 MANAGER: Total branches available: ${branches.length}');
+
+    if (selectedBranchId == null) {
+      print('🔍 MANAGER: selectedBranchId is null, setting manager to null');
+      selectedManagerName = null;
+      _managerController.text = 'No Manager';
+      return;
+    }
+
+    // List available branch IDs for debugging
+    final availableBranchIds = branches.map((b) => b['_id'] ?? b['id']).toList();
+    print('🔍 MANAGER: Available branch IDs: $availableBranchIds');
+
+    // Find the selected branch and get its manager
+    final selectedBranch = branches.firstWhere(
+      (branch) => (branch['_id'] ?? branch['id']) == selectedBranchId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    print('🔍 MANAGER: selectedBranch found: ${selectedBranch.isNotEmpty}');
+    if (selectedBranch.isEmpty) {
+      print('🔍 MANAGER: Selected branch not found in branches list');
+      selectedManagerName = null;
+      _managerController.text = 'No Manager';
+      return;
+    }
+
+    print('🔍 MANAGER: Selected branch name: ${selectedBranch['branchName']}');
+    print('🔍 MANAGER: Calling _extractManagerName...');
+
+    selectedManagerName = _extractManagerName(selectedBranch);
+    _managerController.text = selectedManagerName ?? 'No Manager';
+
+    print('🔍 MANAGER: Final selectedManagerName = "$selectedManagerName"');
+  }
+
+  String? _extractManagerName(Map<String, dynamic> branch) {
+    print('🎯 EXTRACT: Starting manager extraction');
+    print('🎯 EXTRACT: Branch name: ${branch['branchName']}');
+    print('🎯 EXTRACT: Branch ID: ${branch['_id']}');
+
+    final branchManager = branch['branchManager'];
+    print('🎯 EXTRACT: branchManager raw value: $branchManager');
+    print('🎯 EXTRACT: branchManager type: ${branchManager.runtimeType}');
+    print('🎯 EXTRACT: branchManager == null: ${branchManager == null}');
+
+    // Handle null or missing branchManager
+    if (branchManager == null) {
+      print('🎯 EXTRACT: branchManager is null, returning null');
+      return null;
+    }
+
+    // Handle populated branchManager object
+    if (branchManager is Map<String, dynamic>) {
+      print('🎯 EXTRACT: branchManager is Map with keys: ${branchManager.keys.toList()}');
+
+      // Check if it has the required fields
+      final firstName = branchManager['firstName'];
+      final lastName = branchManager['lastName'];
+      print('🎯 EXTRACT: firstName = "$firstName" (${firstName.runtimeType})');
+      print('🎯 EXTRACT: lastName = "$lastName" (${lastName.runtimeType})');
+
+      if (firstName != null || lastName != null) {
+        final fullName = '${firstName ?? ''} ${lastName ?? ''}'.trim();
+        print('🎯 EXTRACT: Constructed fullName = "$fullName"');
+        print('🎯 EXTRACT: fullName.isEmpty = ${fullName.isEmpty}');
+
+        if (fullName.isNotEmpty) {
+          print('🎯 EXTRACT: Returning fullName: "$fullName"');
+          return fullName;
+        } else {
+          print('🎯 EXTRACT: fullName is empty, returning null');
+          return null;
+        }
+      }
+
+      // Check if it might be an empty object
+      if (branchManager.isEmpty) {
+        print('🎯 EXTRACT: branchManager is empty Map, returning null');
+        return null;
+      }
+
+      // Fallback: try to extract any meaningful text
+      final keys = branchManager.keys.toList();
+      print('🎯 EXTRACT: Fallback - available keys: $keys');
+      if (keys.isNotEmpty) {
+        final fallback = 'Manager (${keys.join(', ')})';
+        print('🎯 EXTRACT: Returning fallback: "$fallback"');
+        return fallback;
+      }
+    }
+
+    // Handle string ID (fallback case)
+    if (branchManager is String && branchManager.isNotEmpty) {
+      final stringResult = 'Manager ($branchManager)';
+      print('🎯 EXTRACT: branchManager is String, returning: "$stringResult"');
+      return stringResult;
+    }
+
+    // Handle other types
+    print('🎯 EXTRACT: Unhandled type ${branchManager.runtimeType}, returning null');
+    return null;
   }
 
   Widget _buildEmploymentTypeDropdown() {
@@ -625,73 +777,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
     );
   }
 
-  Widget _buildManagerDropdown() {
-    return SizedBox(
-      width: double.infinity,
-      child: DropdownButtonFormField<String>(
-        key: ValueKey(selectedManagerId), // Force rebuild when selectedManagerId changes
-        initialValue: selectedManagerId,
-        isExpanded: true, // This prevents overflow in the button itself
-        decoration: InputDecoration(
-        labelText: 'Manager',
-        prefixIcon: isLoadingManagers
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                  ),
-                ),
-              )
-            : const Icon(Icons.supervisor_account_outlined, color: primaryBlue),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceLight,
-        labelStyle: TextStyle(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      items: [
-        const DropdownMenuItem<String>(value: null, child: Text('No Manager')),
-        ...managers.map((manager) {
-          final firstName = manager['firstName'] ?? '';
-          final lastName = manager['lastName'] ?? '';
-          final fullName = '$firstName $lastName'.trim();
-
-          return DropdownMenuItem<String>(
-            value: manager['_id'] ?? manager['id'],
-            child: Text(
-              fullName,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          );
-        }),
-      ],
-      onChanged: (value) => setState(() => selectedManagerId = value),
-      ),
-    );
-  }
 
   Widget _buildDateField() {
     return InkWell(
