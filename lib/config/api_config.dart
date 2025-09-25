@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/remote_config_service.dart';
 
 /// Configuration class for API settings and environment management
 class ApiConfig {
@@ -15,20 +16,53 @@ class ApiConfig {
 
   /// Get the current base URL based on environment
   static String get baseUrl {
-    // Try to get from environment variables first
+    // Check if Remote Config should be used based on .env setting
+    final useRemoteConfig = _shouldUseRemoteConfig();
+
+    if (useRemoteConfig) {
+      // REMOTE CONFIG MODE: Remote Config first, then fallbacks
+      debugPrint('🔧 ApiConfig: Remote Config mode - checking Firebase first');
+
+      // First priority: Firebase Remote Config
+      if (RemoteConfigService.isAvailable) {
+        final remoteUrl = RemoteConfigService.getBackendApiUrl();
+        if (remoteUrl.isNotEmpty) {
+          debugPrint('🔧 ApiConfig: Using Remote Config API URL: $remoteUrl');
+          return remoteUrl;
+        }
+      }
+
+      debugPrint('⚠️ ApiConfig: Remote Config not available, falling back to .env');
+    } else {
+      // LOCAL CONFIG MODE: .env first, skip Remote Config
+      debugPrint('🔧 ApiConfig: Local config mode - using .env and fallbacks only');
+    }
+
+    // Environment variables (.env file)
     final envUrl = dotenv.maybeGet('API_BASE_URL');
     if (envUrl != null && envUrl.isNotEmpty) {
+      debugPrint('🔧 ApiConfig: Using .env API URL: $envUrl');
       return envUrl;
     }
 
     // Fallback to hardcoded URLs based on build mode
+    String fallbackUrl;
     if (isProduction) {
-      return _productionUrl;
+      fallbackUrl = _productionUrl;
     } else if (isStaging) {
-      return _stagingUrl;
+      fallbackUrl = _stagingUrl;
     } else {
-      return _developmentUrl;
+      fallbackUrl = _developmentUrl;
     }
+
+    debugPrint('🔧 ApiConfig: Using fallback URL: $fallbackUrl');
+    return fallbackUrl;
+  }
+
+  /// Check if Remote Config should be used based on .env setting
+  static bool _shouldUseRemoteConfig() {
+    final useRemoteConfig = dotenv.maybeGet('USE_REMOTE_CONFIG')?.toLowerCase();
+    return useRemoteConfig == 'true' || useRemoteConfig == '1';
   }
 
   // HTTP Client Configuration
@@ -114,6 +148,44 @@ class ApiConfig {
         print('Warning: Could not load .env file: $e');
       }
     }
+  }
+
+  /// Force refresh configuration (useful when Remote Config values change)
+  static Future<void> refreshConfiguration() async {
+    try {
+      if (RemoteConfigService.isAvailable) {
+        await RemoteConfigService.fetchAndActivate();
+        debugPrint('🔄 ApiConfig: Configuration refreshed from Remote Config');
+      }
+    } catch (e) {
+      debugPrint('❌ ApiConfig: Failed to refresh configuration: $e');
+    }
+  }
+
+  /// Get current configuration info for debugging
+  static Map<String, dynamic> getConfigInfo() {
+    return {
+      'current_base_url': baseUrl,
+      'remote_config_available': RemoteConfigService.isAvailable,
+      'environment': _getEnvironment(),
+      'is_production': isProduction,
+      'is_staging': isStaging,
+      'is_development': isDevelopment,
+      'remote_config_values': RemoteConfigService.isAvailable
+          ? {
+              'backend_api_url': RemoteConfigService.getBackendApiUrl(),
+              'remote_config_status': 'available',
+            }
+          : {'remote_config_status': 'not_available'},
+      'env_variables': {
+        'API_BASE_URL': dotenv.maybeGet('API_BASE_URL') ?? 'not_set',
+      },
+      'fallback_urls': {
+        'development': _developmentUrl,
+        'staging': _stagingUrl,
+        'production': _productionUrl,
+      },
+    };
   }
 }
 

@@ -264,7 +264,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'Tap for ID card actions',
+                'Tap for ID card & visiting card actions',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 10,

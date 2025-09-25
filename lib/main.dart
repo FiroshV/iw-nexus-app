@@ -11,6 +11,7 @@ import 'widgets/user_avatar.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'services/access_control_service.dart';
+import 'services/version_check_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
 import 'screens/attendance_screen.dart';
@@ -19,6 +20,8 @@ import 'screens/id_card_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
+import 'services/remote_config_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,11 +56,46 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint('🔥 Firebase initialized successfully');
+
+    // Initialize Remote Config and Version Check Service based on .env setting
+    if (_shouldUseRemoteConfig()) {
+      debugPrint('🔧 Remote Config enabled - initializing services');
+
+      // Initialize Firebase Remote Config
+      try {
+        await RemoteConfigService.initialize();
+        debugPrint('🔧 Remote Config initialized successfully');
+      } catch (e) {
+        debugPrint('❌ Remote Config initialization error: $e');
+      }
+
+      // Initialize Version Check Service
+      try {
+        await VersionCheckService.initialize();
+        debugPrint('📱 Version Check Service initialized successfully');
+      } catch (e) {
+        debugPrint('❌ Version Check Service initialization error: $e');
+      }
+    } else {
+      debugPrint('🔧 Remote Config disabled - skipping initialization');
+    }
   } catch (e) {
     debugPrint('❌ Firebase initialization error: $e');
   }
 
   runApp(const MyApp());
+}
+
+/// Check if Remote Config should be used based on .env setting
+bool _shouldUseRemoteConfig() {
+  final useRemoteConfig = dotenv.maybeGet('USE_REMOTE_CONFIG')?.toLowerCase();
+  return useRemoteConfig == 'true' || useRemoteConfig == '1';
+}
+
+/// Check if version checking should be enabled based on .env setting
+bool _shouldEnableVersionCheck() {
+  final enableVersionCheck = dotenv.maybeGet('ENABLE_VERSION_CHECK')?.toLowerCase();
+  return enableVersionCheck == 'true' || enableVersionCheck == '1';
 }
 
 class MyApp extends StatelessWidget {
@@ -162,6 +200,8 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? currentUser;
   bool isLoading = true;
+  VersionCheckResult? _updateInfo;
+  bool _isUpdateBannerDismissed = false;
 
   @override
   void initState() {
@@ -179,6 +219,8 @@ class _DashboardPageState extends State<DashboardPage> {
             currentUser = response.data;
             isLoading = false;
           });
+          // Check for app updates after user data is loaded
+          _checkForAppUpdate();
         }
       } else {
         // Try getCurrentUser endpoint as fallback
@@ -190,6 +232,8 @@ class _DashboardPageState extends State<DashboardPage> {
               currentUser = authResponse.data!['user'] ?? authResponse.data;
               isLoading = false;
             });
+            // Check for app updates after user data is loaded
+            _checkForAppUpdate();
           }
         } else {
           // Final fallback to local storage
@@ -199,6 +243,8 @@ class _DashboardPageState extends State<DashboardPage> {
               currentUser = userData;
               isLoading = false;
             });
+            // Check for app updates after user data is loaded
+            _checkForAppUpdate();
           }
         }
       }
@@ -211,6 +257,8 @@ class _DashboardPageState extends State<DashboardPage> {
             currentUser = userData;
             isLoading = false;
           });
+          // Check for app updates after user data is loaded
+          _checkForAppUpdate();
         }
       } catch (e2) {
         if (mounted) {
@@ -233,6 +281,150 @@ class _DashboardPageState extends State<DashboardPage> {
 
   String get userRole => currentUser?['role']?.toString() ?? '';
 
+  /// Check for app updates and show dialog if needed
+  Future<void> _checkForAppUpdate() async {
+    try {
+      // Skip version check if disabled in .env
+      if (!_shouldEnableVersionCheck()) {
+        debugPrint('⏭️ Skipping version check - disabled in .env');
+        return;
+      }
+
+      // Only check for updates if services are available
+      if (!VersionCheckService.isAvailable || !RemoteConfigService.isAvailable) {
+        debugPrint('⏭️ Skipping version check - services not available');
+        return;
+      }
+
+      debugPrint('🔍 Version check enabled - performing update check');
+
+      // Perform version check
+      final versionResult = await VersionCheckService.checkForUpdate();
+
+      // Show update dialog if update is available
+      if (versionResult.updateAvailable && mounted) {
+        // Small delay to ensure UI is ready
+        await Future.delayed(const Duration(seconds: 1));
+
+        if (mounted) {
+          // Store update info for dashboard banner (both force and optional)
+          setState(() {
+            _updateInfo = versionResult;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking for app update: $e');
+    }
+  }
+
+  /// Build update banner for dashboard
+  Widget? _buildUpdateBanner() {
+    if (_updateInfo == null ||
+        !_updateInfo!.updateAvailable ||
+        _isUpdateBannerDismissed) {
+      return null;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0071bf), Color(0xFF00b8d9)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0071bf).withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _updateInfo!.forceUpdate
+                  ? 'Update required to continue'
+                  : 'New update available',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: () async {
+                  // Launch store directly
+                  final success = await VersionCheckService.launchStore(
+                    _updateInfo!.downloadUrl,
+                  );
+
+                  if (!success && mounted) {
+                    // Show error message if store launch failed
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Unable to open store. Please update manually.'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
+                  }
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF5cfbd8),
+                  foregroundColor: const Color(0xFF272579),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  _updateInfo!.forceUpdate ? 'Update Now' : 'Update',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              // Only show close button for optional updates
+              if (!_updateInfo!.forceUpdate) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isUpdateBannerDismissed = true;
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   String _getUserDisplayName() {
     if (currentUser == null) return 'User';
@@ -727,6 +919,9 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Update banner (only shows on dashboard)
+                  if (_buildUpdateBanner() != null) _buildUpdateBanner()!,
+
                   // Welcome section with flip functionality
                   IDCardWidget(
                     userData: currentUser,
