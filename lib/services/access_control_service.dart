@@ -39,7 +39,7 @@ class AccessControlService {
       'check_in': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
       'check_out': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
       'edit_attendance': ['admin', 'director', 'manager'],
-      'approve_attendance': ['admin', 'director', 'manager']
+      'approve_attendance': ['admin', 'manager']
     },
 
     // Reports Features
@@ -67,14 +67,21 @@ class AccessControlService {
   };
 
   /// Check if a user role has access to a specific feature action
-  /// 
+  ///
   /// [userRole] - The user's role
   /// [feature] - The feature name (e.g., 'user_management')
   /// [action] - The action name (e.g., 'create', 'edit', 'delete')
-  /// 
+  ///
   /// Returns true if user has access, false otherwise
   static bool hasAccess(String? userRole, String feature, [String action = 'view']) {
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: hasAccess called - role: $userRole, feature: $feature, action: $action');
+    }
+
     if (userRole == null || userRole.isEmpty || feature.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: hasAccess - invalid input parameters, denying access');
+      }
       return false;
     }
 
@@ -90,7 +97,14 @@ class AccessControlService {
       return false;
     }
 
-    return allowedRoles.contains(userRole.toLowerCase());
+    final hasPermission = allowedRoles.contains(userRole.toLowerCase());
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: hasAccess - allowedRoles for $feature.$action: $allowedRoles');
+      debugPrint('🔐 ACCESS: hasAccess - checking role: ${userRole.toLowerCase()}');
+      debugPrint('🔐 ACCESS: hasAccess - result: $hasPermission');
+    }
+
+    return hasPermission;
   }
 
   /// Get all allowed actions for a user role on a specific feature
@@ -265,26 +279,46 @@ class AccessControlService {
   ///
   /// Returns true if the manager can edit/delete the target user
   static bool canManageBranchUser(Map<String, dynamic>? currentUser, Map<String, dynamic>? targetUser) {
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageBranchUser called');
+    }
+
     if (currentUser == null || targetUser == null) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageBranchUser - null user data, denying access');
+      }
       return false;
     }
 
     final currentUserRole = currentUser['role'] as String?;
     final targetUserRole = targetUser['role'] as String?;
 
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageBranchUser - currentUserRole: $currentUserRole, targetUserRole: $targetUserRole');
+    }
+
     // Admin and director can manage all users
     if (isAdmin(currentUserRole)) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageBranchUser - current user is admin/director, allowing access');
+      }
       return true;
     }
 
     // If current user is not a manager, they can't manage other users
     if (currentUserRole?.toLowerCase() != 'manager') {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageBranchUser - current user is not a manager, denying access');
+      }
       return false;
     }
 
     // Managers cannot manage other managers, directors, or admins
     final restrictedRoles = ['manager', 'director', 'admin'];
     if (targetUserRole != null && restrictedRoles.contains(targetUserRole.toLowerCase())) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageBranchUser - target user has restricted role ($targetUserRole), denying access');
+      }
       return false;
     }
 
@@ -293,13 +327,25 @@ class AccessControlService {
     final currentUserBranchId = _extractBranchId(currentUser);
     final targetUserBranchId = _extractBranchId(targetUser);
 
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageBranchUser - currentUserBranchId: $currentUserBranchId');
+      debugPrint('🔐 ACCESS: canManageBranchUser - targetUserBranchId: $targetUserBranchId');
+    }
+
     if (currentUserBranchId == null || targetUserBranchId == null) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageBranchUser - missing branch information, denying access');
+      }
       // If branch information is missing, deny access for managers to be safe
       return false;
     }
 
     // Manager can only manage users from the same branch (compare ObjectIds)
-    return currentUserBranchId == targetUserBranchId;
+    final canManage = currentUserBranchId == targetUserBranchId;
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageBranchUser - branch comparison result: $canManage');
+    }
+    return canManage;
   }
 
   /// Check if a manager can manage a user considering both role and branch restrictions
@@ -310,7 +356,16 @@ class AccessControlService {
   ///
   /// Returns true if the action is allowed
   static bool canManageUser(Map<String, dynamic>? currentUser, Map<String, dynamic>? targetUser, String action) {
+    if (kDebugMode) {
+      debugPrint('🔐🔐🔐 ACCESS: canManageUser called with action: $action');
+      debugPrint('🔐🔐🔐 ACCESS: currentUser role: ${currentUser?['role']}');
+      debugPrint('🔐🔐🔐 ACCESS: targetUser role: ${targetUser?['role']}');
+    }
+
     if (currentUser == null || targetUser == null) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageUser - null user data, denying access');
+      }
       return false;
     }
 
@@ -318,11 +373,22 @@ class AccessControlService {
 
     // First check basic role permissions
     if (!hasAccess(currentUserRole, 'user_management', action)) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: canManageUser - basic role permission check failed for role: $currentUserRole, action: $action');
+      }
       return false;
     }
 
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageUser - basic role permission check passed, checking branch permissions');
+    }
+
     // Then check branch-specific permissions for managers
-    return canManageBranchUser(currentUser, targetUser);
+    final canManage = canManageBranchUser(currentUser, targetUser);
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: canManageUser - branch permission result: $canManage');
+    }
+    return canManage;
   }
 
   /// Helper method to extract branch ObjectId from user data
@@ -331,33 +397,66 @@ class AccessControlService {
   ///
   /// Returns the branch ObjectId string or null if not found
   static String? _extractBranchId(Map<String, dynamic> userData) {
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: _extractBranchId called for user: ${userData['firstName']} ${userData['lastName']}');
+      debugPrint('🔐 ACCESS: userData keys: ${userData.keys.toList()}');
+      debugPrint('🔐 ACCESS: rawBranchId: ${userData['rawBranchId']}');
+      debugPrint('🔐 ACCESS: branchId: ${userData['branchId']}');
+    }
+
     // First try to get rawBranchId (added by backend for easier comparison)
     if (userData.containsKey('rawBranchId') && userData['rawBranchId'] != null) {
-      return userData['rawBranchId'].toString();
+      final rawBranchId = userData['rawBranchId'].toString();
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: _extractBranchId - found rawBranchId: $rawBranchId');
+      }
+      return rawBranchId;
     }
 
     // Fallback to extracting from branchId field
     final branchData = userData['branchId'];
     if (branchData == null) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: _extractBranchId - branchData is null');
+      }
       return null;
+    }
+
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: _extractBranchId - branchData type: ${branchData.runtimeType}');
+      debugPrint('🔐 ACCESS: _extractBranchId - branchData: $branchData');
     }
 
     // If it's a populated branch object from API (created by .populate("branchId", "branchId branchName branchAddress"))
     if (branchData is Map<String, dynamic>) {
       if (branchData.containsKey('branchId')) {
-        return branchData['branchId']?.toString();
+        final extractedId = branchData['branchId']?.toString();
+        if (kDebugMode) {
+          debugPrint('🔐 ACCESS: _extractBranchId - extracted from populated branchId.branchId: $extractedId');
+        }
+        return extractedId;
       }
       // Fallback: check for _id field (in case it's a full branch document)
       if (branchData.containsKey('_id')) {
-        return branchData['_id']?.toString();
+        final extractedId = branchData['_id']?.toString();
+        if (kDebugMode) {
+          debugPrint('🔐 ACCESS: _extractBranchId - extracted from populated branchId._id: $extractedId');
+        }
+        return extractedId;
       }
     }
 
     // If it's just a string (ObjectId from AuthProvider or non-populated reference), return as-is
     if (branchData is String) {
+      if (kDebugMode) {
+        debugPrint('🔐 ACCESS: _extractBranchId - using string branchId: $branchData');
+      }
       return branchData;
     }
 
+    if (kDebugMode) {
+      debugPrint('🔐 ACCESS: _extractBranchId - no valid branch ID found');
+    }
     return null;
   }
 

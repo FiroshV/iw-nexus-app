@@ -197,8 +197,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     // Cache access control checks to avoid multiple calls during build
     final currentUser = context.read<AuthProvider>().user;
+
+    debugPrint('🔥🔥🔥 USER CARD: Building card for ${user['firstName']} ${user['lastName']} (${user['role']})');
+    debugPrint('🔥🔥🔥 USER CARD: Current user role: ${currentUser?['role']}');
+
     final canEdit = AccessControlService.canManageUser(currentUser, user, 'edit');
     final canDelete = AccessControlService.canManageUser(currentUser, user, 'delete');
+
+    debugPrint('🔥🔥🔥 USER CARD: canEdit: $canEdit, canDelete: $canDelete');
 
     return Container(
       decoration: BoxDecoration(
