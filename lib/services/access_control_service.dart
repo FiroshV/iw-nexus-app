@@ -11,8 +11,8 @@ class AccessControlService {
     'user_management': {
       'view': ['admin', 'director', 'manager'],
       'create': ['admin', 'director'],
-      'edit': ['admin', 'director'],
-      'delete': ['admin', 'director'],
+      'edit': ['admin', 'director', 'manager'],
+      'delete': ['admin', 'director', 'manager'],
       'view_profile': ['admin', 'manager', 'director', 'field_staff', 'telecaller']
     },
 
@@ -256,6 +256,109 @@ class AccessControlService {
     }
 
     return false;
+  }
+
+  /// Check if a manager can manage a specific user based on branch hierarchy
+  ///
+  /// [currentUser] - The current user (manager) object
+  /// [targetUser] - The target user object to be managed
+  ///
+  /// Returns true if the manager can edit/delete the target user
+  static bool canManageBranchUser(Map<String, dynamic>? currentUser, Map<String, dynamic>? targetUser) {
+    if (currentUser == null || targetUser == null) {
+      return false;
+    }
+
+    final currentUserRole = currentUser['role'] as String?;
+    final targetUserRole = targetUser['role'] as String?;
+
+    // Admin and director can manage all users
+    if (isAdmin(currentUserRole)) {
+      return true;
+    }
+
+    // If current user is not a manager, they can't manage other users
+    if (currentUserRole?.toLowerCase() != 'manager') {
+      return false;
+    }
+
+    // Managers cannot manage other managers, directors, or admins
+    final restrictedRoles = ['manager', 'director', 'admin'];
+    if (targetUserRole != null && restrictedRoles.contains(targetUserRole.toLowerCase())) {
+      return false;
+    }
+
+    // Check if the manager is managing users from their branch
+    // Handle comparison between different data formats
+    final currentUserBranchId = _extractBranchId(currentUser);
+    final targetUserBranchId = _extractBranchId(targetUser);
+
+    if (currentUserBranchId == null || targetUserBranchId == null) {
+      // If branch information is missing, deny access for managers to be safe
+      return false;
+    }
+
+    // Manager can only manage users from the same branch (compare ObjectIds)
+    return currentUserBranchId == targetUserBranchId;
+  }
+
+  /// Check if a manager can manage a user considering both role and branch restrictions
+  ///
+  /// [currentUser] - The current user object
+  /// [targetUser] - The target user object
+  /// [action] - The action to be performed ('edit' or 'delete')
+  ///
+  /// Returns true if the action is allowed
+  static bool canManageUser(Map<String, dynamic>? currentUser, Map<String, dynamic>? targetUser, String action) {
+    if (currentUser == null || targetUser == null) {
+      return false;
+    }
+
+    final currentUserRole = currentUser['role'] as String?;
+
+    // First check basic role permissions
+    if (!hasAccess(currentUserRole, 'user_management', action)) {
+      return false;
+    }
+
+    // Then check branch-specific permissions for managers
+    return canManageBranchUser(currentUser, targetUser);
+  }
+
+  /// Helper method to extract branch ObjectId from user data
+  ///
+  /// [userData] - User object that may have branchId or rawBranchId
+  ///
+  /// Returns the branch ObjectId string or null if not found
+  static String? _extractBranchId(Map<String, dynamic> userData) {
+    // First try to get rawBranchId (added by backend for easier comparison)
+    if (userData.containsKey('rawBranchId') && userData['rawBranchId'] != null) {
+      return userData['rawBranchId'].toString();
+    }
+
+    // Fallback to extracting from branchId field
+    final branchData = userData['branchId'];
+    if (branchData == null) {
+      return null;
+    }
+
+    // If it's a populated branch object from API (created by .populate("branchId", "branchId branchName branchAddress"))
+    if (branchData is Map<String, dynamic>) {
+      if (branchData.containsKey('branchId')) {
+        return branchData['branchId']?.toString();
+      }
+      // Fallback: check for _id field (in case it's a full branch document)
+      if (branchData.containsKey('_id')) {
+        return branchData['_id']?.toString();
+      }
+    }
+
+    // If it's just a string (ObjectId from AuthProvider or non-populated reference), return as-is
+    if (branchData is String) {
+      return branchData;
+    }
+
+    return null;
   }
 
   /// Debug method to print all permissions for a role

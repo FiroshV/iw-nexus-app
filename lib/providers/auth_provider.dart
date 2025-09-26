@@ -63,18 +63,18 @@ class AuthProvider extends ChangeNotifier {
           if (response.success) {
             debugPrint('🔐 AUTH: Server validation successful, fetching user data');
             
-            // Get fresh user info from server
+            // Get fresh user info from server (with populated branch data)
             try {
-              final userResponse = await ApiService.getCurrentUser();
-              if (userResponse.success && userResponse.data?['user'] != null) {
-                _user = userResponse.data!['user'];
+              final userResponse = await ApiService.getUserProfile();
+              if (userResponse.success && userResponse.data != null) {
+                _user = userResponse.data!;
                 _status = AuthStatus.authenticated;
-                
+
                 // Save user data locally for faster future loads
                 await ApiService.saveUserData(_user!);
-                debugPrint('🔐 AUTH: User data fetched and saved successfully');
+                debugPrint('🔐 AUTH: User profile data fetched and saved successfully with branch info');
               } else {
-                debugPrint('🔐 AUTH: Failed to fetch user data: ${userResponse.message}');
+                debugPrint('🔐 AUTH: Failed to fetch user profile data: ${userResponse.message}');
                 // Only clear auth if we get explicit auth errors
                 if (userResponse.statusCode == 401 || userResponse.statusCode == 403) {
                   await _clearAuth();
@@ -138,16 +138,16 @@ class AuthProvider extends ChangeNotifier {
         
         // Optionally refresh user data (but don't fail if this fails)
         try {
-          final userResponse = await ApiService.getCurrentUser();
-          if (userResponse.success && userResponse.data?['user'] != null) {
-            _user = userResponse.data!['user'];
+          final userResponse = await ApiService.getUserProfile();
+          if (userResponse.success && userResponse.data != null) {
+            _user = userResponse.data!;
             await ApiService.saveUserData(_user!);
             notifyListeners();
-            debugPrint('🔐 AUTH: User data refreshed in background');
+            debugPrint('🔐 AUTH: User profile data refreshed in background with branch info');
           }
         } catch (e) {
           // Silently continue if user data refresh fails
-          debugPrint('🔐 AUTH: Failed to refresh user data in background: $e');
+          debugPrint('🔐 AUTH: Failed to refresh user profile data in background: $e');
         }
       }
     } catch (e) {

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/access_control_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/loading_widget.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
@@ -191,6 +194,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     // final String role = user['role'] ?? '';
     final String designation = user['designation'] ?? '';
     final String employmentType = user['employmentType'] ?? 'permanent';
+
+    // Cache access control checks to avoid multiple calls during build
+    final currentUser = context.read<AuthProvider>().user;
+    final canEdit = AccessControlService.canManageUser(currentUser, user, 'edit');
+    final canDelete = AccessControlService.canManageUser(currentUser, user, 'delete');
 
     return Container(
       decoration: BoxDecoration(
@@ -405,96 +413,116 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                 ),
 
-                // Actions Menu
-                PopupMenuButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF272579).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.more_vert_rounded,
-                      color: const Color(0xFF272579),
-                      size: 20,
-                    ),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF0071bf,
-                              ).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.edit_rounded,
-                              size: 16,
-                              color: Color(0xFF0071bf),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Edit User',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                // Actions Menu - Only show if user has any management permissions
+                // If user has no permissions, show empty space to maintain layout
+                if (!canEdit && !canDelete)
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                  )
+                else
+                  PopupMenuButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF272579).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.more_vert_rounded,
+                          color: const Color(0xFF272579),
+                          size: 20,
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.delete_rounded,
-                              size: 16,
-                              color: Colors.red,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Delete User',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ),
-                  ],
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        Navigator.of(context)
-                            .push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EditUserScreen(user: user),
+                      itemBuilder: (context) {
+                        final menuItems = <PopupMenuEntry<String>>[];
+
+                        if (canEdit) {
+                          menuItems.add(
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF0071bf,
+                                      ).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_rounded,
+                                      size: 16,
+                                      color: Color(0xFF0071bf),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Edit User',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
-                            )
-                            .then((_) => _loadUsers(refresh: true));
-                        break;
-                      case 'delete':
-                        _deleteUser(user['_id'], fullName);
-                        break;
-                    }
-                  },
-                ),
+                            ),
+                          );
+                        }
+
+                        if (canDelete) {
+                          menuItems.add(
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete_rounded,
+                                      size: 16,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Delete User',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return menuItems;
+                      },
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'edit':
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EditUserScreen(user: user),
+                                  ),
+                                )
+                                .then((_) => _loadUsers(refresh: true));
+                            break;
+                          case 'delete':
+                            _deleteUser(user['_id'], fullName);
+                            break;
+                        }
+                      },
+                    ),
               ],
             ),
           ],
