@@ -79,7 +79,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
         _performSearch();
       } else {
         setState(() {
-          _error = response.message ?? 'Failed to load approvals';
+          _error = response.message;
           _isLoading = false;
         });
       }
@@ -215,7 +215,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response.message ?? 'Failed to process approval'),
+            content: Text(response.message),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
