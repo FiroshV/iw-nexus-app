@@ -141,6 +141,61 @@ class _ApprovalCardsState extends State<ApprovalCards> {
     }
   }
 
+  Widget _buildInfoCard(String label, String value, IconData icon, Color iconColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFfbf8ff),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey[200]!,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF272579),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleApproval(String attendanceId, bool approve, {String? comments}) async {
     try {
       final response = approve
@@ -199,174 +254,214 @@ class _ApprovalCardsState extends State<ApprovalCards> {
   void _showApprovalDialog(Map<String, dynamic> approval) {
     final TextEditingController commentsController = TextEditingController();
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-              child: Icon(
-                Icons.schedule,
-                color: _getStatusColor(_getApprovalReason(approval)),
-                size: 20,
-              ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF272579),
-                    ),
-                  ),
-                  Text(
-                    _getStatusText(_getApprovalReason(approval)),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _getStatusColor(_getApprovalReason(approval)),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+          ),
+          child: Column(
+            children: [
+              // Drag Handle
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Attendance details
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFfbf8ff),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Row(
+
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text(_formatDate(approval['date'])),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text('${_formatTime(approval['checkIn']?['time'])} - ${_formatTime(approval['checkOut']?['time'])}'),
-                    ],
-                  ),
-                  if (_getApprovalReason(approval).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(approval['employeeComments'] ?? 'No comments')),
+                      // Employee Name Header
+                      Text(
+                        '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(_getApprovalReason(approval)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          _getStatusText(_getApprovalReason(approval)),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Clock In Time - Prominent
+                      _buildInfoCard(
+                        'Clock In',
+                        _formatTime(approval['checkIn']?['time']),
+                        Icons.login,
+                        const Color(0xFF0071bf),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Clock Out Time (if available)
+                      if (approval['checkOut']?['time'] != null) ...[
+                        _buildInfoCard(
+                          'Clock Out',
+                          _formatTime(approval['checkOut']?['time']),
+                          Icons.logout,
+                          const Color(0xFF00b8d9),
+                        ),
+                        const SizedBox(height: 16),
                       ],
+
+                      // Date
+                      _buildInfoCard(
+                        'Date',
+                        _formatDate(approval['date']),
+                        Icons.calendar_today,
+                        Colors.grey[600]!,
+                      ),
+
+                      // Late Reason (from check-in)
+                      if (approval['checkIn']?['lateReason'] != null && approval['checkIn']['lateReason'].toString().trim().isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          'Late Reason',
+                          approval['checkIn']['lateReason'],
+                          Icons.warning,
+                          Colors.red,
+                        ),
+                      ],
+
+                      // Employee Comments (general)
+                      if (approval['employeeComments'] != null && approval['employeeComments'].toString().trim().isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          'Employee Note',
+                          approval['employeeComments'],
+                          Icons.comment,
+                          Colors.orange,
+                        ),
+                      ],
+
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Action Buttons - Fixed at bottom
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey[200]!),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final comments = commentsController.text.trim();
+                          if (comments.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Comments are required for rejection'),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(context);
+                          _handleApproval(
+                            approval['_id'],
+                            false,
+                            comments: comments,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Reject',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _handleApproval(
+                            approval['_id'],
+                            true,
+                            comments: commentsController.text.trim().isEmpty
+                              ? null
+                              : commentsController.text.trim(),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5cfbd8),
+                          foregroundColor: const Color(0xFF272579),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Approve',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Comments field
-            TextField(
-              controller: commentsController,
-              decoration: InputDecoration(
-                labelText: 'Comments (Optional)',
-                hintText: 'Add comments for this approval...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF0071bf)),
                 ),
               ),
-              maxLines: 3,
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final comments = commentsController.text.trim();
-              if (comments.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Comments are required for rejection'),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(context);
-              _handleApproval(
-                approval['_id'],
-                false,
-                comments: comments,
-              );
-            },
-            child: const Text(
-              'Reject',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleApproval(
-                approval['_id'],
-                true,
-                comments: commentsController.text.trim().isEmpty
-                  ? null
-                  : commentsController.text.trim(),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5cfbd8),
-              foregroundColor: const Color(0xFF272579),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Approve',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }
