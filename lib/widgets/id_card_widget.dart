@@ -349,21 +349,25 @@ class _IDCardWidgetState extends State<IDCardWidget>
           // User Photo
           Center(
             child: Container(
-              width: 80,
-              height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.2),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  width: 2,
+                  color: Colors.white.withValues(alpha: 0.8),
+                  width: 3,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: UserAvatar(
                 avatarUrl: widget.userData?['avatar'],
                 firstName: widget.userData?['firstName'],
                 lastName: widget.userData?['lastName'],
-                radius: 38,
+                radius: 40,
                 backgroundColor: const Color(0xFF5cfbd8),
                 textStyle: const TextStyle(
                   color: Color(0xFF272579),

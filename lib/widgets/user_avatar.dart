@@ -39,23 +39,53 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget avatar = CircleAvatar(
-      radius: radius,
-      backgroundColor: backgroundColor ?? const Color(0xFF5cfbd8),
-      backgroundImage: avatarUrl?.isNotEmpty == true
-          ? CachedNetworkImageProvider(avatarUrl!)
-          : null,
-      child: avatarUrl?.isNotEmpty != true
-          ? Text(
+    final bool hasValidAvatarUrl = avatarUrl?.isNotEmpty == true;
+
+    final Widget avatar = hasValidAvatarUrl
+        ? ClipOval(
+            child: CachedNetworkImage(
+              imageUrl: avatarUrl!,
+              width: radius * 2,
+              height: radius * 2,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => CircleAvatar(
+                radius: radius,
+                backgroundColor: backgroundColor ?? const Color(0xFF5cfbd8),
+                child: Text(
+                  _getUserInitials(),
+                  style: textStyle ?? TextStyle(
+                    color: const Color(0xFF272579),
+                    fontSize: radius * 0.6,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => CircleAvatar(
+                radius: radius,
+                backgroundColor: backgroundColor ?? const Color(0xFF5cfbd8),
+                child: Text(
+                  _getUserInitials(),
+                  style: textStyle ?? TextStyle(
+                    color: const Color(0xFF272579),
+                    fontSize: radius * 0.6,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          )
+        : CircleAvatar(
+            radius: radius,
+            backgroundColor: backgroundColor ?? const Color(0xFF5cfbd8),
+            child: Text(
               _getUserInitials(),
               style: textStyle ?? TextStyle(
                 color: const Color(0xFF272579),
                 fontSize: radius * 0.6,
                 fontWeight: FontWeight.w700,
               ),
-            )
-          : null,
-    );
+            ),
+          );
 
     if (onTap != null || showCameraIcon) {
       return Stack(
