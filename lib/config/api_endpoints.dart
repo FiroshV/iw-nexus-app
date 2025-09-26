@@ -8,6 +8,7 @@ class ApiEndpoints {
   static const String users = '/users';
   static const String branches = '/branches';
   static const String attendance = '/attendance';
+  static const String reports = '/reports';
   static const String health = '/health';
 
   // Authentication endpoints
@@ -44,6 +45,11 @@ class ApiEndpoints {
   static const String todayAttendance = '$attendance/today';
   static const String attendanceHistory = '$attendance/history';
   static const String attendanceSummary = '$attendance/summary';
+
+  // Reports endpoints
+  static const String attendanceSummaryReport = '$reports/attendance-summary';
+  static const String employeeAttendanceReport = '$reports/employee-attendance';
+  static const String branchComparisonReport = '$reports/branch-comparison';
 
   // System endpoints
   static const String healthCheck = health;

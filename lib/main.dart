@@ -14,8 +14,10 @@ import 'services/access_control_service.dart';
 import 'services/version_check_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
-import 'screens/attendance_screen.dart';
+import 'screens/enhanced_attendance_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
+import 'widgets/approval_cards.dart';
 import 'screens/id_card_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
@@ -538,7 +540,7 @@ class _DashboardPageState extends State<DashboardPage> {
               subtitle: 'App preferences and options',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to settings screen
+                // TODO: Navigate to settings screen - remove
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Settings feature coming soon!'),
@@ -932,6 +934,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   const SizedBox(height: 24),
 
+                  // Approval cards for managers/admins
+                  ApprovalCards(userRole: userRole),
+
                   // Quick actions
                   Text(
                     'Quick Actions',
@@ -961,7 +966,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const AttendanceScreen(),
+                              builder: (context) => const EnhancedAttendanceScreen(),
                             ),
                           );
                         },
@@ -1016,6 +1021,11 @@ class _DashboardPageState extends State<DashboardPage> {
                                 content: Text('Reports feature coming soon!'),
                               ),
                             );
+                            // Navigator.of(context).push(
+                            //   MaterialPageRoute(
+                            //     builder: (context) => ReportsScreen(userRole: userRole),
+                            //   ),
+                            // );
                           },
                         ),
                       ],

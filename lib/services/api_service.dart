@@ -1260,6 +1260,159 @@ class ApiService {
     );
   }
 
+  static Future<ApiResponse<Map<String, dynamic>>> getWeeklyAttendance({
+    int? year,
+    int? week,
+  }) async {
+    final Map<String, String> queryParams = {};
+    if (year != null) queryParams['year'] = year.toString();
+    if (week != null) queryParams['week'] = week.toString();
+
+    final endpoint = queryParams.isEmpty
+      ? '${ApiEndpoints.attendance}/weekly'
+      : '${ApiEndpoints.attendance}/weekly?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getMonthlyAttendance({
+    int? year,
+    int? month,
+  }) async {
+    final endpoint = ApiEndpoints.buildAttendanceSummaryQuery(
+      year: year,
+      month: month,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  static Future<ApiResponse<dynamic>> getPendingApprovals() async {
+    return await _makeRequest<dynamic>(
+      '${ApiEndpoints.attendance}/pending-approvals',
+      HttpMethods.get,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> approveAttendance(
+    String attendanceId, {
+    String? comments,
+  }) async {
+    final Map<String, dynamic> data = {};
+    if (comments != null && comments.isNotEmpty) {
+      data['comments'] = comments;
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      '${ApiEndpoints.attendance}/$attendanceId/approve',
+      HttpMethods.put,
+      body: data,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> rejectAttendance(
+    String attendanceId, {
+    required String comments,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '${ApiEndpoints.attendance}/$attendanceId/reject',
+      HttpMethods.put,
+      body: {'comments': comments},
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getTeamAttendance({
+    String? date,
+    String? status,
+  }) async {
+    final Map<String, String> queryParams = {};
+    if (date != null) queryParams['date'] = date;
+    if (status != null) queryParams['status'] = status;
+
+    final endpoint = queryParams.isEmpty
+      ? '${ApiEndpoints.attendance}/team'
+      : '${ApiEndpoints.attendance}/team?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  // ============================================================================
+  // REPORTS ENDPOINTS
+  // ============================================================================
+
+  static Future<ApiResponse<Map<String, dynamic>>> getAttendanceSummaryReport({
+    String? startDate,
+    String? endDate,
+    String? branchId,
+    String? period,
+  }) async {
+    final Map<String, String> queryParams = {};
+    if (startDate != null) queryParams['startDate'] = startDate;
+    if (endDate != null) queryParams['endDate'] = endDate;
+    if (branchId != null) queryParams['branchId'] = branchId;
+    if (period != null) queryParams['period'] = period;
+
+    final endpoint = queryParams.isEmpty
+        ? ApiEndpoints.attendanceSummaryReport
+        : '${ApiEndpoints.attendanceSummaryReport}?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getEmployeeAttendanceReport({
+    String? employeeId,
+    String? startDate,
+    String? endDate,
+    String? period,
+  }) async {
+    final Map<String, String> queryParams = {};
+    if (employeeId != null) queryParams['employeeId'] = employeeId;
+    if (startDate != null) queryParams['startDate'] = startDate;
+    if (endDate != null) queryParams['endDate'] = endDate;
+    if (period != null) queryParams['period'] = period;
+
+    final endpoint = queryParams.isEmpty
+        ? ApiEndpoints.employeeAttendanceReport
+        : '${ApiEndpoints.employeeAttendanceReport}?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getBranchComparisonReport({
+    String? startDate,
+    String? endDate,
+    String? period,
+  }) async {
+    final Map<String, String> queryParams = {};
+    if (startDate != null) queryParams['startDate'] = startDate;
+    if (endDate != null) queryParams['endDate'] = endDate;
+    if (period != null) queryParams['period'] = period;
+
+    final endpoint = queryParams.isEmpty
+        ? ApiEndpoints.branchComparisonReport
+        : '${ApiEndpoints.branchComparisonReport}?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
   // ============================================================================
   // BRANCH MANAGEMENT ENDPOINTS
   // ============================================================================
