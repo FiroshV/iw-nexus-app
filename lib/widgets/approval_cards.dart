@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/access_control_service.dart';
@@ -21,13 +22,43 @@ class _ApprovalCardsState extends State<ApprovalCards> {
   List<Map<String, dynamic>> _pendingApprovals = [];
   String? _error;
 
+  // Smart refresh management
+  Timer? _refreshTimer;
+  DateTime? _lastRefreshTime;
+  bool _isRefreshEnabled = true;
+  static const Duration _businessHoursInterval = Duration(minutes: 2);
+  static const Duration _offHoursInterval = Duration(minutes: 5);
+  static const Duration _minRefreshGap = Duration(seconds: 30);
+
+  // Exponential backoff for failed requests
+  int _failedRefreshCount = 0;
+  static const int _maxFailedRefreshCount = 5;
+  static const Duration _baseBackoffDuration = Duration(minutes: 1);
+
+  // Auto-refresh visual indicator
+  bool _isAutoRefreshing = false;
+
   @override
   void initState() {
     super.initState();
     _loadPendingApprovals();
+    _startSmartRefresh();
+
+    // Register this widget with the coordinator for pause/resume functionality
+    ApprovalScreenCoordinator.registerDashboardRefreshControls(
+      pauseRefresh: pauseRefresh,
+      resumeRefresh: resumeRefresh,
+    );
   }
 
-  Future<void> _loadPendingApprovals() async {
+  @override
+  void dispose() {
+    _stopRefreshTimer();
+    ApprovalScreenCoordinator.unregisterDashboardRefreshControls();
+    super.dispose();
+  }
+
+  Future<void> _loadPendingApprovals({bool isAutoRefresh = false}) async {
     final canView = _canViewApprovals();
 
     if (!canView) {
@@ -35,12 +66,29 @@ class _ApprovalCardsState extends State<ApprovalCards> {
       return;
     }
 
+    // Check minimum refresh gap for auto-refresh
+    if (isAutoRefresh && _lastRefreshTime != null) {
+      final timeSinceLastRefresh = DateTime.now().difference(_lastRefreshTime!);
+      if (timeSinceLastRefresh < _minRefreshGap) {
+        debugPrint('⏭️ Skipping auto-refresh - too soon since last refresh');
+        return;
+      }
+    }
+
     try {
-      setState(() => _isLoading = true);
+      if (!isAutoRefresh) {
+        setState(() => _isLoading = true);
+      } else {
+        setState(() => _isAutoRefreshing = true);
+      }
 
       final response = await ApiService.getPendingApprovals();
+      _lastRefreshTime = DateTime.now();
 
       if (response.success && response.data != null) {
+        // Reset failed count on successful refresh
+        _failedRefreshCount = 0;
+
         setState(() {
           // Handle both response formats:
           // 1. {success: true, data: [...], count: n} - object format
@@ -60,21 +108,27 @@ class _ApprovalCardsState extends State<ApprovalCards> {
             approvals = [];
           }
 
+          final newCount = approvals.length;
+          final oldCount = _pendingApprovals.length;
+
           _pendingApprovals = List<Map<String, dynamic>>.from(approvals);
           _error = null;
           _isLoading = false;
+          _isAutoRefreshing = false;
+
+          // Log approval count changes for debugging
+          if (isAutoRefresh && newCount != oldCount) {
+            debugPrint('🔄 Auto-refresh: Approvals count changed from $oldCount to $newCount');
+          }
         });
+
+        // Update refresh timer based on current approval count
+        _updateRefreshTimer();
       } else {
-        setState(() {
-          _error = response.message;
-          _isLoading = false;
-        });
+        _handleRefreshFailure(isAutoRefresh, response.message);
       }
     } catch (e) {
-      setState(() {
-        _error = 'Error loading approvals: $e';
-        _isLoading = false;
-      });
+      _handleRefreshFailure(isAutoRefresh, 'Error loading approvals: $e');
     }
   }
 
@@ -84,6 +138,123 @@ class _ApprovalCardsState extends State<ApprovalCards> {
       'attendance',
       'approve_attendance'
     );
+  }
+
+  /// Handle refresh failures with exponential backoff
+  void _handleRefreshFailure(bool isAutoRefresh, String errorMessage) {
+    _failedRefreshCount++;
+
+    setState(() {
+      _error = errorMessage;
+      _isLoading = false;
+      _isAutoRefreshing = false;
+    });
+
+    // Stop auto-refresh if too many failures
+    if (isAutoRefresh && _failedRefreshCount >= _maxFailedRefreshCount) {
+      debugPrint('❌ Auto-refresh disabled due to repeated failures');
+      _stopRefreshTimer();
+    } else if (isAutoRefresh) {
+      // Apply exponential backoff for auto-refresh
+      _updateRefreshTimerWithBackoff();
+    }
+  }
+
+  /// Update refresh timer with exponential backoff
+  void _updateRefreshTimerWithBackoff() {
+    if (!_isRefreshEnabled || !mounted || _pendingApprovals.isEmpty) return;
+
+    _stopRefreshTimer();
+
+    // Calculate backoff delay: base * 2^(failed_count - 1)
+    final backoffMultiplier = 1 << (_failedRefreshCount - 1);
+    final backoffDelay = _baseBackoffDuration * backoffMultiplier;
+    final normalInterval = _getRefreshInterval();
+    final totalInterval = normalInterval + backoffDelay;
+
+    debugPrint('🔄 Setting approval refresh with backoff: ${totalInterval.inMinutes} minutes ($_failedRefreshCount failures)');
+
+    _refreshTimer = Timer.periodic(totalInterval, (timer) {
+      if (!mounted || !_isRefreshEnabled) {
+        timer.cancel();
+        return;
+      }
+
+      debugPrint('🔄 Auto-refreshing approval data (with backoff)');
+      _loadPendingApprovals(isAutoRefresh: true);
+    });
+  }
+
+  /// Start the smart refresh system
+  void _startSmartRefresh() {
+    if (!_canViewApprovals() || !_isRefreshEnabled) return;
+
+    debugPrint('🔄 Starting smart approval refresh system');
+    _updateRefreshTimer();
+  }
+
+  /// Stop the refresh timer
+  void _stopRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    debugPrint('⏹️ Stopped approval refresh timer');
+  }
+
+  /// Update refresh timer based on current conditions
+  void _updateRefreshTimer() {
+    if (!_isRefreshEnabled || !mounted) return;
+
+    _stopRefreshTimer();
+
+    // Only start periodic refresh if there are pending approvals
+    if (_pendingApprovals.isEmpty) {
+      debugPrint('⏭️ No pending approvals - skipping periodic refresh');
+      return;
+    }
+
+    // Use backoff timer if there have been failures
+    if (_failedRefreshCount > 0) {
+      _updateRefreshTimerWithBackoff();
+      return;
+    }
+
+    final interval = _getRefreshInterval();
+    debugPrint('🔄 Setting approval refresh interval: ${interval.inMinutes} minutes');
+
+    _refreshTimer = Timer.periodic(interval, (timer) {
+      if (!mounted || !_isRefreshEnabled) {
+        timer.cancel();
+        return;
+      }
+
+      debugPrint('🔄 Auto-refreshing approval data');
+      _loadPendingApprovals(isAutoRefresh: true);
+    });
+  }
+
+  /// Get refresh interval based on business hours
+  Duration _getRefreshInterval() {
+    final now = DateTime.now();
+    final hour = now.hour;
+
+    // Business hours: 9 AM to 6 PM
+    final isBusinessHours = hour >= 9 && hour < 18;
+
+    return isBusinessHours ? _businessHoursInterval : _offHoursInterval;
+  }
+
+  /// Pause refresh (called when approval management screen is active)
+  void pauseRefresh() {
+    _isRefreshEnabled = false;
+    _stopRefreshTimer();
+    debugPrint('⏸️ Paused approval refresh');
+  }
+
+  /// Resume refresh (called when returning from approval management screen)
+  void resumeRefresh() {
+    _isRefreshEnabled = true;
+    _startSmartRefresh();
+    debugPrint('▶️ Resumed approval refresh');
   }
 
   String _formatTime(String? timeStr) {
@@ -652,6 +823,19 @@ class _ApprovalCardsState extends State<ApprovalCards> {
                 ),
                 Row(
                   children: [
+                    // Auto-refresh indicator
+                    if (_isAutoRefreshing)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ),
                     if (_pendingApprovals.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

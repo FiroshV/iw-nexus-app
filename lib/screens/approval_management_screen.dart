@@ -16,6 +16,34 @@ class ApprovalManagementScreen extends StatefulWidget {
   State<ApprovalManagementScreen> createState() => _ApprovalManagementScreenState();
 }
 
+// Global reference to pause/resume dashboard refresh
+// This is used to coordinate between the approval screen and dashboard widget
+class ApprovalScreenCoordinator {
+  static void Function()? _pauseDashboardRefresh;
+  static void Function()? _resumeDashboardRefresh;
+
+  static void registerDashboardRefreshControls({
+    required void Function() pauseRefresh,
+    required void Function() resumeRefresh,
+  }) {
+    _pauseDashboardRefresh = pauseRefresh;
+    _resumeDashboardRefresh = resumeRefresh;
+  }
+
+  static void pauseDashboardRefresh() {
+    _pauseDashboardRefresh?.call();
+  }
+
+  static void resumeDashboardRefresh() {
+    _resumeDashboardRefresh?.call();
+  }
+
+  static void unregisterDashboardRefreshControls() {
+    _pauseDashboardRefresh = null;
+    _resumeDashboardRefresh = null;
+  }
+}
+
 class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allApprovals = [];
@@ -31,6 +59,10 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Pause dashboard refresh when this screen is active
+    ApprovalScreenCoordinator.pauseDashboardRefresh();
+
     _loadApprovals();
     _searchController.addListener(_performSearch);
   }
@@ -38,6 +70,10 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+
+    // Resume dashboard refresh when leaving this screen
+    ApprovalScreenCoordinator.resumeDashboardRefresh();
+
     super.dispose();
   }
 
@@ -166,7 +202,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   Color _getStatusColor(String? reason) {
     switch (reason?.toLowerCase()) {
       case 'late':
-        return Colors.orange;
+        return const Color(0xFF00b8d9);
       case 'early_checkout':
         return const Color(0xFF00b8d9);
       case 'missed_checkout':
@@ -199,7 +235,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   String _getStatusText(String? reason) {
     switch (reason?.toLowerCase()) {
       case 'late':
-        return 'Late Check-in';
+        return 'Late Clock In';
       case 'early_checkout':
         return 'Early Checkout';
       case 'missed_checkout':
@@ -499,7 +535,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                                 'Reason: $lateReason',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.orange[700],
+                                  color: Colors.grey[600],
                                   fontStyle: FontStyle.italic,
                                 ),
                                 softWrap: true,
@@ -515,8 +551,15 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                           children: [
                             Container(
                               decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
+                                color: Colors.red,
                                 borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.red.withValues(alpha: 0.25),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: IconButton(
                                 onPressed: () => _handleSingleApproval(
@@ -524,21 +567,28 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                                   false,
                                   comments: 'Quick reject'
                                 ),
-                                icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                                constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
                                 padding: EdgeInsets.zero,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF5cfbd8).withValues(alpha: 0.1),
+                                color: const Color(0xFF5cfbd8),
                                 borderRadius: BorderRadius.circular(6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF5cfbd8).withValues(alpha: 0.25),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: IconButton(
                                 onPressed: () => _handleSingleApproval(approval['_id'], true),
-                                icon: const Icon(Icons.check, color: Color(0xFF272579), size: 20),
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                icon: const Icon(Icons.check, color: Color(0xFF272579), size: 22),
+                                constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
                                 padding: EdgeInsets.zero,
                               ),
                             ),

@@ -551,17 +551,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               // Quick actions
               Row(
                 children: [
-                  // Status indicator
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF5cfbd8),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
                   // Actions Menu - Only show if user has any management permissions
                   if (canEdit || canDelete)
                     PopupMenuButton(
