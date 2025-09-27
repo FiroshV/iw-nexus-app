@@ -414,10 +414,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final String fullName =
         '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
     final String employeeId = user['employeeId'] ?? '';
-    final String email = user['email'] ?? '';
     // final String role = user['role'] ?? '';
     final String designation = user['designation'] ?? '';
-    final String employmentType = user['employmentType'] ?? 'permanent';
 
     // Cache access control checks to avoid multiple calls during build
     final currentUser = context.read<AuthProvider>().user;

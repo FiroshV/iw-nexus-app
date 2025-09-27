@@ -54,7 +54,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   // Search and filter state
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'all'; // all, late, early_checkout, missed_checkout
-  String _selectedSort = 'date_desc'; // date_desc, date_asc, name_asc, name_desc
+  final String _selectedSort = 'date_desc'; // date_desc, date_asc, name_asc, name_desc
 
   @override
   void initState() {
@@ -388,7 +388,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
     final isSelected = _selectedApprovals.contains(approval['_id']);
     final reason = _getApprovalReason(approval);
     final statusColor = _getStatusColor(reason);
-    final lateReason = approval['checkIn']?['lateReason']?.toString()?.trim();
+    final lateReason = approval['checkIn']?['lateReason']?.toString().trim();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

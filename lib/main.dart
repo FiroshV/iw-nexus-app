@@ -15,7 +15,6 @@ import 'services/version_check_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
 import 'screens/enhanced_attendance_screen.dart';
-import 'screens/reports_screen.dart';
 import 'screens/profile_screen.dart';
 import 'widgets/approval_cards.dart';
 import 'screens/id_card_screen.dart';
@@ -557,21 +556,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const ProfileScreen(),
-                  ),
-                );
-              },
-            ),
-
-            _buildMenuTile(
-              icon: Icons.settings_outlined,
-              title: 'Settings',
-              subtitle: 'App preferences and options',
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to settings screen - remove
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Settings feature coming soon!'),
                   ),
                 );
               },
