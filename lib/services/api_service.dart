@@ -761,12 +761,12 @@ class ApiService {
     final response = await _makeRequest<Map<String, dynamic>>(
       ApiEndpoints.logout,
       HttpMethods.post,
+      timeout: ApiConfig.shortTimeout, // Use shorter timeout (10s) for logout
     );
-    
-    // Clear local data regardless of API response
-    // This ensures user is logged out locally even if server request fails
-    await clearAllAuthData();
-    
+
+    // Note: Local data clearing is now handled by AuthProvider
+    // This method is now called in background for server cleanup
+
     return response;
   }
 

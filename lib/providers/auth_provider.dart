@@ -390,15 +390,15 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _setLoading(true);
 
-    try {
-      await ApiService.logout();
-    } catch (e) {
-      // Even if logout API fails, we should clear local auth
-      debugPrint('Logout API failed: $e');
-    }
-
+    // Clear local auth data immediately for fast logout
     await _clearAuth();
     _setLoading(false);
+
+    // Make logout API call in background (non-blocking)
+    ApiService.logout().catchError((e) {
+      debugPrint('Background logout API call failed: $e');
+      // This is fine - user is already logged out locally
+    });
   }
 
   // Refresh user data
