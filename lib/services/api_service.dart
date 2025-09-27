@@ -1662,6 +1662,129 @@ class ApiService {
     }
   }
 
+  // ============================================================================
+  // DOCUMENT MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  /// Get user's documents
+  static Future<ApiResponse<Map<String, dynamic>>> getUserDocuments() async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents',
+      HttpMethods.get,
+    );
+  }
+
+  /// Upload a document with optional naming
+  static Future<ApiResponse<Map<String, dynamic>>> uploadDocument(
+    File documentFile, {
+    String? documentName,
+  }) async {
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final dio = Dio();
+
+      // Prepare multipart form data
+      final formData = FormData.fromMap({
+        'document': await MultipartFile.fromFile(
+          documentFile.path,
+          filename: documentFile.path.split('/').last,
+        ),
+        if (documentName != null && documentName.isNotEmpty) 'documentName': documentName,
+      });
+
+      debugPrint('Uploading document to $baseUrl/users/documents');
+
+      // Make the request
+      final response = await dio.post(
+        '$baseUrl/users/documents',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+
+      // Handle success response
+      if (response.statusCode == 201 && response.data['success'] == true) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: response.data['data'],
+          message: response.data['message'],
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: response.data['message'] ?? 'Upload failed',
+          error: response.data['error'],
+        );
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          errorMessage = 'Upload timeout. Please check your internet connection.';
+          break;
+        case DioExceptionType.badResponse:
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errorMessage = data['message'];
+          } else {
+            errorMessage = 'Upload failed. Please try again.';
+          }
+          break;
+        default:
+          errorMessage = 'Network error. Please check your connection.';
+      }
+
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: errorMessage,
+        error: e.toString(),
+      );
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'An unexpected error occurred during upload',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Update document name
+  static Future<ApiResponse<Map<String, dynamic>>> updateDocument({
+    required String documentId,
+    required String documentName,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/$documentId',
+      HttpMethods.put,
+      body: {
+        'documentName': documentName,
+      },
+    );
+  }
+
+  /// Delete a document
+  static Future<ApiResponse<Map<String, dynamic>>> deleteDocument(String documentId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/$documentId',
+      HttpMethods.delete,
+    );
+  }
+
+  /// Get document download URL
+  static String getDocumentDownloadUrl(String documentId) {
+    return '$baseUrl/users/documents/$documentId';
+  }
+
   // Cleanup
   static void dispose() {
     HttpClientConfig.dispose();

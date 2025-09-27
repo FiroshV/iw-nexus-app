@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/user_avatar.dart';
@@ -17,10 +18,15 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
+  bool _isLoadingDocuments = false;
+  bool _isUploadingDocument = false;
+
+  // Tab controller
+  late TabController _tabController;
 
   // Form controllers
   final _firstNameController = TextEditingController();
@@ -30,22 +36,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _addressController = TextEditingController();
   final _homePhoneController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _documentNameController = TextEditingController();
 
   DateTime? _selectedDateOfBirth;
   String? _selectedBloodGroup;
-  
+
   final List<String> _bloodGroups = [
     'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
   ];
 
   Map<String, dynamic>? _currentUser;
+  List<Map<String, dynamic>> _documents = [];
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadUserProfile();
-    
+    _loadDocuments();
+
     // Show completion dialog if requested
     if (widget.showCompletionDialog) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -56,6 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -63,6 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressController.dispose();
     _homePhoneController.dispose();
     _phoneController.dispose();
+    _documentNameController.dispose();
     super.dispose();
   }
 
@@ -608,6 +620,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Document management methods
+  Future<void> _loadDocuments() async {
+    setState(() {
+      _isLoadingDocuments = true;
+    });
+
+    try {
+      final response = await ApiService.getUserDocuments();
+      if (response.success && response.data != null) {
+        // The backend returns: { data: [documents], count: number }
+        final documentsData = response.data is List
+            ? response.data
+            : response.data['data'] ?? [];
+        setState(() {
+          _documents = List<Map<String, dynamic>>.from(documentsData);
+        });
+      } else {
+        _showErrorSnackBar('Failed to load documents');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error loading documents: $e');
+    }
+
+    setState(() {
+      _isLoadingDocuments = false;
+    });
+  }
+
+  Future<void> _pickAndUploadDocument() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final fileName = result.files.single.name;
+
+        await _uploadDocument(file, fileName);
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error selecting document: $e');
+    }
+  }
+
+  Future<void> _uploadDocument(File file, String originalFileName) async {
+    setState(() {
+      _isUploadingDocument = true;
+    });
+
+    try {
+      final documentName = _documentNameController.text.trim().isEmpty
+          ? null
+          : _documentNameController.text.trim();
+
+      final response = await ApiService.uploadDocument(file, documentName: documentName);
+
+      if (response.success) {
+        _documentNameController.clear();
+        await _loadDocuments(); // Refresh documents list
+        _showSuccessSnackBar('Document uploaded successfully!');
+      } else {
+        _showErrorSnackBar(response.message);
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error uploading document: $e');
+    }
+
+    setState(() {
+      _isUploadingDocument = false;
+    });
+  }
+
+  Future<void> _deleteDocument(String documentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: const Text('Are you sure you want to delete this document?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final response = await ApiService.deleteDocument(documentId);
+        if (response.success) {
+          await _loadDocuments(); // Refresh documents list
+          _showSuccessSnackBar('Document deleted successfully!');
+        } else {
+          _showErrorSnackBar(response.message);
+        }
+      } catch (e) {
+        _showErrorSnackBar('Error deleting document: $e');
+      }
+    }
+  }
+
+  String _getFileIcon(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return '📄';
+      case 'doc':
+      case 'docx':
+        return '📝';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return '🖼️';
+      case 'txt':
+        return '📄';
+      default:
+        return '📁';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -636,7 +777,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (!_isLoading)
+          if (!_isLoading && _tabController.index == 0)
             TextButton(
               onPressed: _updateProfile,
               child: const Text(
@@ -649,17 +790,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: const Color(0xFF5cfbd8),
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.person),
+              text: 'Personal Info',
+            ),
+            Tab(
+              icon: Icon(Icons.folder),
+              text: 'Documents',
+            ),
+          ],
+        ),
       ),
       backgroundColor: const Color(0xFFf8f9fa),
       body: _isLoading
           ? const LoadingWidget(message: 'Loading profile...')
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Personal Info Tab
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                     // Profile Header
                     Container(
                       width: double.infinity,
@@ -820,10 +982,342 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
-                  ],
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+
+                // Documents Tab
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Upload Section
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.cloud_upload,
+                                  color: Color(0xFF272579),
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Upload Document',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF272579),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Document Name Input
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              child: TextFormField(
+                                controller: _documentNameController,
+                                decoration: InputDecoration(
+                                  labelText: 'Document Name (Optional)',
+                                  hintText: 'Leave empty for auto-generated name',
+                                  prefixIcon: const Icon(
+                                    Icons.edit,
+                                    color: Color(0xFF0071bf),
+                                  ),
+                                  labelStyle: const TextStyle(
+                                    color: Color(0xFF272579),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey[300]!,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey[300]!,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF0071bf),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.all(16),
+                                ),
+                              ),
+                            ),
+
+                            // Upload Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isUploadingDocument ? null : _pickAndUploadDocument,
+                                icon: _isUploadingDocument
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : const Icon(Icons.add),
+                                label: Text(_isUploadingDocument ? 'Uploading...' : 'Select Document'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF272579),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 2,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+                            Text(
+                              'Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT (Max 10MB)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Documents List Section
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.folder,
+                                  color: Color(0xFF272579),
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'My Documents',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF272579),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${_documents.length} documents',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            if (_isLoadingDocuments)
+                              const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF272579),
+                                ),
+                              )
+                            else if (_documents.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(32),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[300]!,
+                                    style: BorderStyle.solid,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.description_outlined,
+                                      size: 48,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No documents uploaded yet',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Upload your first document using the button above',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              ...(_documents.map((document) => Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[200]!,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF272579).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _getFileIcon(document['originalFileName'] ?? ''),
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            document['documentName'] ?? 'Untitled',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF272579),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            document['originalFileName'] ?? '',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Uploaded on ${DateTime.parse(document['uploadedAt'] ?? '').toLocal().toString().split(' ')[0]}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'delete') {
+                                          _deleteDocument(document['_id']);
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete, color: Colors.red, size: 20),
+                                              SizedBox(width: 8),
+                                              Text('Delete', style: TextStyle(color: Colors.red)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Icon(
+                                          Icons.more_vert,
+                                          size: 18,
+                                          color: Color(0xFF272579),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )).toList()),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ],
             ),
     );
   }

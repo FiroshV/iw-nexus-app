@@ -33,6 +33,14 @@ class ApiEndpoints {
   static const String updateUserProfile = '$users/profile';
   static const String generateIdCard = '$users/id-card';
   static const String generateVisitingCard = '$users/visiting-card';
+
+  // Document management endpoints
+  static const String userDocuments = '$users/documents';
+  static const String uploadDocument = '$users/documents';
+  static const String getUserDocuments = '$users/documents';
+  static const String updateDocument = '$users/documents/{documentId}';
+  static const String deleteDocument = '$users/documents/{documentId}';
+  static const String downloadDocument = '$users/documents/{documentId}';
   
   // User queries
   static const String getManagers = '$users?role=manager&status=active&limit=100';
