@@ -20,7 +20,7 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allApprovals = [];
   List<Map<String, dynamic>> _filteredApprovals = [];
-  Set<String> _selectedApprovals = {};
+  final Set<String> _selectedApprovals = {};
   String? _error;
 
   // Search and filter state
@@ -168,11 +168,24 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
       case 'late':
         return Colors.orange;
       case 'early_checkout':
-        return Colors.blue;
+        return const Color(0xFF00b8d9);
       case 'missed_checkout':
         return Colors.red;
       default:
-        return Colors.grey;
+        return const Color(0xFF272579);
+    }
+  }
+
+  IconData _getStatusIcon(String? reason) {
+    switch (reason?.toLowerCase()) {
+      case 'late':
+        return Icons.schedule;
+      case 'early_checkout':
+        return Icons.logout;
+      case 'missed_checkout':
+        return Icons.warning;
+      default:
+        return Icons.pending;
     }
   }
 
@@ -332,204 +345,22 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
     await _refreshApprovals();
   }
 
-  void _showApprovalDialog(Map<String, dynamic> approval) {
-    final TextEditingController commentsController = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-              child: Icon(
-                Icons.schedule,
-                color: _getStatusColor(_getApprovalReason(approval)),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF272579),
-                    ),
-                  ),
-                  Text(
-                    _getStatusText(_getApprovalReason(approval)),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _getStatusColor(_getApprovalReason(approval)),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFfbf8ff),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text(_formatDate(approval['date'])),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text('${_formatTime(approval['checkIn']?['time'])} - ${_formatTime(approval['checkOut']?['time'])}'),
-                    ],
-                  ),
-                  if (_getApprovalReason(approval).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(approval['employeeComments'] ?? 'No comments')),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: commentsController,
-              decoration: InputDecoration(
-                labelText: 'Comments (Optional)',
-                hintText: 'Add comments for this approval...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF0071bf)),
-                ),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            onPressed: () {
-              final comments = commentsController.text.trim();
-              if (comments.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Comments are required for rejection'),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(context);
-              _handleSingleApproval(approval['_id'], false, comments: comments);
-            },
-            child: const Text('Reject', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleSingleApproval(
-                approval['_id'],
-                true,
-                comments: commentsController.text.trim().isEmpty ? null : commentsController.text.trim(),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5cfbd8),
-              foregroundColor: const Color(0xFF272579),
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Approve', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildFilterChips() {
-    final filters = [
-      {'key': 'all', 'label': 'All', 'color': Colors.grey},
-      {'key': 'late', 'label': 'Late', 'color': Colors.orange},
-      {'key': 'early_checkout', 'label': 'Early Checkout', 'color': Colors.blue},
-      {'key': 'missed_checkout', 'label': 'Missed Checkout', 'color': Colors.red},
-    ];
-
-    return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = _selectedFilter == filter['key'];
-
-          return Container(
-            margin: EdgeInsets.only(
-              left: index == 0 ? 16 : 4,
-              right: index == filters.length - 1 ? 16 : 4,
-            ),
-            child: FilterChip(
-              selected: isSelected,
-              label: Text(filter['label'] as String),
-              onSelected: (selected) {
-                setState(() {
-                  _selectedFilter = selected ? (filter['key'] as String) : 'all';
-                });
-                _performSearch();
-              },
-              selectedColor: (filter['color'] as Color).withValues(alpha: 0.2),
-              checkmarkColor: filter['color'] as Color,
-              labelStyle: TextStyle(
-                color: isSelected ? filter['color'] as Color : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildApprovalCard(Map<String, dynamic> approval) {
     final isSelected = _selectedApprovals.contains(approval['_id']);
+    final reason = _getApprovalReason(approval);
+    final statusColor = _getStatusColor(reason);
+    final lateReason = approval['checkIn']?['lateReason']?.toString()?.trim();
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        elevation: isSelected ? 2 : 1,
+        shadowColor: Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: () => _showApprovalDialog(approval),
           onLongPress: () {
             setState(() {
               if (isSelected) {
@@ -539,101 +370,184 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
               }
             });
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected ? Border.all(color: const Color(0xFF0071bf), width: 2) : null,
+              borderRadius: BorderRadius.circular(8),
+              border: isSelected
+                  ? Border.all(color: const Color(0xFF0071bf), width: 2)
+                  : Border.all(color: Colors.grey[200]!, width: 1),
+              color: isSelected ? const Color(0xFF0071bf).withValues(alpha: 0.05) : Colors.white,
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+              padding: const EdgeInsets.all(12),
+              child: Column(
                 children: [
-                  if (_selectedApprovals.isNotEmpty) ...[
-                    Checkbox(
-                      value: isSelected,
-                      onChanged: (checked) {
-                        setState(() {
-                          if (checked == true) {
-                            _selectedApprovals.add(approval['_id']);
-                          } else {
-                            _selectedApprovals.remove(approval['_id']);
-                          }
-                        });
-                      },
-                      activeColor: const Color(0xFF0071bf),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  CircleAvatar(
-                    backgroundColor: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-                    child: Icon(
-                      Icons.schedule,
-                      color: _getStatusColor(_getApprovalReason(approval)),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF272579),
-                          ),
+                  Row(
+                    children: [
+                      if (_selectedApprovals.isNotEmpty) ...[
+                        Checkbox(
+                          value: isSelected,
+                          onChanged: (checked) {
+                            setState(() {
+                              if (checked == true) {
+                                _selectedApprovals.add(approval['_id']);
+                              } else {
+                                _selectedApprovals.remove(approval['_id']);
+                              }
+                            });
+                          },
+                          activeColor: const Color(0xFF0071bf),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 8),
+                      ],
+
+                      // Status icon
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          _getStatusIcon(reason),
+                          color: statusColor,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Name and status row
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF272579),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _getStatusText(reason),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+
+                            // Date and time info
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _formatDate(approval['date']),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                if (approval['checkIn']?['time'] != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          'In: ${_formatTime(approval['checkIn']?['time'])}${approval['checkOut']?['time'] != null ? ' • Out: ${_formatTime(approval['checkOut']?['time'])}' : ''}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey[700],
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+
+                            // Late reason at the bottom with proper wrapping
+                            if (lateReason != null && lateReason.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Reason: $lateReason',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange[700],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                softWrap: true,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      if (_selectedApprovals.isEmpty) ...[
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(
-                                _getStatusText(_getApprovalReason(approval)),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getStatusColor(_getApprovalReason(approval)),
+                              child: IconButton(
+                                onPressed: () => _handleSingleApproval(
+                                  approval['_id'],
+                                  false,
+                                  comments: 'Quick reject'
                                 ),
+                                icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              _formatDate(approval['date']),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF5cfbd8).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: IconButton(
+                                onPressed: () => _handleSingleApproval(approval['_id'], true),
+                                icon: const Icon(Icons.check, color: Color(0xFF272579), size: 20),
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                padding: EdgeInsets.zero,
+                              ),
                             ),
                           ],
                         ),
-                        if (approval['checkIn']?['time'] != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_formatTime(approval['checkIn']?['time'])} - ${_formatTime(approval['checkOut']?['time'])}',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
-                  if (_selectedApprovals.isEmpty) ...[
-                    IconButton(
-                      onPressed: () => _handleSingleApproval(approval['_id'], false, comments: 'Quick reject'),
-                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    IconButton(
-                      onPressed: () => _handleSingleApproval(approval['_id'], true),
-                      icon: const Icon(Icons.check, color: Colors.green, size: 20),
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                  ] else
-                    Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+
                 ],
               ),
             ),
@@ -682,98 +596,160 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
             ],
           ],
         ),
-        backgroundColor: const Color(0xFF272579),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            onSelected: (value) {
-              setState(() => _selectedSort = value);
-              _performSearch();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'date_desc', child: Text('Newest First')),
-              const PopupMenuItem(value: 'date_asc', child: Text('Oldest First')),
-              const PopupMenuItem(value: 'name_asc', child: Text('Name A-Z')),
-              const PopupMenuItem(value: 'name_desc', child: Text('Name Z-A')),
-            ],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF272579), Color(0xFF0071bf)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshApprovals,
-          ),
-        ],
+        ),
       ),
       body: _isLoading
           ? const LoadingWidget(message: 'Loading approvals...')
           : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadApprovals,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          child: Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: Colors.red[400],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Something went wrong',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Colors.red[600],
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _loadApprovals,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0071bf),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Try Again',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : Column(
                   children: [
-                    // Search bar
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.all(16),
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Search by employee name...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear, color: Colors.grey[500]),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _performSearch();
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(color: Color(0xFF0071bf)),
                           ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                       ),
                     ),
-
-                    // Filter chips
-                    _buildFilterChips(),
-
-                    const SizedBox(height: 16),
 
                     // Approvals list
                     Expanded(
                       child: _filteredApprovals.isEmpty
                           ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[400]),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    _searchController.text.isNotEmpty || _selectedFilter != 'all'
-                                        ? 'No approvals match your filters'
-                                        : 'No pending approvals',
-                                    style: TextStyle(color: Colors.grey[600]),
-                                  ),
-                                  if (_searchController.text.isNotEmpty || _selectedFilter != 'all') ...[
-                                    const SizedBox(height: 8),
-                                    TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _searchController.clear();
-                                          _selectedFilter = 'all';
-                                        });
-                                        _performSearch();
-                                      },
-                                      child: const Text('Clear filters'),
+                              child: Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _searchController.text.isNotEmpty
+                                          ? Icons.search_off
+                                          : Icons.check_circle_outline,
+                                      size: 48,
+                                      color: Colors.grey[400],
                                     ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchController.text.isNotEmpty || _selectedFilter != 'all'
+                                          ? 'No matching approvals'
+                                          : 'All caught up!',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _searchController.text.isNotEmpty || _selectedFilter != 'all'
+                                          ? 'Try adjusting your search or filters'
+                                          : 'No pending approval requests at the moment',
+                                      style: TextStyle(
+                                        color: Colors.grey[500],
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    if (_searchController.text.isNotEmpty || _selectedFilter != 'all') ...[
+                                      const SizedBox(height: 16),
+                                      TextButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            _searchController.clear();
+                                            _selectedFilter = 'all';
+                                          });
+                                          _performSearch();
+                                        },
+                                        child: const Text('Clear Filters'),
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             )
                           : RefreshIndicator(
@@ -796,16 +772,18 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                   onPressed: () => _handleBulkApproval(false),
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
+                  heroTag: 'reject',
                   label: Text('Reject ${_selectedApprovals.length}'),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, size: 18),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 FloatingActionButton.extended(
                   onPressed: () => _handleBulkApproval(true),
-                  backgroundColor: const Color(0xFF5cfbd8),
-                  foregroundColor: const Color(0xFF272579),
+                  backgroundColor: const Color(0xFF0071bf),
+                  foregroundColor: Colors.white,
+                  heroTag: 'approve',
                   label: Text('Approve ${_selectedApprovals.length}'),
-                  icon: const Icon(Icons.check),
+                  icon: const Icon(Icons.check, size: 18),
                 ),
               ],
             )

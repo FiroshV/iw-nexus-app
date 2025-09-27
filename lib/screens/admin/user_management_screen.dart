@@ -47,6 +47,230 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  void _showUserDetailsBottomSheet(Map<String, dynamic> user) {
+    final String fullName =
+        '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final String employeeId = user['employeeId'] ?? '';
+    final String email = user['email'] ?? '';
+    final String designation = user['designation'] ?? '';
+    final String employmentType = user['employmentType'] ?? 'permanent';
+    final String role = user['role'] ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  // User Avatar
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: user['avatar'] != null
+                          ? null
+                          : const LinearGradient(
+                              colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: user['avatar'] != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              user['avatar'],
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fullName.isEmpty ? 'Unknown User' : fullName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF272579),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          designation,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            role.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF0071bf),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Details
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow(Icons.badge_rounded, 'Employee ID', employeeId),
+                    _buildDetailRow(Icons.email_rounded, 'Email', email),
+                    _buildDetailRow(Icons.business_center_rounded, 'Employment Type',
+                        '${employmentType.substring(0, 1).toUpperCase()}${employmentType.substring(1)}'),
+
+                    if (user['phoneNumber'] != null)
+                      _buildDetailRow(Icons.phone_rounded, 'Phone', user['phoneNumber']),
+
+                    if (user['dateOfJoining'] != null)
+                      _buildDetailRow(Icons.calendar_today_rounded, 'Date of Joining',
+                          DateTime.parse(user['dateOfJoining']).toString().split(' ')[0]),
+
+                    if (user['branchId'] != null && user['branchId'] is Map)
+                      _buildDetailRow(Icons.location_on_rounded, 'Branch',
+                          user['branchId']['branchName'] ?? 'Unknown Branch'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF272579).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: const Color(0xFF272579),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF272579),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _loadUsers({bool refresh = false}) async {
     if (refresh) {
       setState(() {
@@ -206,238 +430,151 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     debugPrint('🔥🔥🔥 USER CARD: canEdit: $canEdit, canDelete: $canDelete');
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, const Color(0xFFfbf8ff)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-            spreadRadius: 0,
+    return GestureDetector(
+      onTap: () => _showUserDetailsBottomSheet(user),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFF272579).withValues(alpha: 0.06),
+            width: 1,
           ),
-          BoxShadow(
-            color: const Color(0xFF272579).withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFF272579).withValues(alpha: 0.08),
-          width: 1,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                // User Avatar
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: user['avatar'] != null
-                        ? null
-                        : const LinearGradient(
-                            colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF272579).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: user['avatar'] != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            user['avatar'],
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // User Avatar
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: user['avatar'] != null
+                      ? null
+                      : const LinearGradient(
+                          colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: user['avatar'] != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          user['avatar'],
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      : Center(
-                          child: Text(
-                            fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
+                      ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // User Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fullName.isEmpty ? 'Unknown User' : fullName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF272579),
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      designation,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      employeeId,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(width: 16),
-
-                // User Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              fullName.isEmpty ? 'Unknown User' : fullName,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF272579),
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.badge_rounded,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'ID: $employeeId',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.email_rounded,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              email,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.work_rounded,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Designation: $designation',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.business_center_rounded,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Employment: ${employmentType.substring(0, 1).toUpperCase()}${employmentType.substring(1)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+              // Quick actions
+              Row(
+                children: [
+                  // Status indicator
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5cfbd8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
 
-                // Actions Menu - Only show if user has any management permissions
-                // If user has no permissions, show empty space to maintain layout
-                if (!canEdit && !canDelete)
-                  const SizedBox(
-                    width: 36,
-                    height: 36,
-                  )
-                else
-                  PopupMenuButton(
+                  // Actions Menu - Only show if user has any management permissions
+                  if (canEdit || canDelete)
+                    PopupMenuButton(
                       icon: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF272579).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: const Color(0xFF272579).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
                           Icons.more_vert_rounded,
                           color: const Color(0xFF272579),
-                          size: 20,
+                          size: 16,
                         ),
                       ),
                       shape: RoundedRectangleBorder(
@@ -451,25 +588,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             PopupMenuItem(
                               value: 'edit',
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF0071bf,
-                                      ).withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.edit_rounded,
-                                      size: 16,
-                                      color: Color(0xFF0071bf),
-                                    ),
+                                  Icon(
+                                    Icons.edit_rounded,
+                                    size: 16,
+                                    color: const Color(0xFF0071bf),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 8),
                                   const Text(
-                                    'Edit User',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                    'Edit',
+                                    style: TextStyle(fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
@@ -482,25 +611,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             PopupMenuItem(
                               value: 'delete',
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.delete_rounded,
-                                      size: 16,
-                                      color: Colors.red,
-                                    ),
+                                  Icon(
+                                    Icons.delete_rounded,
+                                    size: 16,
+                                    color: Colors.red,
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 8),
                                   const Text(
-                                    'Delete User',
+                                    'Delete',
                                     style: TextStyle(
                                       color: Colors.red,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
@@ -528,10 +651,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             break;
                         }
                       },
-                    ),
-              ],
-            ),
-          ],
+                    )
+                  else
+                    const SizedBox(width: 30), // Maintain layout spacing
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

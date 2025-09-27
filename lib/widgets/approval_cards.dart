@@ -478,19 +478,50 @@ class _ApprovalCardsState extends State<ApprovalCards> {
       return Container(
         margin: const EdgeInsets.only(bottom: 24),
         child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF272579).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Loading approvals...',
-                  style: TextStyle(color: Colors.grey[600]),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Pending Approvals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Loading approvals...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -503,16 +534,46 @@ class _ApprovalCardsState extends State<ApprovalCards> {
       return Container(
         margin: const EdgeInsets.only(bottom: 24),
         child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.red, size: 20),
-                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.error_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Pending Approvals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Error loading approvals',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 TextButton(
@@ -526,142 +587,99 @@ class _ApprovalCardsState extends State<ApprovalCards> {
       );
     }
 
-    if (_pendingApprovals.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    // Show the simple card even if there are no pending approvals
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Pending Approvals',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF272579),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ApprovalManagementScreen(
+                  userRole: widget.userRole,
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _pendingApprovals.length.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _pendingApprovals.isEmpty
+                        ? const Color(0xFF5cfbd8).withValues(alpha: 0.2)
+                        : Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _pendingApprovals.isEmpty ? Icons.check_circle : Icons.pending_actions,
+                    color: _pendingApprovals.isEmpty
+                        ? const Color(0xFF5cfbd8)
+                        : Colors.orange,
+                    size: 24,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Show first 3 approvals, with option to see more
-          ..._pendingApprovals.take(3).map((approval) => Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              child: InkWell(
-                onTap: () => _showApprovalDialog(approval),
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-                        child: Icon(
-                          Icons.schedule,
-                          color: _getStatusColor(_getApprovalReason(approval)),
-                          size: 20,
+                      const Text(
+                        'Pending Approvals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF272579),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF272579),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(_getApprovalReason(approval)).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(_getApprovalReason(approval)),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: _getStatusColor(_getApprovalReason(approval)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _formatDate(approval['date']),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      const SizedBox(height: 4),
+                      Text(
+                        _pendingApprovals.isEmpty
+                            ? 'All caught up!'
+                            : '${_pendingApprovals.length} item${_pendingApprovals.length == 1 ? '' : 's'} need${_pendingApprovals.length == 1 ? 's' : ''} review',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
                         ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.grey[400],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-          )),
-
-          // Show more button if there are more than 3 approvals
-          if (_pendingApprovals.length > 3)
-            TextButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ApprovalManagementScreen(
-                      userRole: widget.userRole,
+                Row(
+                  children: [
+                    if (_pendingApprovals.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _pendingApprovals.length.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 18,
+                      color: Colors.grey[400],
                     ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.visibility),
-              label: Text('View all ${_pendingApprovals.length} approvals'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0071bf),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
+                  ],
+                ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
