@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/access_control_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/branch_model.dart';
 import 'add_edit_branch_screen.dart';
 
@@ -223,24 +226,29 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddEditBranchScreen(branch: branch),
-            ),
-          );
-          if (result == true) {
-            _refreshBranches();
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          final userRole = authProvider.user?['role'] as String?;
+          final canEdit = AccessControlService.hasAccess(userRole, 'branch_management', 'edit');
+
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: canEdit ? () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddEditBranchScreen(branch: branch),
+                ),
+              );
+              if (result == true) {
+                _refreshBranches();
+              }
+            } : null,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Row(
                 children: [
                   Container(
@@ -283,46 +291,61 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuButton(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                AddEditBranchScreen(branch: branch),
-                          ),
-                        ).then((result) {
-                          if (result == true) {
-                            _refreshBranches();
-                          }
-                        });
-                      } else if (value == 'delete') {
-                        _showDeleteConfirmation(branch);
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, _) {
+                      final userRole = authProvider.user?['role'] as String?;
+                      final canEdit = AccessControlService.hasAccess(userRole, 'branch_management', 'edit');
+                      final canDelete = AccessControlService.hasAccess(userRole, 'branch_management', 'delete');
+
+                      // Don't show popup menu if user has no edit/delete permissions
+                      if (!canEdit && !canDelete) {
+                        return const SizedBox.shrink();
                       }
+
+                      return PopupMenuButton(
+                        onSelected: (value) {
+                          if (value == 'edit' && canEdit) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    AddEditBranchScreen(branch: branch),
+                              ),
+                            ).then((result) {
+                              if (result == true) {
+                                _refreshBranches();
+                              }
+                            });
+                          } else if (value == 'delete' && canDelete) {
+                            _showDeleteConfirmation(branch);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          if (canEdit)
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Edit'),
+                                ],
+                              ),
+                            ),
+                          if (canDelete)
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, size: 20, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
                     },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Edit'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -395,9 +418,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                  
                 ],
               ),
-            ],
-          ),
-        ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -539,21 +564,32 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddEditBranchScreen(),
-            ),
-          );
-          if (result == true) {
-            _refreshBranches();
+      floatingActionButton: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          final userRole = authProvider.user?['role'] as String?;
+          final canCreate = AccessControlService.hasAccess(userRole, 'branch_management', 'create');
+
+          if (!canCreate) {
+            return const SizedBox.shrink();
           }
+
+          return FloatingActionButton(
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditBranchScreen(),
+                ),
+              );
+              if (result == true) {
+                _refreshBranches();
+              }
+            },
+            backgroundColor: const Color(0xFF5cfbd8),
+            foregroundColor: const Color(0xFF272579),
+            child: const Icon(Icons.add),
+          );
         },
-        backgroundColor: const Color(0xFF5cfbd8),
-        foregroundColor: const Color(0xFF272579),
-        child: const Icon(Icons.add),
       ),
     );
   }

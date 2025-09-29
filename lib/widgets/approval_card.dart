@@ -4,19 +4,19 @@ import '../services/api_service.dart';
 import '../services/access_control_service.dart';
 import '../screens/approval_management_screen.dart';
 
-class ApprovalCards extends StatefulWidget {
+class ApprovalCard extends StatefulWidget {
   final String userRole;
 
-  const ApprovalCards({
+  const ApprovalCard({
     super.key,
     required this.userRole,
   });
 
   @override
-  State<ApprovalCards> createState() => _ApprovalCardsState();
+  State<ApprovalCard> createState() => _ApprovalCardState();
 }
 
-class _ApprovalCardsState extends State<ApprovalCards> {
+class _ApprovalCardState extends State<ApprovalCard> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _pendingApprovals = [];
   String? _error;
@@ -60,7 +60,11 @@ class _ApprovalCardsState extends State<ApprovalCards> {
   Future<void> _loadPendingApprovals({bool isAutoRefresh = false}) async {
     final canView = _canViewApprovals();
 
+    debugPrint('🔍 _loadPendingApprovals called - canView: $canView, isAutoRefresh: $isAutoRefresh');
+    debugPrint('🔍 User role: ${widget.userRole}');
+
     if (!canView) {
+      debugPrint('🚫 User cannot view approvals - hiding widget');
       setState(() => _isLoading = false);
       return;
     }
@@ -83,6 +87,11 @@ class _ApprovalCardsState extends State<ApprovalCards> {
 
       final response = await ApiService.getPendingApprovals();
       _lastRefreshTime = DateTime.now();
+
+      // Debug logging
+      debugPrint('🔍 API Response - Success: ${response.success}');
+      debugPrint('🔍 API Response - Data: ${response.data}');
+      debugPrint('🔍 API Response - Message: ${response.message}');
 
       if (response.success && response.data != null) {
         // Reset failed count on successful refresh
@@ -124,9 +133,12 @@ class _ApprovalCardsState extends State<ApprovalCards> {
         // Update refresh timer based on current approval count
         _updateRefreshTimer();
       } else {
+        debugPrint('❌ API Response failed - Success: ${response.success}, Message: ${response.message}');
         _handleRefreshFailure(isAutoRefresh, response.message);
       }
     } catch (e) {
+      debugPrint('❌ Exception in _loadPendingApprovals: $e');
+      debugPrint('❌ Exception stack trace: ${StackTrace.current}');
       _handleRefreshFailure(isAutoRefresh, 'Error loading approvals: $e');
     }
   }
@@ -142,6 +154,10 @@ class _ApprovalCardsState extends State<ApprovalCards> {
   /// Handle refresh failures with exponential backoff
   void _handleRefreshFailure(bool isAutoRefresh, String errorMessage) {
     _failedRefreshCount++;
+
+    debugPrint('⚠️ Handling refresh failure #$_failedRefreshCount');
+    debugPrint('⚠️ Error message: $errorMessage');
+    debugPrint('⚠️ Is auto refresh: $isAutoRefresh');
 
     setState(() {
       _error = errorMessage;
@@ -267,119 +283,23 @@ class _ApprovalCardsState extends State<ApprovalCards> {
     }
 
     if (_isLoading) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 24),
-        child: Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF272579).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF272579),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pending Approvals',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF272579),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Loading approvals...',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      // Hide card during loading - only show when we know there are approvals
+      debugPrint('🔄 Approval card loading - hiding until data is available');
+      return const SizedBox.shrink();
     }
 
     if (_error != null) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 24),
-        child: Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pending Approvals',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF272579),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Error loading approvals',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: _loadPendingApprovals,
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      // Hide card completely when there are errors
+      debugPrint('🚫 Hiding approval card due to error: $_error');
+      return const SizedBox.shrink();
     }
 
-    // Show the simple card even if there are no pending approvals
+    // Hide card when there are no pending approvals
+    if (_pendingApprovals.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Show the approval card when there are pending approvals
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       child: Card(
@@ -403,16 +323,12 @@ class _ApprovalCardsState extends State<ApprovalCards> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _pendingApprovals.isEmpty
-                        ? const Color(0xFF5cfbd8).withValues(alpha: 0.2)
-                        : Colors.orange.withValues(alpha: 0.2),
+                    color: Colors.orange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _pendingApprovals.isEmpty ? Icons.check_circle : Icons.pending_actions,
-                    color: _pendingApprovals.isEmpty
-                        ? const Color(0xFF5cfbd8)
-                        : Colors.orange,
+                    Icons.pending_actions,
+                    color: Colors.orange,
                     size: 24,
                   ),
                 ),
@@ -431,9 +347,7 @@ class _ApprovalCardsState extends State<ApprovalCards> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _pendingApprovals.isEmpty
-                            ? 'All caught up!'
-                            : '${_pendingApprovals.length} item${_pendingApprovals.length == 1 ? '' : 's'} need${_pendingApprovals.length == 1 ? 's' : ''} review',
+'${_pendingApprovals.length} item${_pendingApprovals.length == 1 ? '' : 's'} need${_pendingApprovals.length == 1 ? 's' : ''} review',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -457,22 +371,21 @@ class _ApprovalCardsState extends State<ApprovalCards> {
                           ),
                         ),
                       ),
-                    if (_pendingApprovals.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _pendingApprovals.length.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _pendingApprovals.length.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                    ),
                     const SizedBox(width: 12),
                     Icon(
                       Icons.arrow_forward_ios,

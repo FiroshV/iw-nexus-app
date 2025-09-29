@@ -16,7 +16,7 @@ import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
 import 'screens/enhanced_attendance_screen.dart';
 import 'screens/profile_screen.dart';
-import 'widgets/approval_cards.dart';
+import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
@@ -191,7 +191,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
       // Only refresh for users who can view approvals
       if (AccessControlService.hasAccess(userRole, 'attendance', 'approve_attendance')) {
-        // Note: The actual refresh will be handled by the ApprovalCards widget
+        // Note: The actual refresh will be handled by the ApprovalCard widget
         // This is just to trigger a rebuild if needed
         debugPrint('🔄 App resumed - approval data will be refreshed by widgets');
       }
@@ -947,7 +947,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 24),
 
                   // Approval cards for managers/admins
-                  ApprovalCards(userRole: userRole),
+                  ApprovalCard(userRole: userRole),
 
                   // Quick actions
                   Text(

@@ -1294,10 +1294,16 @@ class ApiService {
   }
 
   static Future<ApiResponse<dynamic>> getPendingApprovals() async {
-    return await _makeRequest<dynamic>(
+    debugPrint('🔍 API: Calling getPendingApprovals endpoint');
+    final result = await _makeRequest<dynamic>(
       '${ApiEndpoints.attendance}/pending-approvals',
       HttpMethods.get,
     );
+    debugPrint('🔍 API: getPendingApprovals response - Success: ${result.success}, Status: ${result.statusCode}');
+    if (!result.success) {
+      debugPrint('🔍 API: getPendingApprovals error - Message: ${result.message}, Error: ${result.error}');
+    }
+    return result;
   }
 
   static Future<ApiResponse<Map<String, dynamic>>> approveAttendance(
