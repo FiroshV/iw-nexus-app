@@ -39,7 +39,7 @@ class AccessControlService {
       'check_in': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
       'check_out': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
       'edit_attendance': ['admin', 'director', 'manager'],
-      'approve_attendance': ['admin', 'manager']
+      'approve_attendance': ['admin', 'director', 'manager']
     },
 
     // Reports Features
