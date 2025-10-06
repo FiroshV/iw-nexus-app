@@ -419,6 +419,29 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
               padding: const EdgeInsets.all(12),
               child: Column(
                 children: [
+                  // Status tag at top right
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _getStatusText(reason),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
                   Row(
                     children: [
                       if (_selectedApprovals.isNotEmpty) ...[
@@ -459,35 +482,14 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Name and status row
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF272579),
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: statusColor,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(reason),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            // Name
+                            Text(
+                              '${approval['userId']?['firstName']} ${approval['userId']?['lastName']}'.trim(),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF272579),
+                              ),
                             ),
                             const SizedBox(height: 4),
 
