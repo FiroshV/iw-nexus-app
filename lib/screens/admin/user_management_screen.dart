@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../services/access_control_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/staff_attendance_widget.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
 
@@ -55,218 +56,35 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final String designation = user['designation'] ?? '';
     final String employmentType = user['employmentType'] ?? 'permanent';
     final String role = user['role'] ?? '';
+    final String userId = user['_id'] ?? '';
+
+    // Check if current user can view staff attendance
+    final currentUser = context.read<AuthProvider>().user;
+    final currentUserRole = currentUser?['role']?.toString();
+    final canViewStaffAttendance = AccessControlService.hasAccess(
+      currentUserRole,
+      'attendance',
+      'view_all',
+    ) || AccessControlService.hasAccess(
+      currentUserRole,
+      'attendance',
+      'view_team',
+    );
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  // User Avatar
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: user['avatar'] != null
-                          ? null
-                          : const LinearGradient(
-                              colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: user['avatar'] != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              user['avatar'],
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : Center(
-                            child: Text(
-                              fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fullName.isEmpty ? 'Unknown User' : fullName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF272579),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          designation,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0071bf).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            role.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF0071bf),
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Details
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDetailRow(Icons.badge_rounded, 'Employee ID', employeeId),
-                    _buildDetailRow(Icons.email_rounded, 'Email', email),
-                    _buildDetailRow(Icons.business_center_rounded, 'Employment Type',
-                        '${employmentType.substring(0, 1).toUpperCase()}${employmentType.substring(1)}'),
-
-                    if (user['phoneNumber'] != null)
-                      _buildDetailRow(Icons.phone_rounded, 'Phone', user['phoneNumber']),
-
-                    if (user['dateOfJoining'] != null)
-                      _buildDetailRow(Icons.calendar_today_rounded, 'Date of Joining',
-                          DateTime.parse(user['dateOfJoining']).toString().split(' ')[0]),
-
-                    if (user['branchId'] != null && user['branchId'] is Map)
-                      _buildDetailRow(Icons.location_on_rounded, 'Branch',
-                          user['branchId']['branchName'] ?? 'Unknown Branch'),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF272579).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: const Color(0xFF272579),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF272579),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      builder: (context) => _UserDetailsBottomSheet(
+        user: user,
+        fullName: fullName,
+        employeeId: employeeId,
+        email: email,
+        designation: designation,
+        employmentType: employmentType,
+        role: role,
+        userId: userId,
+        canViewStaffAttendance: canViewStaffAttendance,
       ),
     );
   }
@@ -978,6 +796,326 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// Bottom sheet widget for user details with tabs
+class _UserDetailsBottomSheet extends StatefulWidget {
+  final Map<String, dynamic> user;
+  final String fullName;
+  final String employeeId;
+  final String email;
+  final String designation;
+  final String employmentType;
+  final String role;
+  final String userId;
+  final bool canViewStaffAttendance;
+
+  const _UserDetailsBottomSheet({
+    required this.user,
+    required this.fullName,
+    required this.employeeId,
+    required this.email,
+    required this.designation,
+    required this.employmentType,
+    required this.role,
+    required this.userId,
+    required this.canViewStaffAttendance,
+  });
+
+  @override
+  State<_UserDetailsBottomSheet> createState() => _UserDetailsBottomSheetState();
+}
+
+class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create tab controller with 2 tabs if user can view attendance, otherwise 1 tab
+    _tabController = TabController(
+      length: widget.canViewStaffAttendance ? 2 : 1,
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF272579).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: const Color(0xFF272579),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF272579),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDetailRow(Icons.badge_rounded, 'Employee ID', widget.employeeId),
+          _buildDetailRow(Icons.email_rounded, 'Email', widget.email),
+          _buildDetailRow(
+            Icons.business_center_rounded,
+            'Employment Type',
+            '${widget.employmentType.substring(0, 1).toUpperCase()}${widget.employmentType.substring(1)}',
+          ),
+          if (widget.user['phoneNumber'] != null)
+            _buildDetailRow(Icons.phone_rounded, 'Phone', widget.user['phoneNumber']),
+          if (widget.user['dateOfJoining'] != null)
+            _buildDetailRow(
+              Icons.calendar_today_rounded,
+              'Date of Joining',
+              DateTime.parse(widget.user['dateOfJoining']).toString().split(' ')[0],
+            ),
+          if (widget.user['branchId'] != null && widget.user['branchId'] is Map)
+            _buildDetailRow(
+              Icons.location_on_rounded,
+              'Branch',
+              widget.user['branchId']['branchName'] ?? 'Unknown Branch',
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                // User Avatar
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: widget.user['avatar'] != null
+                        ? null
+                        : const LinearGradient(
+                            colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: widget.user['avatar'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            widget.user['avatar'],
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF272579), Color(0xFF0071bf)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    widget.fullName.isNotEmpty
+                                        ? widget.fullName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            widget.fullName.isNotEmpty
+                                ? widget.fullName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                ),
+
+                const SizedBox(width: 16),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.fullName.isEmpty ? 'Unknown User' : widget.fullName,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.designation,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          widget.role.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF0071bf),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Tab bar (only show if user can view attendance)
+          if (widget.canViewStaffAttendance)
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: const Color(0xFF0071bf),
+                indicatorWeight: 3,
+                labelColor: const Color(0xFF0071bf),
+                unselectedLabelColor: Colors.grey,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                tabs: const [
+                  Tab(
+                    icon: Icon(Icons.info_outline, size: 18),
+                    text: 'Details',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.calendar_today, size: 18),
+                    text: 'Attendance',
+                  ),
+                ],
+              ),
+            ),
+
+          // Content
+          Expanded(
+            child: widget.canViewStaffAttendance
+                ? TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildDetailsTab(),
+                      StaffAttendanceWidget(
+                        userId: widget.userId,
+                        userName: widget.fullName,
+                      ),
+                    ],
+                  )
+                : _buildDetailsTab(),
+          ),
+        ],
       ),
     );
   }

@@ -85,6 +85,9 @@ dependencies:
   # Charts for reports and analytics
   fl_chart: ^1.1.1
 
+  # Calendar widget for attendance view
+  table_calendar: ^3.1.2
+
 
 dev_dependencies:
   flutter_test:

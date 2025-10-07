@@ -1351,6 +1351,40 @@ class ApiService {
     );
   }
 
+  /// Get staff attendance for a specific user (Admin/Director only)
+  ///
+  /// Parameters:
+  /// - [userId]: The user ID to fetch attendance for
+  /// - [startDate]: Start date in ISO format (optional)
+  /// - [endDate]: End date in ISO format (optional)
+  /// - [page]: Page number (default: 1)
+  /// - [limit]: Items per page (default: 30)
+  ///
+  /// Returns:
+  /// - Success: Staff attendance records with pagination
+  /// - Error: Failed to fetch attendance or access denied
+  static Future<ApiResponse<Map<String, dynamic>>> getStaffAttendance({
+    required String userId,
+    String? startDate,
+    String? endDate,
+    int page = 1,
+    int limit = 30,
+  }) async {
+    final Map<String, String> queryParams = {
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+    if (startDate != null) queryParams['startDate'] = startDate;
+    if (endDate != null) queryParams['endDate'] = endDate;
+
+    final endpoint = '${ApiEndpoints.attendance}/staff/$userId?${Uri(queryParameters: queryParams).query}';
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
   // ============================================================================
   // REPORTS ENDPOINTS
   // ============================================================================

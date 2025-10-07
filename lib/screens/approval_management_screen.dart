@@ -514,14 +514,31 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
                                         color: Colors.grey[600],
                                       ),
                                       const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          'In: ${_formatTime(approval['checkIn']?['time'])}${approval['checkOut']?['time'] != null ? ' • Out: ${_formatTime(approval['checkOut']?['time'])}' : ''}',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.grey[700],
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
+                                      Text(
+                                        'In: ${_formatTime(approval['checkIn']?['time'])}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (approval['checkOut']?['time'] != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Out: ${_formatTime(approval['checkOut']?['time'])}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[700],
                                         ),
                                       ),
                                     ],
