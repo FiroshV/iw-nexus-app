@@ -398,6 +398,7 @@ class AuthProvider extends ChangeNotifier {
     ApiService.logout().catchError((e) {
       debugPrint('Background logout API call failed: $e');
       // This is fine - user is already logged out locally
+      return ApiResponse<Map<String, dynamic>>(success: false, message: 'Logout failed');
     });
   }
 

@@ -104,7 +104,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
         if (records != null && records is List) {
           parsedRecords = records.map((record) {
             if (record is Map) {
-              final mapped = Map<String, dynamic>.from(record as Map);
+              final mapped = Map<String, dynamic>.from(record);
               // Debug clock in/out times
               debugPrint('📍 Record date: ${mapped['date']}');
               debugPrint('📍 Clock In Time: ${mapped['clockInTime']} (type: ${mapped['clockInTime'].runtimeType})');
@@ -127,7 +127,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
       } else {
         if (mounted) {
           setState(() {
-            _errorMessage = response.message ?? 'Failed to load attendance';
+            _errorMessage = response.message;
             _isLoading = false;
           });
         }
@@ -166,16 +166,6 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
     try {
       final date = DateTime.parse(dateStr);
       return DateFormat('EEE, MMM dd').format(date); // "Mon, Dec 04"
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  String _formatFullDate(String? dateStr) {
-    if (dateStr == null) return '';
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('EEEE, MMMM dd, yyyy').format(date); // "Monday, December 04, 2024"
     } catch (e) {
       return dateStr;
     }
@@ -241,7 +231,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 2),
             spreadRadius: -2,
@@ -275,8 +265,8 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF0071bf).withOpacity(0.1),
-                      const Color(0xFF00b8d9).withOpacity(0.1),
+                      const Color(0xFF0071bf).withValues(alpha: 0.1),
+                      const Color(0xFF00b8d9).withValues(alpha: 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -462,7 +452,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0071bf).withOpacity(0.3),
+            color: const Color(0xFF0071bf).withValues(alpha: 0.3),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -479,7 +469,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -528,7 +518,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -566,7 +556,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -590,7 +580,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -625,7 +615,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 2),
             spreadRadius: -2,
@@ -645,8 +635,8 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF0071bf).withOpacity(0.15),
-                        const Color(0xFF00b8d9).withOpacity(0.15),
+                        const Color(0xFF0071bf).withValues(alpha: 0.15),
+                        const Color(0xFF00b8d9).withValues(alpha: 0.15),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
@@ -676,7 +666,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withOpacity(0.1),
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
@@ -711,7 +701,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: statusColor.withOpacity(0.4),
+                          color: statusColor.withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -739,7 +729,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  const Color(0xFFE2E8F0).withOpacity(0.5),
+                  const Color(0xFFE2E8F0).withValues(alpha: 0.5),
                   Colors.transparent,
                 ],
               ),
@@ -785,15 +775,15 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF0071bf).withOpacity(0.1),
-                          const Color(0xFF00b8d9).withOpacity(0.08),
+                          const Color(0xFF0071bf).withValues(alpha: 0.1),
+                          const Color(0xFF00b8d9).withValues(alpha: 0.08),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF0071bf).withOpacity(0.2),
+                        color: const Color(0xFF0071bf).withValues(alpha: 0.2),
                         width: 1,
                       ),
                     ),
@@ -803,7 +793,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0071bf).withOpacity(0.15),
+                            color: const Color(0xFF0071bf).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(
@@ -844,15 +834,15 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.08),
-            color.withOpacity(0.03),
+            color.withValues(alpha: 0.08),
+            color.withValues(alpha: 0.03),
           ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -862,7 +852,7 @@ class _StaffAttendanceWidgetState extends State<StaffAttendanceWidget> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
