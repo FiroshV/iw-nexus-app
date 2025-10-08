@@ -47,6 +47,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
     ApprovalScreenCoordinator.registerDashboardRefreshControls(
       pauseRefresh: pauseRefresh,
       resumeRefresh: resumeRefresh,
+      refreshNow: () => _loadPendingApprovals(isAutoRefresh: false),
     );
   }
 

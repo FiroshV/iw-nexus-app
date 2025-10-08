@@ -21,13 +21,16 @@ class ApprovalManagementScreen extends StatefulWidget {
 class ApprovalScreenCoordinator {
   static void Function()? _pauseDashboardRefresh;
   static void Function()? _resumeDashboardRefresh;
+  static void Function()? _refreshDashboard;
 
   static void registerDashboardRefreshControls({
     required void Function() pauseRefresh,
     required void Function() resumeRefresh,
+    void Function()? refreshNow,
   }) {
     _pauseDashboardRefresh = pauseRefresh;
     _resumeDashboardRefresh = resumeRefresh;
+    _refreshDashboard = refreshNow;
   }
 
   static void pauseDashboardRefresh() {
@@ -38,9 +41,14 @@ class ApprovalScreenCoordinator {
     _resumeDashboardRefresh?.call();
   }
 
+  static void refreshDashboard() {
+    _refreshDashboard?.call();
+  }
+
   static void unregisterDashboardRefreshControls() {
     _pauseDashboardRefresh = null;
     _resumeDashboardRefresh = null;
+    _refreshDashboard = null;
   }
 }
 
@@ -70,6 +78,9 @@ class _ApprovalManagementScreenState extends State<ApprovalManagementScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+
+    // Refresh dashboard immediately to show updated counts
+    ApprovalScreenCoordinator.refreshDashboard();
 
     // Resume dashboard refresh when leaving this screen
     ApprovalScreenCoordinator.resumeDashboardRefresh();
