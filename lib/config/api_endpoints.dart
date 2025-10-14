@@ -9,6 +9,7 @@ class ApiEndpoints {
   static const String branches = '/branches';
   static const String attendance = '/attendance';
   static const String reports = '/reports';
+  static const String feedback = '/feedback';
   static const String health = '/health';
 
   // Authentication endpoints
@@ -59,11 +60,27 @@ class ApiEndpoints {
   static const String employeeAttendanceReport = '$reports/employee-attendance';
   static const String branchComparisonReport = '$reports/branch-comparison';
 
+  // Feedback endpoints
+  static const String createFeedback = feedback;
+  static const String getUserFeedback = feedback;
+  static const String getAllFeedback = '$feedback/admin/all';
+  static const String getFeedbackStats = '$feedback/admin/stats';
+  static const String getFeedbackById = '$feedback/{feedbackId}';
+  static const String updateFeedbackStatus = '$feedback/{feedbackId}/status';
+  static const String addFeedbackResponse = '$feedback/{feedbackId}/response';
+  static const String deleteFeedback = '$feedback/{feedbackId}';
+
   // System endpoints
   static const String healthCheck = health;
 
   // Helper methods for dynamic endpoints
   static String userByIdEndpoint(String userId) => '$users/$userId';
+
+  static String feedbackByIdEndpoint(String feedbackId) => '$feedback/$feedbackId';
+
+  static String updateFeedbackStatusEndpoint(String feedbackId) => '$feedback/$feedbackId/status';
+
+  static String addFeedbackResponseEndpoint(String feedbackId) => '$feedback/$feedbackId/response';
 
   // Query builders for complex endpoints
   static String buildUsersQuery({
@@ -107,13 +124,49 @@ class ApiEndpoints {
     int? month,
   }) {
     final params = <String>[];
-    
+
     if (year != null) params.add('year=$year');
     if (month != null) params.add('month=$month');
 
-    return params.isEmpty 
+    return params.isEmpty
         ? attendanceSummary
         : '$attendanceSummary?${params.join('&')}';
+  }
+
+  static String buildFeedbackQuery({
+    int page = 1,
+    int limit = 10,
+    String? type,
+    String? status,
+  }) {
+    final params = <String>[];
+    params.add('page=$page');
+    params.add('limit=$limit');
+
+    if (type != null) params.add('type=${Uri.encodeComponent(type)}');
+    if (status != null) params.add('status=${Uri.encodeComponent(status)}');
+
+    return '$feedback?${params.join('&')}';
+  }
+
+  static String buildAllFeedbackQuery({
+    int page = 1,
+    int limit = 20,
+    String? type,
+    String? status,
+    String? priority,
+    String? search,
+  }) {
+    final params = <String>[];
+    params.add('page=$page');
+    params.add('limit=$limit');
+
+    if (type != null) params.add('type=${Uri.encodeComponent(type)}');
+    if (status != null) params.add('status=${Uri.encodeComponent(status)}');
+    if (priority != null) params.add('priority=${Uri.encodeComponent(priority)}');
+    if (search != null) params.add('search=${Uri.encodeComponent(search)}');
+
+    return '$getAllFeedback?${params.join('&')}';
   }
 }
 

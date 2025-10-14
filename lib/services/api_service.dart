@@ -379,6 +379,13 @@ class ApiService {
               body: body != null ? jsonEncode(body) : null,
             ).timeout(timeout);
             break;
+          case 'PATCH':
+            response = await _client.patch(
+              url,
+              headers: headers,
+              body: body != null ? jsonEncode(body) : null,
+            ).timeout(timeout);
+            break;
           case 'DELETE':
             response = await _client.delete(url, headers: headers).timeout(timeout);
             break;
@@ -1823,6 +1830,209 @@ class ApiService {
   /// Get document download URL
   static String getDocumentDownloadUrl(String documentId) {
     return '$baseUrl/users/documents/$documentId';
+  }
+
+  // ============================================================================
+  // FEEDBACK MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  /// Submit feedback/complaint/bug report with attachments
+  static Future<ApiResponse<Map<String, dynamic>>> submitFeedback({
+    required String type,
+    required String title,
+    required String description,
+    List<File>? attachments,
+  }) async {
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final dio = Dio();
+
+      // Prepare multipart form data
+      final formData = FormData.fromMap({
+        'type': type,
+        'title': title,
+        'description': description,
+      });
+
+      // Add attachments if provided
+      if (attachments != null && attachments.isNotEmpty) {
+        for (var file in attachments) {
+          formData.files.add(
+            MapEntry(
+              'attachments',
+              await MultipartFile.fromFile(
+                file.path,
+                filename: file.path.split('/').last,
+              ),
+            ),
+          );
+        }
+      }
+
+      debugPrint('Submitting feedback to $baseUrl/feedback');
+
+      // Make the request
+      final response = await dio.post(
+        '$baseUrl/feedback',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+
+      // Handle success response
+      if (response.statusCode == 201 && response.data['success'] == true) {
+        return ApiResponse<Map<String, dynamic>>(
+          success: true,
+          data: response.data['data'],
+          message: response.data['message'],
+        );
+      } else {
+        return ApiResponse<Map<String, dynamic>>(
+          success: false,
+          message: response.data['message'] ?? 'Submission failed',
+          error: response.data['error'],
+        );
+      }
+    } on DioException catch (e) {
+      String errorMessage;
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          errorMessage = 'Submission timeout. Please check your internet connection.';
+          break;
+        case DioExceptionType.badResponse:
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errorMessage = data['message'];
+          } else {
+            errorMessage = 'Submission failed. Please try again.';
+          }
+          break;
+        default:
+          errorMessage = 'Network error. Please check your connection.';
+      }
+
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: errorMessage,
+        error: e.toString(),
+      );
+    } catch (e) {
+      return ApiResponse<Map<String, dynamic>>(
+        success: false,
+        message: 'An unexpected error occurred during submission',
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Get user's feedback list
+  static Future<ApiResponse<Map<String, dynamic>>> getUserFeedback({
+    int page = 1,
+    int limit = 10,
+    String? type,
+    String? status,
+  }) async {
+    final endpoint = ApiEndpoints.buildFeedbackQuery(
+      page: page,
+      limit: limit,
+      type: type,
+      status: status,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get all feedback (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> getAllFeedback({
+    int page = 1,
+    int limit = 20,
+    String? type,
+    String? status,
+    String? priority,
+    String? search,
+  }) async {
+    final endpoint = ApiEndpoints.buildAllFeedbackQuery(
+      page: page,
+      limit: limit,
+      type: type,
+      status: status,
+      priority: priority,
+      search: search,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get feedback statistics (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> getFeedbackStats() async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.getFeedbackStats,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get feedback by ID
+  static Future<ApiResponse<Map<String, dynamic>>> getFeedbackById(String feedbackId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.feedbackByIdEndpoint(feedbackId),
+      HttpMethods.get,
+    );
+  }
+
+  /// Update feedback status and/or priority (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> updateFeedbackStatus({
+    required String feedbackId,
+    String? status,
+    String? priority,
+    String? internalNotes,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.updateFeedbackStatusEndpoint(feedbackId),
+      HttpMethods.patch,
+      body: {
+        if (status != null) 'status': status,
+        if (priority != null) 'priority': priority,
+        if (internalNotes != null) 'internalNotes': internalNotes,
+      },
+    );
+  }
+
+  /// Add response to feedback (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> addFeedbackResponse({
+    required String feedbackId,
+    required String message,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.addFeedbackResponseEndpoint(feedbackId),
+      HttpMethods.post,
+      body: {
+        'message': message,
+      },
+    );
+  }
+
+  /// Delete feedback (Admin only)
+  static Future<ApiResponse<Map<String, dynamic>>> deleteFeedback(String feedbackId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.feedbackByIdEndpoint(feedbackId),
+      HttpMethods.delete,
+    );
   }
 
   // Cleanup

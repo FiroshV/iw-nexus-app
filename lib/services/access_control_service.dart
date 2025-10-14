@@ -63,6 +63,16 @@ class AccessControlService {
       'admin_dashboard': ['admin', 'director'],
       'manager_dashboard': ['admin', 'manager', 'director'],
       'employee_dashboard': ['admin', 'manager', 'director', 'field_staff', 'telecaller']
+    },
+
+    // Feedback Management Features
+    'feedback_management': {
+      'create': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_all': ['admin', 'director'],
+      'update_status': ['admin', 'director'],
+      'respond': ['admin', 'director'],
+      'delete': ['admin', 'director']
     }
   };
 
