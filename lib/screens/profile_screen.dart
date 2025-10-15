@@ -130,7 +130,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       final updateData = {
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
-        'designation': _designationController.text.trim(),
         'address': _addressController.text.trim(),
         'homePhoneNumber': _homePhoneController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
@@ -950,6 +949,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                             controller: _designationController,
                             label: 'Designation',
                             icon: Icons.work_outline,
+                            readOnly: true,
                           ),
 
                           _buildDateField(),
