@@ -162,6 +162,15 @@ class _AddUserScreenState extends State<AddUserScreen> {
     });
 
     try {
+      // Convert date of joining to IST (midnight)
+      String? dateOfJoiningIst;
+      if (selectedJoiningDate != null) {
+        final doj = selectedJoiningDate!;
+        // Store date at midnight IST (Asia/Kolkata timezone)
+        final istDoj = DateTime(doj.year, doj.month, doj.day, 0, 0, 0);
+        dateOfJoiningIst = istDoj.toIso8601String();
+      }
+
       final response = await ApiService.createUser(
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
@@ -170,7 +179,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         role: selectedRole!,
         designation: _designationController.text.trim(),
         employmentType: selectedEmploymentType!,
-        dateOfJoining: selectedJoiningDate?.toIso8601String(),
+        dateOfJoining: dateOfJoiningIst,
         branchId: selectedBranchId,
       );
 

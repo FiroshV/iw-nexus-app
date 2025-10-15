@@ -136,7 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       };
 
       if (_selectedDateOfBirth != null) {
-        updateData['dateOfBirth'] = _selectedDateOfBirth!.toIso8601String();
+        final dob = _selectedDateOfBirth!;
+        // Store date at midnight IST (Asia/Kolkata timezone)
+        final istDob = DateTime(dob.year, dob.month, dob.day, 0, 0, 0);
+        updateData['dateOfBirth'] = istDob.toIso8601String();
       }
 
       if (_selectedBloodGroup != null) {

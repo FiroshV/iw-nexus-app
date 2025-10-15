@@ -210,9 +210,15 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'designation': _designationController.text.trim(),
         'employmentType': selectedEmploymentType!,
         if (selectedBranchId != null) 'branchId': selectedBranchId,
-        if (selectedJoiningDate != null)
-          'dateOfJoining': selectedJoiningDate!.toIso8601String(),
       };
+
+      // Convert date of joining to IST (midnight)
+      if (selectedJoiningDate != null) {
+        final doj = selectedJoiningDate!;
+        // Store date at midnight IST (Asia/Kolkata timezone)
+        final istDoj = DateTime(doj.year, doj.month, doj.day, 0, 0, 0);
+        updateData['dateOfJoining'] = istDoj.toIso8601String();
+      }
 
       final response = await ApiService.updateUser(
         userId: widget.user['_id'],
