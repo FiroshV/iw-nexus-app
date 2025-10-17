@@ -61,7 +61,7 @@ class VersionCheckService {
 
   /// Get current app version
   static String getCurrentVersion() {
-      return dotenv.maybeGet('APP_VERSION') ?? '1.0.0';
+    return dotenv.maybeGet('APP_VERSION') ?? '1.0.0';
   }
 
   /// Get current app build number
@@ -165,21 +165,32 @@ class VersionCheckService {
 
   /// Compare version strings to determine if update is available
   /// Returns true if remote version is newer than current version
+  /// Supports format: "major.minor.patch" or "major.minor.patch+build"
   static bool _isUpdateAvailable(String currentVersion, String latestVersion) {
     try {
-      // Parse version strings (e.g., "1.2.3" -> [1, 2, 3])
+      // Parse version strings (e.g., "1.2.3+4" -> [1, 2, 3, 4])
       final current = _parseVersion(currentVersion);
       final latest = _parseVersion(latestVersion);
 
-      // Compare version components
-      for (int i = 0; i < 3; i++) {
-        if (latest[i] > current[i]) {
+      debugPrint('🔍 Comparing versions - Current: $currentVersion ($current), Latest: $latestVersion ($latest)');
+
+      // Compare all version components (major, minor, patch, build)
+      final maxLength = current.length > latest.length ? current.length : latest.length;
+
+      for (int i = 0; i < maxLength; i++) {
+        final currentPart = i < current.length ? current[i] : 0;
+        final latestPart = i < latest.length ? latest[i] : 0;
+
+        if (latestPart > currentPart) {
+          debugPrint('✅ Update available: Latest[$i]=$latestPart > Current[$i]=$currentPart');
           return true; // Remote version is newer
-        } else if (latest[i] < current[i]) {
-          return false; // Current version is newer
+        } else if (latestPart < currentPart) {
+          debugPrint('⏭️ No update needed: Current[$i]=$currentPart > Latest[$i]=$latestPart');
+          return false; // Current version is newer or equal
         }
       }
 
+      debugPrint('⏭️ Versions are equal');
       return false; // Versions are equal
     } catch (e) {
       debugPrint('❌ VersionCheckService: Error comparing versions: $e');
@@ -188,13 +199,19 @@ class VersionCheckService {
   }
 
   /// Parse version string into numeric components
-  /// E.g., "1.2.3" -> [1, 2, 3]
+  /// Supports: "1.2.3" -> [1, 2, 3] or "1.2.3+4" -> [1, 2, 3, 4]
   static List<int> _parseVersion(String version) {
     try {
-      final parts = version.split('.');
+      // Split by '+' to separate version from build number
+      final versionParts = version.split('+');
+      final versionNumber = versionParts[0]; // e.g., "1.2.3"
+      final buildNumber = versionParts.length > 1 ? versionParts[1] : null; // e.g., "4"
+
+      // Parse version number (major.minor.patch)
+      final parts = versionNumber.split('.');
       final parsed = <int>[];
 
-      // Ensure we have at least 3 components (major.minor.patch)
+      // Parse major.minor.patch (ensure we have at least 3 components)
       for (int i = 0; i < 3; i++) {
         if (i < parts.length) {
           // Extract numeric part only (handle cases like "1.2.3-beta")
@@ -205,10 +222,17 @@ class VersionCheckService {
         }
       }
 
+      // Add build number if present
+      if (buildNumber != null) {
+        final numericBuild = buildNumber.replaceAll(RegExp(r'[^0-9]'), '');
+        parsed.add(int.tryParse(numericBuild) ?? 0);
+      }
+
+      debugPrint('🔢 VersionCheckService: Parsed "$version" -> $parsed');
       return parsed;
     } catch (e) {
       debugPrint('❌ VersionCheckService: Error parsing version "$version": $e');
-      return [0, 0, 0];
+      return [0, 0, 0, 0];
     }
   }
 
