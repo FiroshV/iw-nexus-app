@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'remote_config_service.dart';
@@ -62,7 +63,7 @@ class VersionCheckService {
   static String getCurrentVersion() {
     if (_packageInfo == null) {
       debugPrint('⚠️ VersionCheckService: Package info not initialized, returning fallback version');
-      return '1.0.0';
+      return dotenv.maybeGet('APP_VERSION') ?? '1.0.0';
     }
     return _packageInfo!.version;
   }

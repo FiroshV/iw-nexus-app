@@ -118,8 +118,7 @@ class ApiConfig {
 
   // Private helper methods
   static String _getAppVersion() {
-    // You might want to get this from package_info_plus package
-    return '1.0.0';
+    return dotenv.maybeGet('APP_VERSION') ?? '1.0.0';
   }
 
   static String _getPlatform() {
