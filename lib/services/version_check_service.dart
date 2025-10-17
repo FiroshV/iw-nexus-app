@@ -61,11 +61,7 @@ class VersionCheckService {
 
   /// Get current app version
   static String getCurrentVersion() {
-    if (_packageInfo == null) {
-      debugPrint('⚠️ VersionCheckService: Package info not initialized, returning fallback version');
       return dotenv.maybeGet('APP_VERSION') ?? '1.0.0';
-    }
-    return _packageInfo!.version;
   }
 
   /// Get current app build number
