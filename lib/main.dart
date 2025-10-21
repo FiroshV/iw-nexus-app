@@ -19,6 +19,7 @@ import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
 import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
+import 'screens/payroll/my_payslips_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -563,6 +564,20 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
 
             _buildMenuTile(
+              icon: Icons.receipt_long,
+              title: 'My Payslips',
+              subtitle: 'View and download payslips',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => MyPayslipsScreen(userData: currentUser),
+                  ),
+                );
+              },
+            ),
+
+            _buildMenuTile(
               icon: Icons.feedback_outlined,
               title: 'Feedback & Support',
               subtitle: 'Share feedback or report issues',
@@ -1049,6 +1064,30 @@ class _DashboardPageState extends State<DashboardPage> {
                             // Navigator.of(context).push(
                             //   MaterialPageRoute(
                             //     builder: (context) => ReportsScreen(userRole: userRole),
+                            //   ),
+                            // );
+                          },
+                        ),
+                      ],
+
+                      // Payslip - accessible to admin and director
+                      if (userRole == 'admin' || userRole == 'director') ...[
+                        _buildDashboardCard(
+                          title: 'Payslip',
+                          subtitle: 'Generate & manage',
+                          icon: Icons.receipt_long,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Payslip feature coming soon!'),
+                                backgroundColor: Color(0xFF0071bf),
+                              ),
+                            );
+                            // TODO: Navigate to payslip generation screen
+                            // Navigator.of(context).push(
+                            //   MaterialPageRoute(
+                            //     builder: (context) => PayslipManagementScreen(),
                             //   ),
                             // );
                           },
