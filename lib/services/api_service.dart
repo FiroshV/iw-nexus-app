@@ -2035,6 +2035,42 @@ class ApiService {
     );
   }
 
+  /// Send appointment letter to employee (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> sendAppointmentLetter(String userId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/$userId/appointment-letter',
+      HttpMethods.post,
+    );
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> sendManualAppointmentLetter({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    required String designation,
+    required String dateOfJoining,
+    required String branchName,
+    required String netSalary,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/appointment-letter/manual',
+      HttpMethods.post,
+      body: {
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'address': address,
+        'designation': designation,
+        'dateOfJoining': dateOfJoining,
+        'branchName': branchName,
+        'netSalary': netSalary,
+      },
+    );
+  }
+
   // Cleanup
   static void dispose() {
     HttpClientConfig.dispose();

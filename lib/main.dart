@@ -14,6 +14,7 @@ import 'services/access_control_service.dart';
 import 'services/version_check_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
+import 'screens/admin/send_appointment_letter_screen.dart';
 import 'screens/enhanced_attendance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
@@ -762,13 +763,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF272579),
                     letterSpacing: -0.2,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
@@ -1051,6 +1053,24 @@ class _DashboardPageState extends State<DashboardPage> {
                             //     builder: (context) => ReportsScreen(userRole: userRole),
                             //   ),
                             // );
+                          },
+                        ),
+                      ],
+
+                      // Appointment Letters - accessible to admin, director
+                      if (AccessControlService.hasAccess(userRole, 'appointment_letter', 'send')) ...[
+                        _buildDashboardCard(
+                          title: 'Appointment Letter',
+                          subtitle: 'Send to employee',
+                          icon: Icons.mail_outline,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SendAppointmentLetterScreen(),
+                              ),
+                            );
                           },
                         ),
                       ],
