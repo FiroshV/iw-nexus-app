@@ -73,6 +73,12 @@ class AccessControlService {
       'update_status': ['admin', 'director'],
       'respond': ['admin', 'director'],
       'delete': ['admin', 'director']
+    },
+
+    // Appointment Letter Features
+    'appointment_letter': {
+      'send': ['admin', 'director'],
+      'view': ['admin', 'director']
     }
   };
 

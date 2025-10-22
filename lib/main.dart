@@ -14,6 +14,7 @@ import 'services/access_control_service.dart';
 import 'services/version_check_service.dart';
 import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/branch_management_screen.dart';
+import 'screens/admin/send_appointment_letter_screen.dart';
 import 'screens/enhanced_attendance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
@@ -97,7 +98,9 @@ bool _shouldUseRemoteConfig() {
 
 /// Check if version checking should be enabled based on .env setting
 bool _shouldEnableVersionCheck() {
-  final enableVersionCheck = dotenv.maybeGet('ENABLE_VERSION_CHECK')?.toLowerCase();
+  final enableVersionCheck = dotenv
+      .maybeGet('ENABLE_VERSION_CHECK')
+      ?.toLowerCase();
   return enableVersionCheck == 'true' || enableVersionCheck == '1';
 }
 
@@ -192,10 +195,16 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       final userRole = userData['role']?.toString() ?? '';
 
       // Only refresh for users who can view approvals
-      if (AccessControlService.hasAccess(userRole, 'attendance', 'approve_attendance')) {
+      if (AccessControlService.hasAccess(
+        userRole,
+        'attendance',
+        'approve_attendance',
+      )) {
         // Note: The actual refresh will be handled by the ApprovalCard widget
         // This is just to trigger a rebuild if needed
-        debugPrint('🔄 App resumed - approval data will be refreshed by widgets');
+        debugPrint(
+          '🔄 App resumed - approval data will be refreshed by widgets',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error checking approval permissions on app resume: $e');
@@ -322,7 +331,8 @@ class _DashboardPageState extends State<DashboardPage> {
       }
 
       // Only check for updates if services are available
-      if (!VersionCheckService.isAvailable || !RemoteConfigService.isAvailable) {
+      if (!VersionCheckService.isAvailable ||
+          !RemoteConfigService.isAvailable) {
         debugPrint('⏭️ Skipping version check - services not available');
         return;
       }
@@ -403,7 +413,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     // Show error message if store launch failed
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Unable to open store. Please update manually.'),
+                        content: const Text(
+                          'Unable to open store. Please update manually.',
+                        ),
                         backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
@@ -416,7 +428,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFF5cfbd8),
                   foregroundColor: const Color(0xFF272579),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -468,10 +483,8 @@ class _DashboardPageState extends State<DashboardPage> {
   void _handleIdCardShare(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => IDCardScreen(
-          userData: currentUser,
-          action: IDCardAction.share,
-        ),
+        builder: (context) =>
+            IDCardScreen(userData: currentUser, action: IDCardAction.share),
       ),
     );
   }
@@ -571,7 +584,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 Navigator.pop(context);
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => MyPayslipsScreen(userData: currentUser),
+                    builder: (context) =>
+                        MyPayslipsScreen(userData: currentUser),
                   ),
                 );
               },
@@ -777,13 +791,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF272579),
                     letterSpacing: -0.2,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
@@ -968,7 +983,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   IDCardWidget(
                     userData: currentUser,
                     onShare: () => _handleIdCardShare(context),
-                    onShareVisitingCard: () => _handleVisitingCardShare(context),
+                    onShareVisitingCard: () =>
+                        _handleVisitingCardShare(context),
                     showWelcomeCard: true,
                   ),
 
@@ -1006,14 +1022,19 @@ class _DashboardPageState extends State<DashboardPage> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const EnhancedAttendanceScreen(),
+                              builder: (context) =>
+                                  const EnhancedAttendanceScreen(),
                             ),
                           );
                         },
                       ),
 
                       // User Management - accessible to admin, hr, manager, director
-                      if (AccessControlService.hasAccess(userRole, 'user_management', 'view')) ...[
+                      if (AccessControlService.hasAccess(
+                        userRole,
+                        'user_management',
+                        'view',
+                      )) ...[
                         _buildDashboardCard(
                           title: 'Employees',
                           subtitle: 'Manage team members',
@@ -1031,7 +1052,11 @@ class _DashboardPageState extends State<DashboardPage> {
                       ],
 
                       // Branch Management - accessible to admin, manager, director
-                      if (AccessControlService.hasAccess(userRole, 'branch_management', 'view')) ...[
+                      if (AccessControlService.hasAccess(
+                        userRole,
+                        'branch_management',
+                        'view',
+                      )) ...[
                         _buildDashboardCard(
                           title: 'Branches',
                           subtitle: 'Manage office locations',
@@ -1049,7 +1074,11 @@ class _DashboardPageState extends State<DashboardPage> {
                       ],
 
                       // Reports - accessible to admin, hr, manager, director
-                      if (AccessControlService.hasAccess(userRole, 'reports', 'attendance_reports')) ...[
+                      if (AccessControlService.hasAccess(
+                        userRole,
+                        'reports',
+                        'attendance_reports',
+                      )) ...[
                         _buildDashboardCard(
                           title: 'Reports',
                           subtitle: 'Analytics & insights',
@@ -1084,12 +1113,33 @@ class _DashboardPageState extends State<DashboardPage> {
                                 backgroundColor: Color(0xFF0071bf),
                               ),
                             );
-                            // TODO: Navigate to payslip generation screen
-                            // Navigator.of(context).push(
-                            //   MaterialPageRoute(
-                            //     builder: (context) => PayslipManagementScreen(),
-                            //   ),
-                            // );
+                          },
+                        ),
+                      ],
+                      // TODO: Navigate to payslip generation screen
+                      // Navigator.of(context).push(
+                      //   MaterialPageRoute(
+                      //     builder: (context) => PayslipManagementScreen(),
+                      //   ),
+                      // );
+                      // Appointment Letters - accessible to admin, director
+                      if (AccessControlService.hasAccess(
+                        userRole,
+                        'appointment_letter',
+                        'send',
+                      )) ...[
+                        _buildDashboardCard(
+                          title: 'Appointment Letter',
+                          subtitle: 'Send to employee',
+                          icon: Icons.mail_outline,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SendAppointmentLetterScreen(),
+                              ),
+                            );
                           },
                         ),
                       ],
