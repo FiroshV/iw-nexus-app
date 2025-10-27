@@ -13,7 +13,6 @@ class PayslipGenerationScreen extends StatefulWidget {
 class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
-  String? _selectedBranchId;
 
   bool _isGenerating = false;
   bool _isLoadingPayslips = false;
@@ -21,18 +20,18 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
   Map<String, dynamic>? _generationSummary;
 
   final List<String> _months = [
-    'January',
-    'February',
-    'March',
-    'April',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
     'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December'
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
   ];
 
   @override
@@ -69,7 +68,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
       final data = {
         'year': _selectedYear,
         'month': _selectedMonth,
-        if (_selectedBranchId != null) 'branchId': _selectedBranchId,
       };
 
       final result = await PayrollApiService.generatePayslips(data);
@@ -108,10 +106,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
             const SizedBox(height: 12),
             Text(
               '• Month: ${_months[_selectedMonth - 1]} $_selectedYear',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            Text(
-              '• Branch: ${_selectedBranchId ?? 'All Branches'}',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
@@ -230,6 +224,7 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
+                    isExpanded: true,
                     initialValue: _selectedMonth,
                     decoration: InputDecoration(
                       labelText: 'Month',
@@ -261,6 +256,7 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<int>(
+                    isExpanded: true,
                     initialValue: _selectedYear,
                     decoration: InputDecoration(
                       labelText: 'Year',
@@ -291,29 +287,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String?>(
-              initialValue: _selectedBranchId,
-              decoration: InputDecoration(
-                labelText: 'Branch (Optional)',
-                prefixIcon: const Icon(Icons.business, color: Color(0xFF0071bf)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF0071bf), width: 2),
-                ),
-              ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('All Branches')),
-                // TODO: Load actual branches
-              ],
-              onChanged: (value) {
-                setState(() => _selectedBranchId = value);
-                _loadExistingPayslips();
-              },
             ),
           ],
         ),
@@ -585,6 +558,459 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                   tooltip: 'Email',
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.receipt_long_outlined,
+                size: 64,
+                color: Color(0xFF0071bf),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'No Payslips Generated',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Generate payslips for ${_months[_selectedMonth - 1]} $_selectedYear',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Content widget for payslip generation (used in tabbed interface)
+class PayslipGenerationContent extends StatefulWidget {
+  const PayslipGenerationContent({super.key});
+
+  @override
+  State<PayslipGenerationContent> createState() =>
+      _PayslipGenerationContentState();
+}
+
+class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
+  int _selectedMonth = DateTime.now().month;
+  int _selectedYear = DateTime.now().year;
+
+  bool _isGenerating = false;
+  bool _isLoadingPayslips = false;
+  List<Map<String, dynamic>> _generatedPayslips = [];
+  Map<String, dynamic>? _generationSummary;
+
+  final List<String> _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingPayslips();
+  }
+
+  Future<void> _loadExistingPayslips() async {
+    setState(() => _isLoadingPayslips = true);
+    try {
+      setState(() {
+        _generatedPayslips = [];
+        _isLoadingPayslips = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingPayslips = false);
+    }
+  }
+
+  Future<void> _generatePayslips() async {
+    setState(() => _isGenerating = true);
+    try {
+      final result = await PayrollApiService.generatePayslips({
+        'year': _selectedYear,
+        'month': _selectedMonth,
+      });
+
+      if (result != null) {
+        _showMessage('Payslips generated successfully!');
+        await _loadExistingPayslips();
+      }
+    } catch (e) {
+      _showMessage('Error generating payslips: $e', isError: true);
+    } finally {
+      setState(() => _isGenerating = false);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : const Color(0xFF5cfbd8),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildPeriodSelector(),
+        const SizedBox(height: 16),
+        if (_generationSummary != null) _buildSummaryCard(),
+        if (_generationSummary != null) const SizedBox(height: 16),
+        _buildGenerateButton(),
+        const SizedBox(height: 24),
+        if (_isLoadingPayslips)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0071bf)),
+          )
+        else if (_generatedPayslips.isNotEmpty) ...[
+          _buildPayslipsHeader(),
+          const SizedBox(height: 12),
+          ..._generatedPayslips.map((payslip) => _buildPayslipCard(payslip)),
+        ] else
+          _buildEmptyState(),
+      ],
+    );
+  }
+
+  Widget _buildPeriodSelector() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Period',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: _selectedMonth,
+                    decoration: InputDecoration(
+                      labelText: 'Month',
+                      prefixIcon:
+                          const Icon(Icons.calendar_month, color: Color(0xFF0071bf)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: Color(0xFF0071bf), width: 2),
+                      ),
+                    ),
+                    items: List.generate(12, (index) {
+                      return DropdownMenuItem(
+                        value: index + 1,
+                        child: Text(_months[index]),
+                      );
+                    }),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedMonth = value);
+                        _loadExistingPayslips();
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    initialValue: _selectedYear,
+                    decoration: InputDecoration(
+                      labelText: 'Year',
+                      prefixIcon:
+                          const Icon(Icons.calendar_today, color: Color(0xFF0071bf)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: Color(0xFF0071bf), width: 2),
+                      ),
+                    ),
+                    items: List.generate(5, (index) {
+                      final year = DateTime.now().year - 2 + index;
+                      return DropdownMenuItem(
+                        value: year,
+                        child: Text(year.toString()),
+                      );
+                    }),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedYear = value);
+                        _loadExistingPayslips();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF272579), Color(0xFF0071bf)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildSummaryItem(
+              icon: Icons.people,
+              label: 'Employees',
+              value: '0',
+            ),
+            _buildSummaryItem(
+              icon: Icons.calendar_today,
+              label: 'Working Days',
+              value: '0',
+            ),
+            _buildSummaryItem(
+              icon: Icons.trending_up,
+              label: 'Avg Attendance',
+              value: '0%',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenerateButton() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_rounded, color: Colors.orange[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This will generate payslips based on attendance data and salary structures. This action cannot be undone.',
+                      style: TextStyle(
+                        color: Colors.orange[800],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isGenerating ? null : _generatePayslips,
+                icon: _isGenerating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.play_arrow),
+                label: Text(
+                  _isGenerating ? 'Generating...' : 'Generate All Payslips',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0071bf),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  disabledBackgroundColor: Colors.grey,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPayslipsHeader() {
+    return Row(
+      children: [
+        const Text(
+          'Generated Payslips',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF272579),
+          ),
+        ),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () {
+            _showMessage('Email feature coming soon!');
+          },
+          icon: const Icon(Icons.email),
+          label: const Text('Email All'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPayslipCard(Map<String, dynamic> payslip) {
+    final employeeName = payslip['employeeName'] as String? ?? 'Unknown';
+    final netSalary = (payslip['netSalary'] as num?)?.toDouble() ?? 0.0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.receipt_long,
+                color: Color(0xFF0071bf),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    employeeName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    PayrollApiService.formatCurrency(netSalary),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF5cfbd8),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

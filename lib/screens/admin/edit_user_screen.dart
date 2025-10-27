@@ -23,6 +23,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
   final _phoneController = TextEditingController();
   final _designationController = TextEditingController();
   final _managerController = TextEditingController();
+  final _panNumberController = TextEditingController();
+  final _pfAccountNumberController = TextEditingController();
+  final _uanNumberController = TextEditingController();
+  final _esiNumberController = TextEditingController();
 
   String? selectedRole;
   String? selectedBranchId;
@@ -63,6 +67,12 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _phoneController.text = widget.user['phoneNumber'] ?? '';
     _designationController.text = widget.user['designation'] ?? '';
 
+    // Statutory Information
+    _panNumberController.text = widget.user['panNumber'] ?? '';
+    _pfAccountNumberController.text = widget.user['pfAccountNumber'] ?? '';
+    _uanNumberController.text = widget.user['uanNumber'] ?? '';
+    _esiNumberController.text = widget.user['esiNumber'] ?? '';
+
     // Ensure the user's role exists in the available roles list
     final userRole = widget.user['role'];
     selectedRole = roles.contains(userRole) ? userRole : null;
@@ -88,6 +98,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _phoneController.dispose();
     _designationController.dispose();
     _managerController.dispose();
+    _panNumberController.dispose();
+    _pfAccountNumberController.dispose();
+    _uanNumberController.dispose();
+    _esiNumberController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -210,6 +224,11 @@ class _EditUserScreenState extends State<EditUserScreen> {
         'designation': _designationController.text.trim(),
         'employmentType': selectedEmploymentType!,
         if (selectedBranchId != null) 'branchId': selectedBranchId,
+        // Statutory Information (optional)
+        if (_panNumberController.text.trim().isNotEmpty) 'panNumber': _panNumberController.text.trim().toUpperCase(),
+        if (_pfAccountNumberController.text.trim().isNotEmpty) 'pfAccountNumber': _pfAccountNumberController.text.trim(),
+        if (_uanNumberController.text.trim().isNotEmpty) 'uanNumber': _uanNumberController.text.trim(),
+        if (_esiNumberController.text.trim().isNotEmpty) 'esiNumber': _esiNumberController.text.trim(),
       };
 
       // Convert date of joining to IST (midnight)
@@ -305,6 +324,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
               const SizedBox(height: 32),
               _buildPersonalInfoSection(),
               _buildWorkInfoSection(),
+              _buildStatutoryInfoSection(),
               const SizedBox(height: 32),
               _buildSaveButton(),
               const SizedBox(height: 32),
@@ -373,6 +393,48 @@ class _EditUserScreenState extends State<EditUserScreen> {
         _buildManagerField(),
         _buildEmploymentTypeDropdown(),
         _buildDateField(),
+      ],
+    );
+  }
+
+  Widget _buildStatutoryInfoSection() {
+    return _buildSectionCard(
+      title: 'Statutory Information',
+      icon: Icons.account_balance_outlined,
+      children: [
+        _buildTextField(
+          controller: _panNumberController,
+          label: 'PAN Number',
+          icon: Icons.badge,
+          hintText: 'ABCDE1234F',
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+          ],
+          validator: UserValidation.validatePAN,
+        ),
+        _buildTextField(
+          controller: _pfAccountNumberController,
+          label: 'PF Account Number',
+          icon: Icons.account_balance_wallet,
+          hintText: 'Optional',
+        ),
+        _buildTextField(
+          controller: _uanNumberController,
+          label: 'UAN Number',
+          icon: Icons.badge_outlined,
+          hintText: '12-digit number',
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          validator: UserValidation.validateUAN,
+        ),
+        _buildTextField(
+          controller: _esiNumberController,
+          label: 'ESI Number',
+          icon: Icons.health_and_safety,
+          hintText: 'Optional',
+        ),
       ],
     );
   }
@@ -927,6 +989,27 @@ class UserValidation {
     }
     if (value.trim().length > 100) {
       return 'Designation must not exceed 100 characters';
+    }
+    return null;
+  }
+
+  static String? validatePAN(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // PAN is optional
+    }
+    final panRegex = RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$');
+    if (!panRegex.hasMatch(value.trim().toUpperCase())) {
+      return 'Invalid PAN format. Expected: ABCDE1234F';
+    }
+    return null;
+  }
+
+  static String? validateUAN(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // UAN is optional
+    }
+    if (value.trim().length != 12 || !RegExp(r'^\d{12}$').hasMatch(value.trim())) {
+      return 'UAN must be exactly 12 digits';
     }
     return null;
   }

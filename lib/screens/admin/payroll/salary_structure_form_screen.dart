@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../../services/payroll_api_service.dart';
 import '../../../services/api_service.dart';
+import '../edit_user_screen.dart';
 
 /// Admin screen for creating/editing employee salary structure
 class SalaryStructureFormScreen extends StatefulWidget {
   final Map<String, dynamic>? salaryStructure;
+  final String? userId;
+  final String? userName;
 
-  const SalaryStructureFormScreen({super.key, this.salaryStructure});
+  const SalaryStructureFormScreen({
+    super.key,
+    this.salaryStructure,
+    this.userId,
+    this.userName,
+  });
 
   @override
   State<SalaryStructureFormScreen> createState() =>
@@ -42,17 +50,114 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEmployees();
-    _initializeForm();
+    _loadEmployeesAndInitialize();
+  }
+
+  Future<void> _loadEmployeesAndInitialize() async {
+    // Load employees first
+    await _loadEmployees();
+
+    // If userId is provided but no salaryStructure, fetch from backend
+    if (widget.userId != null && widget.salaryStructure == null) {
+      await _loadSalaryStructureFromBackend(widget.userId!);
+    }
+
+    // Then initialize the form after employees are loaded
+    if (mounted) {
+      setState(() {
+        _initializeForm();
+      });
+    }
+  }
+
+  /// Load salary structure from backend API and pre-fill form
+  Future<void> _loadSalaryStructureFromBackend(String userId) async {
+    try {
+      debugPrint('🔄 Fetching salary structure from backend for user: $userId');
+      final structure = await PayrollApiService.getSalaryStructure(userId);
+
+      if (structure != null) {
+        debugPrint('✅ Salary structure fetched from backend');
+        // Pre-populate the form with loaded structure
+        _ctcController.text = (structure['ctc'] as num?)?.toString() ?? '';
+
+        // Parse and format effective from date as DD-MM-YYYY
+        final effectiveFromStr = structure['effectiveFrom'] as String?;
+        if (effectiveFromStr != null && effectiveFromStr.isNotEmpty) {
+          try {
+            final effectiveDate = DateTime.parse(effectiveFromStr);
+            _effectiveFromController.text =
+                '${effectiveDate.day.toString().padLeft(2, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.year}';
+          } catch (e) {
+            _effectiveFromController.text = effectiveFromStr;
+          }
+        }
+
+        final earnings = structure['earnings'] as Map<String, dynamic>? ?? {};
+        _basicController.text = (earnings['basic'] as num?)?.toString() ?? '';
+        _hraController.text = (earnings['hra'] as num?)?.toString() ?? '';
+        _daController.text = (earnings['da'] as num?)?.toString() ?? '';
+        _conveyanceController.text = (earnings['conveyance'] as num?)?.toString() ?? '';
+        _specialAllowanceController.text = (earnings['specialAllowance'] as num?)?.toString() ?? '';
+        _otherAllowancesController.text = (earnings['otherAllowances'] as num?)?.toString() ?? '';
+
+        final deductions = structure['deductions'] as Map<String, dynamic>? ?? {};
+        _pfApplicable = deductions['pfApplicable'] as bool? ?? true;
+        _esiApplicable = deductions['esiApplicable'] as bool? ?? false;
+        _ptApplicable = deductions['professionalTax'] as bool? ?? true;
+        _tdsController.text = (deductions['tdsMonthly'] as num?)?.toString() ?? '0';
+        _loanDeductionController.text = (deductions['loanDeduction'] as num?)?.toString() ?? '0';
+        debugPrint('✅ Form pre-filled with salary structure from backend');
+      } else {
+        debugPrint('📝 No salary structure found for user (new structure)');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error loading salary structure from backend: $e');
+      // Continue without the structure - user can create new one
+    }
   }
 
   void _initializeForm() {
+    debugPrint('🔧 Initializing form...');
+    debugPrint('📍 Widget userId: ${widget.userId}');
+    debugPrint('📊 Employees available: ${_employees.length}');
+
+    // If userId is provided (editing mode), find and select that employee from the loaded list
+    if (widget.userId != null && _employees.isNotEmpty) {
+      try {
+        _selectedEmployee = _employees.firstWhere(
+          (emp) => emp['_id'] == widget.userId,
+        );
+        debugPrint('✅ Employee selected: ${_selectedEmployee?['firstName']} ${_selectedEmployee?['lastName']}');
+
+        // Auto-fill effective from with employee's joining date if not already set
+        if (_effectiveFromController.text.isEmpty && _selectedEmployee?['dateOfJoining'] != null) {
+          _autoFillEffectiveFromDate(_selectedEmployee!);
+        }
+      } catch (e) {
+        debugPrint('❌ Employee not found with ID: ${widget.userId}');
+      }
+    }
+
     if (widget.salaryStructure != null) {
+      debugPrint('📋 Loading existing salary structure...');
       final structure = widget.salaryStructure!;
-      _selectedEmployee = structure['employee'] as Map<String, dynamic>?;
+      // Use the structure's employee if available, otherwise use the found employee
+      _selectedEmployee = structure['employee'] as Map<String, dynamic>? ?? _selectedEmployee;
 
       _ctcController.text = (structure['ctc'] as num?)?.toString() ?? '';
-      _effectiveFromController.text = structure['effectiveFrom'] as String? ?? '';
+
+      // Parse and format effective from date as DD-MM-YYYY
+      final effectiveFromStr = structure['effectiveFrom'] as String?;
+      if (effectiveFromStr != null && effectiveFromStr.isNotEmpty) {
+        try {
+          final effectiveDate = DateTime.parse(effectiveFromStr);
+          _effectiveFromController.text =
+              '${effectiveDate.day.toString().padLeft(2, '0')}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.year}';
+        } catch (e) {
+          _effectiveFromController.text = effectiveFromStr;
+        }
+      }
 
       final earnings = structure['earnings'] as Map<String, dynamic>? ?? {};
       _basicController.text = (earnings['basic'] as num?)?.toString() ?? '';
@@ -72,9 +177,44 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
       _tdsController.text = (deductions['tdsMonthly'] as num?)?.toString() ?? '0';
       _loanDeductionController.text =
           (deductions['loanDeduction'] as num?)?.toString() ?? '0';
+      debugPrint('✅ Salary structure loaded with CTC: ${_ctcController.text}');
     } else {
+      debugPrint('📝 Creating new salary structure (no existing data)');
       _tdsController.text = '0';
       _loanDeductionController.text = '0';
+    }
+  }
+
+  /// Check if employee has complete statutory information
+  bool _hasAllRequiredStatutoryInfo(Map<String, dynamic> employee) {
+    final hasPAN = (employee['panNumber'] as String?)?.isNotEmpty ?? false;
+    final hasPFAccount = (employee['pfAccountNumber'] as String?)?.isNotEmpty ?? false;
+    final hasUAN = (employee['uanNumber'] as String?)?.isNotEmpty ?? false;
+    return hasPAN && hasPFAccount && hasUAN;
+  }
+
+  /// Get list of missing statutory fields
+  List<String> _getMissingStatutoryFields(Map<String, dynamic> employee) {
+    final missing = <String>[];
+    if ((employee['panNumber'] as String?)?.isEmpty ?? true) missing.add('PAN');
+    if ((employee['pfAccountNumber'] as String?)?.isEmpty ?? true) missing.add('PF Account Number');
+    if ((employee['uanNumber'] as String?)?.isEmpty ?? true) missing.add('UAN');
+    return missing;
+  }
+
+  /// Auto-fill effective from date with employee's joining date
+  void _autoFillEffectiveFromDate(Map<String, dynamic> employee) {
+    try {
+      final joiningDateStr = employee['dateOfJoining'] as String?;
+      if (joiningDateStr != null && joiningDateStr.isNotEmpty) {
+        // Parse the date and format it as DD-MM-YYYY
+        final joiningDate = DateTime.parse(joiningDateStr);
+        _effectiveFromController.text =
+            '${joiningDate.day.toString().padLeft(2, '0')}-${joiningDate.month.toString().padLeft(2, '0')}-${joiningDate.year}';
+        debugPrint('📅 Auto-filled effective from with joining date: ${_effectiveFromController.text}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error parsing joining date: $e');
     }
   }
 
@@ -127,16 +267,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     }
   }
 
-  double _calculateTotal() {
-    final basic = double.tryParse(_basicController.text) ?? 0;
-    final hra = double.tryParse(_hraController.text) ?? 0;
-    final da = double.tryParse(_daController.text) ?? 0;
-    final conveyance = double.tryParse(_conveyanceController.text) ?? 0;
-    final special = double.tryParse(_specialAllowanceController.text) ?? 0;
-    final other = double.tryParse(_otherAllowancesController.text) ?? 0;
-    return basic + hra + da + conveyance + special + other;
-  }
-
   double _calculatePF() {
     final basic = double.tryParse(_basicController.text) ?? 0;
     final da = double.tryParse(_daController.text) ?? 0;
@@ -166,67 +296,86 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     if (picked != null) {
       setState(() {
         _effectiveFromController.text =
-            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+            '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}';
       });
     }
   }
 
   Future<void> _saveSalaryStructure() async {
+    debugPrint('💾 Starting salary structure save...');
+    debugPrint('📋 Form is valid: ${_formKey.currentState?.validate()}');
+    debugPrint('👤 Selected employee: ${_selectedEmployee?['firstName']} ${_selectedEmployee?['lastName']}');
+
     if (!_formKey.currentState!.validate()) {
+      debugPrint('❌ Form validation failed');
+      _showMessage('Please fill all required fields correctly', isError: true);
       return;
     }
 
     if (_selectedEmployee == null) {
+      debugPrint('❌ No employee selected');
       _showMessage('Please select an employee', isError: true);
       return;
     }
 
     setState(() => _isSaving = true);
+    debugPrint('⏳ Saving salary structure...');
 
     try {
       final data = {
-        'employeeId': _selectedEmployee!['_id'],
         'ctc': double.parse(_ctcController.text),
         'effectiveFrom': _effectiveFromController.text,
-        'earnings': {
-          'basic': double.parse(_basicController.text),
-          'hra': double.parse(_hraController.text),
-          'da': double.parse(_daController.text),
-          'conveyance': double.parse(_conveyanceController.text),
-          'specialAllowance': double.parse(_specialAllowanceController.text),
-          'otherAllowances': double.parse(_otherAllowancesController.text),
-        },
-        'deductions': {
-          'pfApplicable': _pfApplicable,
-          'pfEmployee': 12,
-          'pfEmployer': 12,
-          'esiApplicable': _esiApplicable,
-          'professionalTax': _ptApplicable,
-          'tdsMonthly': double.parse(_tdsController.text),
-          'loanDeduction': double.parse(_loanDeductionController.text),
-        },
+        // Earnings (flattened for backend)
+        'basic': double.parse(_basicController.text),
+        'hra': double.parse(_hraController.text),
+        'da': double.parse(_daController.text),
+        'conveyance': double.parse(_conveyanceController.text),
+        'specialAllowance': double.parse(_specialAllowanceController.text),
+        'otherAllowances': double.parse(_otherAllowancesController.text),
+        // Deductions (flattened for backend)
+        'pfApplicable': _pfApplicable,
+        'pfEmployee': 12,
+        'pfEmployer': 12,
+        'esiApplicable': _esiApplicable,
+        'professionalTax': _ptApplicable,
+        'tdsMonthly': double.parse(_tdsController.text),
+        'loanDeduction': double.parse(_loanDeductionController.text),
       };
 
+      debugPrint('📤 Sending data to API: ${data.toString()}');
       await PayrollApiService.updateSalaryStructure(
         _selectedEmployee!['_id'] as String,
         data,
       );
 
+      debugPrint('✅ Salary structure saved successfully');
       if (mounted) {
         _showMessage('Salary structure saved successfully!');
         Navigator.pop(context, true);
       }
-    } catch (e) {
-      _showMessage('Failed to save: $e', isError: true);
+    } catch (e, stack) {
+      debugPrint('❌ Error saving salary structure: $e');
+      debugPrint('📍 Stack trace: $stack');
+      if (mounted) {
+        _showMessage('Failed to save: $e', isError: true);
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: isError ? Colors.white : const Color(0xFF272579),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: isError ? Colors.red : const Color(0xFF5cfbd8),
       ),
     );
@@ -265,6 +414,8 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                 children: [
                   _buildEmployeeSelection(),
                   const SizedBox(height: 16),
+                  if (_selectedEmployee != null) _buildStatutoryInfoSection(),
+                  if (_selectedEmployee != null) const SizedBox(height: 16),
                   _buildCTCSection(),
                   const SizedBox(height: 16),
                   _buildEarningsSection(),
@@ -315,7 +466,7 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _selectedEmployee!['fullName'] ?? 'Unknown',
+                            '${_selectedEmployee!['firstName'] ?? ''} ${_selectedEmployee!['lastName'] ?? ''}'.trim(),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               color: Color(0xFF272579),
@@ -403,27 +554,35 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                     itemCount: _employees.length,
                     itemBuilder: (context, index) {
                       final employee = _employees[index];
+                      final firstName = employee['firstName'] ?? '';
+                      final lastName = employee['lastName'] ?? '';
+                      final fullName = '$firstName $lastName'.trim();
+                      final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'E';
+
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor:
                               const Color(0xFF0071bf).withValues(alpha: 0.1),
                           child: Text(
-                            (employee['fullName'] as String?)
-                                    ?.substring(0, 1)
-                                    .toUpperCase() ??
-                                'U',
+                            initial,
                             style: const TextStyle(
                               color: Color(0xFF0071bf),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
-                        title: Text(employee['fullName'] ?? 'Unknown'),
+                        title: Text(fullName.isNotEmpty ? fullName : 'Unknown'),
                         subtitle: Text(
                           '${employee['employeeId'] ?? 'N/A'} • ${employee['designation'] ?? 'N/A'}',
                         ),
                         onTap: () {
-                          setState(() => _selectedEmployee = employee);
+                          setState(() {
+                            _selectedEmployee = employee;
+                            // Auto-fill effective from with employee's joining date
+                            if (_effectiveFromController.text.isEmpty) {
+                              _autoFillEffectiveFromDate(employee);
+                            }
+                          });
                           Navigator.pop(context);
                         },
                       );
@@ -438,11 +597,189 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     );
   }
 
-  Widget _buildCTCSection() {
-    final total = _calculateTotal();
-    final ctc = double.tryParse(_ctcController.text) ?? 0;
-    final isValid = (total - ctc).abs() < 0.01;
+  Widget _buildStatutoryInfoSection() {
+    if (_selectedEmployee == null) {
+      return const SizedBox.shrink();
+    }
 
+    final hasAllInfo = _hasAllRequiredStatutoryInfo(_selectedEmployee!);
+    final missingFields = _getMissingStatutoryFields(_selectedEmployee!);
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Statutory Information',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Warning banner if information is incomplete
+            if (!hasAllInfo)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.warning_rounded, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Missing Required Information',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Required for payslip generation: ${missingFields.join(', ')}',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditUserScreen(user: _selectedEmployee!),
+                            ),
+                          );
+
+                          if (result == true && mounted) {
+                            // Reload employees to get updated statutory info
+                            await _loadEmployees();
+                            if (_selectedEmployee != null && mounted) {
+                              // Find and re-select the employee
+                              try {
+                                _selectedEmployee = _employees.firstWhere(
+                                  (emp) => emp['_id'] == _selectedEmployee!['_id'],
+                                );
+                                setState(() {});
+                              } catch (e) {
+                                debugPrint('❌ Error reloading employee: $e');
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Edit User Profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5cfbd8).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF5cfbd8).withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Color(0xFF272579), size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'All required information present',
+                        style: TextStyle(
+                          color: Color(0xFF272579),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Statutory details display
+            const SizedBox(height: 16),
+            _buildStatutoryField('PAN Number', _selectedEmployee!['panNumber']),
+            const SizedBox(height: 12),
+            _buildStatutoryField('PF Account Number', _selectedEmployee!['pfAccountNumber']),
+            const SizedBox(height: 12),
+            _buildStatutoryField('UAN Number', _selectedEmployee!['uanNumber']),
+            const SizedBox(height: 12),
+            _buildStatutoryField('ESI Number', _selectedEmployee!['esiNumber']),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatutoryField(String label, dynamic value) {
+    final displayValue = value != null && value.toString().isNotEmpty
+        ? value.toString()
+        : 'Not provided';
+    final hasValue = value != null && value.toString().isNotEmpty;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                displayValue,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: hasValue ? Colors.black87 : Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCTCSection() {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -508,70 +845,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               },
               onTap: _selectDate,
             ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _calculateFromCTC,
-              icon: const Icon(Icons.calculate),
-              label: const Text('Auto-Calculate Components'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00b8d9),
-                foregroundColor: Colors.white,
-              ),
-            ),
-            if (ctc > 0) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isValid
-                      ? const Color(0xFF5cfbd8).withValues(alpha: 0.1)
-                      : Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isValid ? Icons.check_circle : Icons.error,
-                      color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Components',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            PayrollApiService.formatCurrency(total),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!isValid)
-                      Text(
-                        'Mismatch!',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),

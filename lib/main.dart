@@ -21,6 +21,7 @@ import 'screens/feedback/feedback_list_screen.dart';
 import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'screens/payroll/my_payslips_screen.dart';
+import 'screens/admin/payroll/payroll_management_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -1107,21 +1108,14 @@ class _DashboardPageState extends State<DashboardPage> {
                           icon: Icons.receipt_long,
                           color: const Color(0xFF00b8d9),
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Payslip feature coming soon!'),
-                                backgroundColor: Color(0xFF0071bf),
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const PayrollManagementScreen(initialTab: 1),
                               ),
                             );
                           },
                         ),
                       ],
-                      // TODO: Navigate to payslip generation screen
-                      // Navigator.of(context).push(
-                      //   MaterialPageRoute(
-                      //     builder: (context) => PayslipManagementScreen(),
-                      //   ),
-                      // );
                       // Appointment Letters - accessible to admin, director
                       if (AccessControlService.hasAccess(
                         userRole,

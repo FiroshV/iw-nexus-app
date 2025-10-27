@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/payroll_api_service.dart';
+import 'payroll_management_screen.dart';
 
 /// Admin screen for managing company payroll settings with wizard-style form
 class CompanySettingsScreen extends StatefulWidget {
@@ -24,16 +25,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   final _pincodeController = TextEditingController();
   final _panController = TextEditingController();
   final _tanController = TextEditingController();
-  final _epfController = TextEditingController();
-  final _esiController = TextEditingController();
-  final _ptController = TextEditingController();
   final _signatoryNameController = TextEditingController();
   final _signatoryDesignationController = TextEditingController();
-  final _basicPercentController = TextEditingController();
-  final _hraPercentController = TextEditingController();
-  final _daPercentController = TextEditingController();
-  final _conveyancePercentController = TextEditingController();
-  final _specialAllowancePercentController = TextEditingController();
 
   String _selectedState = 'Maharashtra';
 
@@ -72,15 +65,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
-    _initializeControllers();
-  }
-
-  void _initializeControllers() {
-    _basicPercentController.text = '40';
-    _hraPercentController.text = '30';
-    _daPercentController.text = '10';
-    _conveyancePercentController.text = '5';
-    _specialAllowancePercentController.text = '15';
   }
 
   Future<void> _loadSettings() async {
@@ -89,27 +73,14 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       final settings = await PayrollApiService.getCompanySettings();
       setState(() {
         _companyNameController.text = settings['companyName'] ?? '';
-        _streetController.text = settings['address']?['street'] ?? '';
-        _cityController.text = settings['address']?['city'] ?? '';
-        _selectedState = settings['address']?['state'] ?? 'Maharashtra';
-        _pincodeController.text = settings['address']?['pincode'] ?? '';
+        _streetController.text = settings['companyAddress']?['street'] ?? '';
+        _cityController.text = settings['companyAddress']?['city'] ?? '';
+        _selectedState = settings['companyAddress']?['state'] ?? settings['state'] ?? 'Maharashtra';
+        _pincodeController.text = settings['companyAddress']?['pincode'] ?? '';
         _panController.text = settings['pan'] ?? '';
         _tanController.text = settings['tan'] ?? '';
-        _epfController.text = settings['epfNumber'] ?? '';
-        _esiController.text = settings['esiNumber'] ?? '';
-        _ptController.text = settings['ptRegistrationNumber'] ?? '';
         _signatoryNameController.text = settings['authorizedSignatory']?['name'] ?? '';
-        _signatoryDesignationController.text =
-            settings['authorizedSignatory']?['designation'] ?? '';
-
-        final defaults = settings['defaultSalaryComponents'] ?? {};
-        _basicPercentController.text = defaults['basicPercent']?.toString() ?? '40';
-        _hraPercentController.text = defaults['hraPercent']?.toString() ?? '30';
-        _daPercentController.text = defaults['daPercent']?.toString() ?? '10';
-        _conveyancePercentController.text =
-            defaults['conveyancePercent']?.toString() ?? '5';
-        _specialAllowancePercentController.text =
-            defaults['specialAllowancePercent']?.toString() ?? '15';
+        _signatoryDesignationController.text = settings['authorizedSignatory']?['designation'] ?? '';
       });
     } catch (e) {
       _showMessage('Error loading settings: $e', isError: true);
@@ -127,21 +98,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     _pincodeController.dispose();
     _panController.dispose();
     _tanController.dispose();
-    _epfController.dispose();
-    _esiController.dispose();
-    _ptController.dispose();
     _signatoryNameController.dispose();
     _signatoryDesignationController.dispose();
-    _basicPercentController.dispose();
-    _hraPercentController.dispose();
-    _daPercentController.dispose();
-    _conveyancePercentController.dispose();
-    _specialAllowancePercentController.dispose();
     super.dispose();
   }
 
   void _nextStep() {
-    if (_currentStep < 3) {
+    if (_currentStep < 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -172,36 +135,33 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     try {
       final settings = {
         'companyName': _companyNameController.text,
-        'address': {
+        'companyAddress': {
           'street': _streetController.text,
           'city': _cityController.text,
           'state': _selectedState,
           'pincode': _pincodeController.text,
           'country': 'India',
         },
+        'state': _selectedState,
         'pan': _panController.text,
         'tan': _tanController.text,
-        'epfNumber': _epfController.text,
-        'esiNumber': _esiController.text,
-        'ptRegistrationNumber': _ptController.text,
         'authorizedSignatory': {
-          'name': _signatoryNameController.text,
-          'designation': _signatoryDesignationController.text,
-        },
-        'defaultSalaryComponents': {
-          'basicPercent': int.parse(_basicPercentController.text),
-          'hraPercent': int.parse(_hraPercentController.text),
-          'daPercent': int.parse(_daPercentController.text),
-          'conveyancePercent': int.parse(_conveyancePercentController.text),
-          'specialAllowancePercent':
-              int.parse(_specialAllowancePercentController.text),
+          if (_signatoryNameController.text.trim().isNotEmpty)
+            'name': _signatoryNameController.text.trim(),
+          if (_signatoryDesignationController.text.trim().isNotEmpty)
+            'designation': _signatoryDesignationController.text.trim(),
         },
       };
 
       await PayrollApiService.updateCompanySettings(settings);
       if (mounted) {
         _showMessage('Company settings saved successfully!');
-        Navigator.pop(context, true);
+        // Navigate to PayrollManagementScreen with Employees tab selected
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const PayrollManagementScreen(initialTab: 0),
+          ),
+        );
       }
     } catch (e) {
       _showMessage('Failed to save settings: $e', isError: true);
@@ -213,7 +173,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: isError ? Colors.white : const Color(0xFF0071bf),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         backgroundColor: isError ? Colors.red : const Color(0xFF5cfbd8),
       ),
     );
@@ -255,8 +221,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       children: [
                         _buildBasicInfoStep(),
                         _buildTaxInfoStep(),
-                        _buildSignatoryStep(),
-                        _buildSalaryDefaultsStep(),
                       ],
                     ),
                   ),
@@ -275,7 +239,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Step ${_currentStep + 1} of 4: ${_getStepTitle()}',
+            'Step ${_currentStep + 1} of 2: ${_getStepTitle()}',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -284,11 +248,11 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           ),
           const SizedBox(height: 12),
           Row(
-            children: List.generate(4, (index) {
+            children: List.generate(2, (index) {
               return Expanded(
                 child: Container(
                   height: 4,
-                  margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
+                  margin: EdgeInsets.only(right: index < 1 ? 8 : 0),
                   decoration: BoxDecoration(
                     color: index <= _currentStep
                         ? const Color(0xFF0071bf)
@@ -309,11 +273,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       case 0:
         return 'Basic Information';
       case 1:
-        return 'Tax Information';
-      case 2:
-        return 'Authorized Signatory';
-      case 3:
-        return 'Salary Defaults';
+        return 'Statutory Details';
       default:
         return '';
     }
@@ -389,150 +349,40 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         _buildSectionCard(
           title: 'Statutory Details',
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _panController,
-                    label: 'PAN Number',
-                    hint: 'ABCDE1234F',
-                    isRequired: true,
-                    icon: Icons.badge,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _tanController,
-                    label: 'TAN Number',
-                    hint: 'MUMB12345E',
-                    isRequired: true,
-                    icon: Icons.badge_outlined,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _epfController,
-                    label: 'EPF Number',
-                    hint: 'MH/MUM/1234567',
-                    icon: Icons.account_balance,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _esiController,
-                    label: 'ESI Number',
-                    hint: '12-34-567890',
-                    icon: Icons.medical_services,
-                  ),
-                ),
-              ],
+            _buildTextField(
+              controller: _panController,
+              label: 'PAN Number',
+              hint: 'ABCDE1234F',
+              isRequired: true,
+              icon: Icons.badge,
             ),
             const SizedBox(height: 16),
             _buildTextField(
-              controller: _ptController,
-              label: 'PT Registration Number',
-              hint: 'PT-1234567890',
-              icon: Icons.receipt_long,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0071bf).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFF0071bf).withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: Color(0xFF0071bf),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Professional Tax will be calculated based on state: $_selectedState',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF272579),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              controller: _tanController,
+              label: 'TAN Number',
+              hint: 'MUMB12345E',
+              isRequired: true,
+              icon: Icons.badge_outlined,
             ),
           ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildSignatoryStep() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+        const SizedBox(height: 16),
         _buildSectionCard(
-          title: 'Authorized Signatory',
+          title: 'Authorized Signatory (Optional)',
+          subtitle: 'Details of the authorized person for company',
           children: [
             _buildTextField(
               controller: _signatoryNameController,
               label: 'Signatory Name',
-              hint: 'John Doe',
-              isRequired: true,
+              hint: 'e.g., John Doe',
               icon: Icons.person,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _signatoryDesignationController,
               label: 'Designation',
-              hint: 'Director',
-              isRequired: true,
-              icon: Icons.work,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.cloud_upload, color: Color(0xFF0071bf)),
-                      SizedBox(width: 8),
-                      Text(
-                        'Digital Signature Upload',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF272579),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Upload feature coming soon. Digital signature will be added to payslips.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
+              hint: 'e.g., Company Director',
+              icon: Icons.work_outlined,
             ),
           ],
         ),
@@ -540,50 +390,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     );
   }
 
-  Widget _buildSalaryDefaultsStep() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildSectionCard(
-          title: 'Default Salary Component Percentages',
-          subtitle: 'These percentages will be used as default when creating salary structures',
-          children: [
-            _buildPercentField(
-              controller: _basicPercentController,
-              label: 'Basic Salary',
-              icon: Icons.account_balance_wallet,
-            ),
-            const SizedBox(height: 16),
-            _buildPercentField(
-              controller: _hraPercentController,
-              label: 'HRA (House Rent Allowance)',
-              icon: Icons.home,
-            ),
-            const SizedBox(height: 16),
-            _buildPercentField(
-              controller: _daPercentController,
-              label: 'DA (Dearness Allowance)',
-              icon: Icons.payments,
-            ),
-            const SizedBox(height: 16),
-            _buildPercentField(
-              controller: _conveyancePercentController,
-              label: 'Conveyance Allowance',
-              icon: Icons.directions_car,
-            ),
-            const SizedBox(height: 16),
-            _buildPercentField(
-              controller: _specialAllowancePercentController,
-              label: 'Special Allowance',
-              icon: Icons.star,
-            ),
-            const SizedBox(height: 16),
-            _buildTotalPercentage(),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildSectionCard({
     required String title,
@@ -690,92 +497,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     );
   }
 
-  Widget _buildPercentField({
-    required TextEditingController controller,
-    required String label,
-    IconData? icon,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixText: '%',
-        prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF0071bf)) : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0071bf), width: 2),
-        ),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Required';
-        }
-        final percent = int.tryParse(value);
-        if (percent == null || percent < 0 || percent > 100) {
-          return 'Invalid percentage';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildTotalPercentage() {
-    final total = int.parse(_basicPercentController.text.isEmpty ? '0' : _basicPercentController.text) +
-        int.parse(_hraPercentController.text.isEmpty ? '0' : _hraPercentController.text) +
-        int.parse(_daPercentController.text.isEmpty ? '0' : _daPercentController.text) +
-        int.parse(_conveyancePercentController.text.isEmpty ? '0' : _conveyancePercentController.text) +
-        int.parse(_specialAllowancePercentController.text.isEmpty
-            ? '0'
-            : _specialAllowancePercentController.text);
-
-    final isValid = total == 100;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isValid ? const Color(0xFF5cfbd8).withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-          width: 2,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isValid ? Icons.check_circle : Icons.error,
-                color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Total Percentage',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF272579),
-                ),
-              ),
-            ],
-          ),
-          Text(
-            '$total%',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildNavigationButtons() {
     return Container(
@@ -831,7 +552,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       ),
                     )
                   : Text(
-                      _currentStep == 3 ? 'Save Settings' : 'Next',
+                      _currentStep == 1 ? 'Save Settings' : 'Next',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -842,5 +563,466 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Content widget for company settings (used in tabbed interface)
+class CompanySettingsContent extends StatefulWidget {
+  final VoidCallback? onSuccess;
+  final Map<String, dynamic>? initialSettings;
+
+  const CompanySettingsContent({
+    super.key,
+    this.onSuccess,
+    this.initialSettings,
+  });
+
+  @override
+  State<CompanySettingsContent> createState() => _CompanySettingsContentState();
+}
+
+class _CompanySettingsContentState extends State<CompanySettingsContent> {
+  int _currentStep = 0;
+  bool _isSaving = false;
+  bool _isLoading = true;
+
+  final _formKey = GlobalKey<FormState>();
+  final _companyNameController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _pincodeController = TextEditingController();
+  final _panController = TextEditingController();
+  final _tanController = TextEditingController();
+  final _signatoryNameController = TextEditingController();
+  final _signatoryDesignationController = TextEditingController();
+
+  String _selectedState = 'Maharashtra';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      // Use provided initial settings or fetch from API
+      final settings = widget.initialSettings ??
+          await PayrollApiService.getCompanySettings();
+
+      if (mounted) {
+        setState(() {
+          _companyNameController.text = settings['companyName'] ?? '';
+          _streetController.text = settings['companyAddress']?['street'] ?? '';
+          _cityController.text = settings['companyAddress']?['city'] ?? '';
+          _selectedState = settings['companyAddress']?['state'] ??
+              settings['state'] ?? 'Maharashtra';
+          _pincodeController.text = settings['companyAddress']?['pincode'] ?? '';
+          _panController.text = settings['pan'] ?? '';
+          _tanController.text = settings['tan'] ?? '';
+          _signatoryNameController.text = settings['authorizedSignatory']?['name'] ?? '';
+          _signatoryDesignationController.text = settings['authorizedSignatory']?['designation'] ?? '';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading settings: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  final List<String> _indianStates = [
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal',
+  ];
+
+  Future<void> _saveSettings() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final settings = {
+        'companyName': _companyNameController.text,
+        'companyAddress': {
+          'street': _streetController.text,
+          'city': _cityController.text,
+          'state': _selectedState,
+          'pincode': _pincodeController.text,
+          'country': 'India',
+        },
+        'state': _selectedState,
+        'pan': _panController.text,
+        'tan': _tanController.text,
+        'authorizedSignatory': {
+          if (_signatoryNameController.text.trim().isNotEmpty)
+            'name': _signatoryNameController.text.trim(),
+          if (_signatoryDesignationController.text.trim().isNotEmpty)
+            'designation': _signatoryDesignationController.text.trim(),
+        },
+      };
+
+      await PayrollApiService.updateCompanySettings(settings);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Company settings saved successfully!',
+              style: TextStyle(
+                color: Color(0xFF0071bf),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: Color(0xFF5cfbd8),
+          ),
+        );
+        // Call success callback if provided (switch to Employees tab)
+        widget.onSuccess?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: $e',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  void _nextStep() {
+    if (_currentStep < 1) {
+      setState(() => _currentStep++);
+    } else {
+      _saveSettings();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              CircularProgressIndicator(color: Color(0xFF0071bf)),
+              SizedBox(height: 16),
+              Text('Loading company settings...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildProgressIndicator(),
+        const SizedBox(height: 32),
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_currentStep == 0) _buildStep1(),
+              if (_currentStep == 1) _buildStep2(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        _buildNavigationButtons(),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Step ${_currentStep + 1} of 2: ${['Basic Information', 'Statutory Details'][_currentStep]}',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF272579),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: (_currentStep + 1) / 2,
+            minHeight: 8,
+            backgroundColor: Colors.grey[300],
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0071bf)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Company Details',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF272579),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _companyNameController,
+          decoration: InputDecoration(
+            labelText: 'Company Name *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator: (value) =>
+              value?.isEmpty ?? true ? 'Company name is required' : null,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _streetController,
+          decoration: InputDecoration(
+            labelText: 'Street Address *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator: (value) =>
+              value?.isEmpty ?? true ? 'Address is required' : null,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _cityController,
+                decoration: InputDecoration(
+                  labelText: 'City *',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'City is required' : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedState,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'State *',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: _indianStates
+                    .map((state) =>
+                        DropdownMenuItem(value: state, child: Text(state)))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() => _selectedState = value ?? 'Maharashtra');
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _pincodeController,
+          decoration: InputDecoration(
+            labelText: 'Pincode *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator: (value) =>
+              value?.isEmpty ?? true ? 'Pincode is required' : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Statutory Details',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF272579),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _panController,
+          decoration: InputDecoration(
+            labelText: 'PAN Number *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator: (value) => value?.isEmpty ?? true ? 'PAN is required' : null,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _tanController,
+          decoration: InputDecoration(
+            labelText: 'TAN Number *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          validator: (value) => value?.isEmpty ?? true ? 'TAN is required' : null,
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'Authorized Signatory (Optional)',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF272579),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Details of the authorized person for company',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _signatoryNameController,
+          decoration: InputDecoration(
+            labelText: 'Signatory Name',
+            hintText: 'e.g., John Doe',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _signatoryDesignationController,
+          decoration: InputDecoration(
+            labelText: 'Designation',
+            hintText: 'e.g., Company Director',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ],
+    );
+  }
+
+
+  Widget _buildNavigationButtons() {
+    return Row(
+      children: [
+        if (_currentStep > 0)
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _previousStep,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0071bf),
+                side: const BorderSide(color: Color(0xFF0071bf), width: 2),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text(
+                'Previous',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        if (_currentStep > 0) const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: _isSaving ? null : _nextStep,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0071bf),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              disabledBackgroundColor: Colors.grey,
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    _currentStep == 1 ? 'Save Settings' : 'Next',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _companyNameController.dispose();
+    _streetController.dispose();
+    _cityController.dispose();
+    _pincodeController.dispose();
+    _panController.dispose();
+    _tanController.dispose();
+    _signatoryNameController.dispose();
+    _signatoryDesignationController.dispose();
+    super.dispose();
   }
 }
