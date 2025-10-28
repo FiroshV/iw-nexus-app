@@ -35,14 +35,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   List<Map<String, dynamic>> _templates = [];
   Map<String, dynamic>? _selectedTemplate;
   bool _useCustomPercentages = false;
-  Map<String, double> _customPercentages = {
-    'basic': 0,
-    'hra': 0,
-    'da': 0,
-    'conveyance': 0,
-    'specialAllowance': 0,
-    'otherAllowances': 0,
-  };
 
   // Form controllers
   final _ctcController = TextEditingController();
@@ -357,12 +349,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
         }
       });
     }
-  }
-
-  double _calculatePF() {
-    final basic = double.tryParse(_basicController.text) ?? 0;
-    final da = double.tryParse(_daController.text) ?? 0;
-    return (basic + da) * 0.12;
   }
 
   double _getTotalPercentage() {
@@ -827,10 +813,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.red.withOpacity(0.5),
+                    color: Colors.red.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Column(
@@ -903,10 +889,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5cfbd8).withOpacity(0.1),
+                  color: const Color(0xFF5cfbd8).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF5cfbd8).withOpacity(0.5),
+                    color: const Color(0xFF5cfbd8).withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -1060,7 +1046,7 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5cfbd8).withOpacity(0.1),
+                    color: const Color(0xFF5cfbd8).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: const Color(0xFF5cfbd8),
@@ -1125,10 +1111,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
+                  color: Colors.amber.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.amber.withOpacity(0.5),
+                    color: Colors.amber.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -1150,7 +1136,7 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               )
             else
               DropdownButtonFormField<Map<String, dynamic>>(
-                value: _selectedTemplate,
+                initialValue: _selectedTemplate,
                 decoration: InputDecoration(
                   labelText: 'Select Template',
                   prefixIcon: const Icon(Icons.assignment_rounded, color: Color(0xFF0071bf)),
@@ -1183,7 +1169,7 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
                 onChanged: (template) {
                   if (template != null) {
@@ -1219,10 +1205,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
+                          color: Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: Colors.orange.withOpacity(0.5),
+                            color: Colors.orange.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Row(
@@ -1264,10 +1250,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0071bf).withOpacity(0.05),
+        color: const Color(0xFF0071bf).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFF0071bf).withOpacity(0.2),
+          color: const Color(0xFF0071bf).withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -1303,7 +1289,7 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0071bf).withOpacity(0.1),
+        color: const Color(0xFF0071bf).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -1391,10 +1377,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isValid ? const Color(0xFF5cfbd8).withOpacity(0.1) : Colors.red.withOpacity(0.1),
+            color: isValid ? const Color(0xFF5cfbd8).withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isValid ? const Color(0xFF5cfbd8).withOpacity(0.5) : Colors.red.withOpacity(0.5),
+              color: isValid ? const Color(0xFF5cfbd8).withValues(alpha: 0.5) : Colors.red.withValues(alpha: 0.5),
             ),
           ),
           child: Row(

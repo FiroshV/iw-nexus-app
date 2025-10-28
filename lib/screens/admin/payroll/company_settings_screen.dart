@@ -821,7 +821,7 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _selectedState,
+                initialValue: _selectedState,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: 'State *',

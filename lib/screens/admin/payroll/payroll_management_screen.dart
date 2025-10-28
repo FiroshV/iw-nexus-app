@@ -22,9 +22,9 @@ class PayrollManagementScreen extends StatefulWidget {
   final int initialTab;
 
   const PayrollManagementScreen({
-    Key? key,
+    super.key,
     this.initialTab = 0,
-  }) : super(key: key);
+  });
 
   @override
   State<PayrollManagementScreen> createState() => _PayrollManagementScreenState();
@@ -35,7 +35,6 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   TabController? _tabController;
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _filteredEmployees = [];
-  List<Map<String, dynamic>> _salaryStructures = [];
   List<Map<String, dynamic>> _payslips = [];
   bool _isLoading = true;
   bool _payslipsLoading = true;
@@ -125,9 +124,6 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
       debugPrint('💾 Retrieved ${salaryStructures.length} salary structures for matching');
 
       setState(() {
-        // Store salary structures for later use (e.g., in refresh)
-        _salaryStructures = salaryStructures;
-
         // Filter out admin users
         final filteredUsers = users.where((user) => user['role'] != 'admin').toList();
 
@@ -371,7 +367,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     final daysPresentValue = payslip['daysPresent'];
     final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;
     final workingDaysValue = payslip['workingDaysInMonth'];
-    final workingDays = (workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0) as int;
+    final workingDays = workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -774,7 +770,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF0071bf).withOpacity(0.3),
+                  color: const Color(0xFF0071bf).withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -787,7 +783,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0071bf).withOpacity(0.1),
+                          color: const Color(0xFF0071bf).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -857,7 +853,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF0071bf).withOpacity(0.3),
+                  color: const Color(0xFF0071bf).withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -870,7 +866,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0071bf).withOpacity(0.1),
+                          color: const Color(0xFF0071bf).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -1211,7 +1207,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF5cfbd8).withOpacity(0.2),
+                            color: const Color(0xFF5cfbd8).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(

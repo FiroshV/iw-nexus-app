@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../services/payroll_api_service.dart';
 
 /// Screen to display detailed payslip information with breakdown
@@ -32,39 +31,6 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
     final month = widget.payslip['month'] as int;
     final year = widget.payslip['year'] as int;
     return '${PayrollApiService.getMonthName(month)} $year';
-  }
-
-  Future<void> _downloadPdf() async {
-    final pdfUrl = widget.payslip['pdfUrl'] as String?;
-    if (pdfUrl == null) {
-      _showMessage('PDF not available', isError: true);
-      return;
-    }
-
-    try {
-      final url = Uri.parse(pdfUrl);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        _showMessage('Cannot open PDF URL', isError: true);
-      }
-    } catch (e) {
-      _showMessage('Failed to download PDF: $e', isError: true);
-    }
-  }
-
-  Future<void> _sharePdf() async {
-    // TODO: Implement share functionality using share_plus package
-    _showMessage('Share feature coming soon!');
-  }
-
-  void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : const Color(0xFF0071bf),
-      ),
-    );
   }
 
   @override
@@ -169,7 +135,6 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
 
     // Get current (prorated) earnings - the actual amounts paid this month
     final currentEarnings = earnings['current'] as Map<String, dynamic>? ?? {};
-    final masterEarnings = earnings['master'] as Map<String, dynamic>? ?? {};
 
     // Handle both int and double types from API
     final grossEarningsValue = widget.payslip['earnings']?['grossEarnings'];
@@ -266,7 +231,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
     final netSalary = (netSalaryValue is int ? netSalaryValue.toDouble() : netSalaryValue as double?) ?? 0.0;
 
     final workingDaysValue = widget.payslip['workingDaysInMonth'];
-    final workingDays = (workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0) as int;
+    final workingDays = workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0;
 
     final daysPresentValue = widget.payslip['daysPresent'];
     final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;
@@ -315,91 +280,6 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
         const SizedBox(height: 16),
         _buildEmployeeInfoCard(),
       ],
-    );
-  }
-
-  Widget _buildPdfTab() {
-    final pdfUrl = widget.payslip['pdfUrl'] as String?;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0071bf).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.picture_as_pdf,
-              size: 64,
-              color: Color(0xFF0071bf),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Payslip PDF',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF272579),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              pdfUrl != null
-                  ? 'Download or view your payslip PDF'
-                  : 'PDF not yet generated',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (pdfUrl != null) ...[
-            ElevatedButton.icon(
-              onPressed: _downloadPdf,
-              icon: const Icon(Icons.download),
-              label: const Text('Download PDF'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0071bf),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _sharePdf,
-              icon: const Icon(Icons.share),
-              label: const Text('Share PDF'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0071bf),
-                side: const BorderSide(color: Color(0xFF0071bf), width: 2),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -522,7 +402,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   Widget _buildAttendanceCard() {
     // Handle both int and double types from API
     final workingDaysValue = widget.payslip['workingDaysInMonth'];
-    final workingDays = (workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0) as int;
+    final workingDays = workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0;
 
     final daysPresentValue = widget.payslip['daysPresent'];
     final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;

@@ -86,15 +86,6 @@ class _SalaryStructureListScreenState extends State<SalaryStructureListScreen> {
     }
   }
 
-  void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : const Color(0xFF5cfbd8),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

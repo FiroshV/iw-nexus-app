@@ -545,7 +545,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                   icon: const Icon(Icons.download, color: Color(0xFF00b8d9)),
                   onPressed: pdfUrl != null
                       ? () {
-                          // TODO: Download PDF
                           _showMessage('Download feature coming soon!');
                         }
                       : null,
@@ -554,7 +553,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                 IconButton(
                   icon: const Icon(Icons.email, color: Color(0xFF5cfbd8)),
                   onPressed: () {
-                    // TODO: Send email
                     _showMessage('Email feature coming soon!');
                   },
                   tooltip: 'Email',
@@ -697,7 +695,7 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
         if (mounted) {
           setState(() {
             _isLoadingEmployees = false;
-            _loadError = response.message ?? 'Failed to load employees';
+            _loadError = response.message;
           });
         }
       }
@@ -798,15 +796,6 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
     if (result == true && mounted) {
       await _loadGeneratedPayslips();
     }
-  }
-
-  void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : const Color(0xFF5cfbd8),
-      ),
-    );
   }
 
   @override
@@ -953,7 +942,7 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
+            color: Colors.red.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(
@@ -1139,14 +1128,14 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
             value: _allEmployees.length.toString(),
             color: Colors.white,
           ),
-          Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+          Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
           _buildSummaryItem(
             icon: Icons.check_circle,
             label: 'Generated',
             value: configuredCount.toString(),
             color: Colors.white,
           ),
-          Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+          Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
           _buildSummaryItem(
             icon: Icons.pending,
             label: 'Pending',
@@ -1171,7 +1160,7 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
         Text(
           label,
           style: TextStyle(
-            color: color.withOpacity(0.8),
+            color: color.withValues(alpha: 0.8),
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -1361,7 +1350,7 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0071bf).withOpacity(0.1),
+                      color: const Color(0xFF0071bf).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1402,10 +1391,10 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0071bf).withOpacity(0.05),
+                  color: const Color(0xFF0071bf).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFF0071bf).withOpacity(0.2),
+                    color: const Color(0xFF0071bf).withValues(alpha: 0.2),
                   ),
                 ),
                 child: Column(
@@ -1431,10 +1420,10 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: Colors.orange.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
@@ -1589,7 +1578,7 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0071bf).withOpacity(0.1),
+        color: const Color(0xFF0071bf).withValues(alpha: 0.1),
         border: Border.all(color: const Color(0xFF0071bf), width: 1),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -1749,8 +1738,8 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
                       ),
                       decoration: BoxDecoration(
                         color: isGenerated
-                            ? const Color(0xFF5cfbd8).withOpacity(0.2)
-                            : Colors.orange.withOpacity(0.2),
+                            ? const Color(0xFF5cfbd8).withValues(alpha: 0.2)
+                            : Colors.orange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -1781,31 +1770,4 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_search,
-              size: 64,
-              color: Colors.grey[300],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isEmpty
-                  ? 'No employees found'
-                  : 'No results for "$_searchQuery"',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

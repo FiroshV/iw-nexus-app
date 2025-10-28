@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:timezone/timezone.dart' as tz;
 import '../../services/api_service.dart';
 import '../../services/access_control_service.dart';
 import '../../utils/timezone_util.dart';
@@ -137,7 +135,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.grey.shade50,
@@ -178,7 +176,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedPriority,
+                  initialValue: selectedPriority,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.grey.shade50,
@@ -839,7 +837,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -971,7 +969,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
           ],
         ),
       ),

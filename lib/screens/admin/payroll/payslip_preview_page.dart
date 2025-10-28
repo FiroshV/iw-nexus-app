@@ -10,12 +10,12 @@ class PayslipPreviewPage extends StatefulWidget {
   final VoidCallback? onGenerateSuccess;
 
   const PayslipPreviewPage({
-    Key? key,
+    super.key,
     required this.employee,
     required this.month,
     required this.year,
     this.onGenerateSuccess,
-  }) : super(key: key);
+  });
 
   @override
   State<PayslipPreviewPage> createState() => _PayslipPreviewPageState();
@@ -36,11 +36,6 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
   late TextEditingController _leaveEncashmentCtrl;
   late TextEditingController _daysWorkedCtrl;
   late TextEditingController _lopDaysCtrl;
-
-  final List<String> _months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   @override
   void initState() {
@@ -260,8 +255,8 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: _isSalaryStructureMissing
-                              ? const Color(0xFFFF9800).withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
+                              ? const Color(0xFFFF9800).withValues(alpha: 0.1)
+                              : Colors.red.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(50),
                           ),
                           child: Icon(
@@ -297,10 +292,10 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0071bf).withOpacity(0.1),
+                              color: const Color(0xFF0071bf).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: const Color(0xFF0071bf).withOpacity(0.3),
+                                color: const Color(0xFF0071bf).withValues(alpha: 0.3),
                               ),
                             ),
                             child: Column(
@@ -439,9 +434,9 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.05),
+                color: Colors.blue.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -642,7 +637,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF0071bf).withOpacity(0.2)),
+        border: Border.all(color: const Color(0xFF0071bf).withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,7 +709,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF0071bf).withOpacity(0.2)),
+        border: Border.all(color: const Color(0xFF0071bf).withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
@@ -808,10 +803,10 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0071bf).withOpacity(0.05),
+            color: const Color(0xFF0071bf).withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: const Color(0xFF0071bf).withOpacity(0.2),
+              color: const Color(0xFF0071bf).withValues(alpha: 0.2),
             ),
           ),
           child: Text(
@@ -829,7 +824,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
 
   Widget _buildDeductionsTable(Map<String, dynamic> deductions) {
     // Helper function to safely convert to num
-    num _toNum(dynamic value) {
+    num toNum(dynamic value) {
       if (value == null) return 0;
       if (value is num) return value;
       if (value is String) return num.tryParse(value) ?? 0;
@@ -839,14 +834,14 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
     return Column(
       children: [
         _buildTableHeader('Component', null, 'Amount'),
-        _buildTableRow('PF (Employee)', null, _toNum(deductions['pfEmployee'])),
-        _buildTableRow('ESI (Employee)', null, _toNum(deductions['esiEmployee'])),
-        _buildTableRow('Professional Tax', null, _toNum(deductions['professionalTax'])),
-        _buildTableRow('Income Tax (TDS)', null, _toNum(deductions['tds'])),
-        _buildTableRow('Loan Deduction', null, _toNum(deductions['loanDeduction'])),
-        _buildTableRow('Other Deductions', null, _toNum(deductions['otherDeductions'])),
+        _buildTableRow('PF (Employee)', null, toNum(deductions['pfEmployee'])),
+        _buildTableRow('ESI (Employee)', null, toNum(deductions['esiEmployee'])),
+        _buildTableRow('Professional Tax', null, toNum(deductions['professionalTax'])),
+        _buildTableRow('Income Tax (TDS)', null, toNum(deductions['tds'])),
+        _buildTableRow('Loan Deduction', null, toNum(deductions['loanDeduction'])),
+        _buildTableRow('Other Deductions', null, toNum(deductions['otherDeductions'])),
         const Divider(height: 12),
-        _buildTableRowBold('Total Deductions', null, _toNum(deductions['totalDeductions'])),
+        _buildTableRowBold('Total Deductions', null, toNum(deductions['totalDeductions'])),
       ],
     );
   }
@@ -864,7 +859,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
 
   Widget _buildTableRow(String label, dynamic value1, dynamic value2) {
     // Helper function to safely convert to num
-    num _toNum(dynamic value) {
+    num toNum(dynamic value) {
       if (value == null) return 0;
       if (value is num) return value;
       if (value is String) return num.tryParse(value) ?? 0;
@@ -880,7 +875,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
             Expanded(
               flex: 1,
               child: Text(
-                PayrollApiService.formatCurrency(_toNum(value1).toDouble()),
+                PayrollApiService.formatCurrency(toNum(value1).toDouble()),
                 style: const TextStyle(fontSize: 12),
                 textAlign: TextAlign.right,
               ),
@@ -888,7 +883,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
           Expanded(
             flex: 1,
             child: Text(
-              PayrollApiService.formatCurrency(_toNum(value2).toDouble()),
+              PayrollApiService.formatCurrency(toNum(value2).toDouble()),
               style: const TextStyle(fontSize: 12),
               textAlign: TextAlign.right,
             ),
@@ -900,7 +895,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
 
   Widget _buildTableRowBold(String label, dynamic value1, dynamic value2) {
     // Helper function to safely convert to num
-    num _toNum(dynamic value) {
+    num toNum(dynamic value) {
       if (value == null) return 0;
       if (value is num) return value;
       if (value is String) return num.tryParse(value) ?? 0;
@@ -922,7 +917,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
             Expanded(
               flex: 1,
               child: Text(
-                PayrollApiService.formatCurrency(_toNum(value1).toDouble()),
+                PayrollApiService.formatCurrency(toNum(value1).toDouble()),
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.right,
               ),
@@ -930,7 +925,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
           Expanded(
             flex: 1,
             child: Text(
-              PayrollApiService.formatCurrency(_toNum(value2).toDouble()),
+              PayrollApiService.formatCurrency(toNum(value2).toDouble()),
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0071bf)),
               textAlign: TextAlign.right,
             ),
@@ -956,7 +951,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0071bf).withOpacity(0.1),
+            color: const Color(0xFF0071bf).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(

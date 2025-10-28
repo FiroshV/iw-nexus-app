@@ -20,7 +20,6 @@ import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
 import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
-import 'screens/payroll/my_payslips_screen.dart';
 import 'screens/admin/payroll/payroll_management_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';

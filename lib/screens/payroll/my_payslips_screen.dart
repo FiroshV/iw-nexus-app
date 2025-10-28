@@ -266,7 +266,6 @@ class _MyPayslipsScreenState extends State<MyPayslipsScreen> {
         throw Exception('PDF URL not available');
       }
 
-      // TODO: Implement actual PDF download/viewing
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Download feature coming soon!'),

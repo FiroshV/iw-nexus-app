@@ -215,10 +215,10 @@ class _SalaryTemplatesScreenState extends State<SalaryTemplatesScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF5cfbd8).withOpacity(0.1),
+                                      color: const Color(0xFF5cfbd8).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: const Color(0xFF5cfbd8).withOpacity(0.5),
+                                        color: const Color(0xFF5cfbd8).withValues(alpha: 0.5),
                                       ),
                                     ),
                                     child: const Row(
@@ -306,7 +306,7 @@ class _SalaryTemplatesScreenState extends State<SalaryTemplatesScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0071bf).withOpacity(0.1),
+        color: const Color(0xFF0071bf).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -778,7 +778,7 @@ class _SalaryTemplateFormScreenState extends State<SalaryTemplateFormScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isValid ? const Color(0xFF5cfbd8).withOpacity(0.3) : Colors.red.withOpacity(0.25),
+        color: isValid ? const Color(0xFF5cfbd8).withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isValid ? const Color(0xFF0071bf) : Colors.red[700]!,
