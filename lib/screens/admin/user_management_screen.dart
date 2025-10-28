@@ -7,6 +7,7 @@ import '../../widgets/loading_widget.dart';
 import '../../widgets/staff_attendance_widget.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
+import 'payroll/salary_structure_form_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -388,6 +389,30 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       itemBuilder: (context) {
                         final menuItems = <PopupMenuEntry<String>>[];
 
+                        // Setup Salary option (always available for non-admin users)
+                        if (user['role'] != 'admin') {
+                          menuItems.add(
+                            PopupMenuItem(
+                              value: 'salary',
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    size: 16,
+                                    color: const Color(0xFF0071bf),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Setup Salary',
+                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
                         if (canEdit) {
                           menuItems.add(
                             PopupMenuItem(
@@ -441,6 +466,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       },
                       onSelected: (value) {
                         switch (value) {
+                          case 'salary':
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        SalaryStructureFormScreen(
+                                          userId: user['_id'] as String,
+                                          userName: fullName,
+                                        ),
+                                  ),
+                                )
+                                .then((_) => _loadUsers(refresh: true));
+                            break;
                           case 'edit':
                             Navigator.of(context)
                                 .push(

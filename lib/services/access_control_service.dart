@@ -79,6 +79,14 @@ class AccessControlService {
     'appointment_letter': {
       'send': ['admin', 'director'],
       'view': ['admin', 'director']
+    },
+
+    // Payroll Features
+    'payroll': {
+      'view_own': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
+      'view_all': ['admin', 'director'],
+      'manage': ['admin', 'director'],
+      'generate': ['admin', 'director']
     }
   };
 

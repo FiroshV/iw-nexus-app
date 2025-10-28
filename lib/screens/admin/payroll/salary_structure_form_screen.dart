@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/payroll_api_service.dart';
 import '../../../services/api_service.dart';
+import '../../../services/salary_template_api_service.dart';
 import '../edit_user_screen.dart';
 
 /// Admin screen for creating/editing employee salary structure
@@ -30,6 +31,19 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   Map<String, dynamic>? _selectedEmployee;
   List<Map<String, dynamic>> _employees = [];
 
+  // Template management
+  List<Map<String, dynamic>> _templates = [];
+  Map<String, dynamic>? _selectedTemplate;
+  bool _useCustomPercentages = false;
+  Map<String, double> _customPercentages = {
+    'basic': 0,
+    'hra': 0,
+    'da': 0,
+    'conveyance': 0,
+    'specialAllowance': 0,
+    'otherAllowances': 0,
+  };
+
   // Form controllers
   final _ctcController = TextEditingController();
   final _effectiveFromController = TextEditingController();
@@ -42,20 +56,33 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   final _tdsController = TextEditingController();
   final _loanDeductionController = TextEditingController();
 
-  bool _pfApplicable = true;
-  bool _esiApplicable = false;
-  bool _ptApplicable = true;
+  // Percentage controllers for custom mode
+  final _basicPercentageController = TextEditingController();
+  final _hraPercentageController = TextEditingController();
+  final _daPercentageController = TextEditingController();
+  final _conveyancePercentageController = TextEditingController();
+  final _specialAllowancePercentageController = TextEditingController();
+  final _otherAllowancesPercentageController = TextEditingController();
+
+  // Deduction amount controllers (monthly amounts in ₹)
+  final _pfEmployeeController = TextEditingController();
+  final _pfEmployerController = TextEditingController();
+  final _esiEmployeeController = TextEditingController();
+  final _esiEmployerController = TextEditingController();
+  final _ptController = TextEditingController();
+
   final bool _usePercentages = true;
 
   @override
   void initState() {
     super.initState();
-    _loadEmployeesAndInitialize();
+    _loadEmployeesTemplatesAndInitialize();
   }
 
-  Future<void> _loadEmployeesAndInitialize() async {
-    // Load employees first
+  Future<void> _loadEmployeesTemplatesAndInitialize() async {
+    // Load employees and templates first
     await _loadEmployees();
+    await _loadTemplates();
 
     // If userId is provided but no salaryStructure, fetch from backend
     if (widget.userId != null && widget.salaryStructure == null) {
@@ -102,9 +129,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
         _otherAllowancesController.text = (earnings['otherAllowances'] as num?)?.toString() ?? '';
 
         final deductions = structure['deductions'] as Map<String, dynamic>? ?? {};
-        _pfApplicable = deductions['pfApplicable'] as bool? ?? true;
-        _esiApplicable = deductions['esiApplicable'] as bool? ?? false;
-        _ptApplicable = deductions['professionalTax'] as bool? ?? true;
         _tdsController.text = (deductions['tdsMonthly'] as num?)?.toString() ?? '0';
         _loanDeductionController.text = (deductions['loanDeduction'] as num?)?.toString() ?? '0';
         debugPrint('✅ Form pre-filled with salary structure from backend');
@@ -171,15 +195,22 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
           (earnings['otherAllowances'] as num?)?.toString() ?? '';
 
       final deductions = structure['deductions'] as Map<String, dynamic>? ?? {};
-      _pfApplicable = deductions['pfApplicable'] as bool? ?? true;
-      _esiApplicable = deductions['esiApplicable'] as bool? ?? false;
-      _ptApplicable = deductions['professionalTax'] as bool? ?? true;
+      _pfEmployeeController.text = (deductions['pfEmployee'] as num?)?.toString() ?? '0';
+      _pfEmployerController.text = (deductions['pfEmployer'] as num?)?.toString() ?? '0';
+      _esiEmployeeController.text = (deductions['esiEmployee'] as num?)?.toString() ?? '0';
+      _esiEmployerController.text = (deductions['esiEmployer'] as num?)?.toString() ?? '0';
+      _ptController.text = (deductions['professionalTax'] as num?)?.toString() ?? '0';
       _tdsController.text = (deductions['tdsMonthly'] as num?)?.toString() ?? '0';
       _loanDeductionController.text =
           (deductions['loanDeduction'] as num?)?.toString() ?? '0';
       debugPrint('✅ Salary structure loaded with CTC: ${_ctcController.text}');
     } else {
       debugPrint('📝 Creating new salary structure (no existing data)');
+      _pfEmployeeController.text = '0';
+      _pfEmployerController.text = '0';
+      _esiEmployeeController.text = '0';
+      _esiEmployerController.text = '0';
+      _ptController.text = '0';
       _tdsController.text = '0';
       _loanDeductionController.text = '0';
     }
@@ -233,6 +264,24 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     }
   }
 
+  Future<void> _loadTemplates() async {
+    try {
+      debugPrint('📥 Loading salary templates...');
+      final templates = await SalaryTemplateApiService.getAllTemplates();
+      if (mounted) {
+        setState(() {
+          _templates = templates;
+          // Do NOT auto-select first template - let user manually select
+          _selectedTemplate = null;
+          debugPrint('✅ Loaded ${_templates.length} templates');
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading templates: $e');
+      _showMessage('Error loading salary templates: $e', isError: true);
+    }
+  }
+
   @override
   void dispose() {
     _ctcController.dispose();
@@ -245,24 +294,67 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     _otherAllowancesController.dispose();
     _tdsController.dispose();
     _loanDeductionController.dispose();
+    _basicPercentageController.dispose();
+    _hraPercentageController.dispose();
+    _daPercentageController.dispose();
+    _conveyancePercentageController.dispose();
+    _specialAllowancePercentageController.dispose();
+    _otherAllowancesPercentageController.dispose();
+
+    // Dispose deduction controllers
+    _pfEmployeeController.dispose();
+    _pfEmployerController.dispose();
+    _esiEmployeeController.dispose();
+    _esiEmployerController.dispose();
+    _ptController.dispose();
     super.dispose();
   }
 
   void _calculateFromCTC() {
     if (_ctcController.text.isEmpty) return;
 
-    final ctc = double.tryParse(_ctcController.text);
-    if (ctc == null) return;
+    final annualCtc = double.tryParse(_ctcController.text);
+    if (annualCtc == null) return;
+
+    // Convert annual CTC to monthly for component breakdown
+    final monthlyCTC = annualCtc / 12;
+    debugPrint('📊 Calculating from Annual CTC: ₹$annualCtc → Monthly CTC: ₹${monthlyCTC.toStringAsFixed(2)}');
 
     if (_usePercentages) {
-      // Use default percentages: Basic 40%, HRA 30%, DA 10%, Conveyance 5%, Special 15%
       setState(() {
-        _basicController.text = (ctc * 0.40).toStringAsFixed(2);
-        _hraController.text = (ctc * 0.30).toStringAsFixed(2);
-        _daController.text = (ctc * 0.10).toStringAsFixed(2);
-        _conveyanceController.text = (ctc * 0.05).toStringAsFixed(2);
-        _specialAllowanceController.text = (ctc * 0.15).toStringAsFixed(2);
-        _otherAllowancesController.text = '0';
+        if (_useCustomPercentages) {
+          // Use custom percentages to calculate MONTHLY components
+          final basic = double.tryParse(_basicPercentageController.text) ?? 0;
+          final hra = double.tryParse(_hraPercentageController.text) ?? 0;
+          final da = double.tryParse(_daPercentageController.text) ?? 0;
+          final conveyance = double.tryParse(_conveyancePercentageController.text) ?? 0;
+          final special = double.tryParse(_specialAllowancePercentageController.text) ?? 0;
+          final other = double.tryParse(_otherAllowancesPercentageController.text) ?? 0;
+
+          _basicController.text = (monthlyCTC * basic / 100).toStringAsFixed(2);
+          _hraController.text = (monthlyCTC * hra / 100).toStringAsFixed(2);
+          _daController.text = (monthlyCTC * da / 100).toStringAsFixed(2);
+          _conveyanceController.text = (monthlyCTC * conveyance / 100).toStringAsFixed(2);
+          _specialAllowanceController.text = (monthlyCTC * special / 100).toStringAsFixed(2);
+          _otherAllowancesController.text = (monthlyCTC * other / 100).toStringAsFixed(2);
+        } else if (_selectedTemplate != null) {
+          // Use template percentages to calculate MONTHLY components
+          final percentages = _selectedTemplate!['percentages'] as Map<String, dynamic>? ?? {};
+          _basicController.text = (monthlyCTC * (percentages['basic'] as num? ?? 40) / 100).toStringAsFixed(2);
+          _hraController.text = (monthlyCTC * (percentages['hra'] as num? ?? 30) / 100).toStringAsFixed(2);
+          _daController.text = (monthlyCTC * (percentages['da'] as num? ?? 10) / 100).toStringAsFixed(2);
+          _conveyanceController.text = (monthlyCTC * (percentages['conveyance'] as num? ?? 5) / 100).toStringAsFixed(2);
+          _specialAllowanceController.text = (monthlyCTC * (percentages['specialAllowance'] as num? ?? 15) / 100).toStringAsFixed(2);
+          _otherAllowancesController.text = (monthlyCTC * (percentages['otherAllowances'] as num? ?? 0) / 100).toStringAsFixed(2);
+        } else {
+          // Use default percentages: Basic 40%, HRA 30%, DA 10%, Conveyance 5%, Special 15%
+          _basicController.text = (monthlyCTC * 0.40).toStringAsFixed(2);
+          _hraController.text = (monthlyCTC * 0.30).toStringAsFixed(2);
+          _daController.text = (monthlyCTC * 0.10).toStringAsFixed(2);
+          _conveyanceController.text = (monthlyCTC * 0.05).toStringAsFixed(2);
+          _specialAllowanceController.text = (monthlyCTC * 0.15).toStringAsFixed(2);
+          _otherAllowancesController.text = '0';
+        }
       });
     }
   }
@@ -271,6 +363,62 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
     final basic = double.tryParse(_basicController.text) ?? 0;
     final da = double.tryParse(_daController.text) ?? 0;
     return (basic + da) * 0.12;
+  }
+
+  double _getTotalPercentage() {
+    if (_useCustomPercentages) {
+      final basic = double.tryParse(_basicPercentageController.text) ?? 0;
+      final hra = double.tryParse(_hraPercentageController.text) ?? 0;
+      final da = double.tryParse(_daPercentageController.text) ?? 0;
+      final conveyance = double.tryParse(_conveyancePercentageController.text) ?? 0;
+      final special = double.tryParse(_specialAllowancePercentageController.text) ?? 0;
+      final other = double.tryParse(_otherAllowancesPercentageController.text) ?? 0;
+      return basic + hra + da + conveyance + special + other;
+    }
+    return 0;
+  }
+
+  void _onCustomPercentageChanged() {
+    setState(() {
+      // Update calculations when custom percentages change
+      _calculateFromCTC();
+    });
+  }
+
+  void _toggleCustomPercentages() {
+    setState(() {
+      _useCustomPercentages = !_useCustomPercentages;
+
+      if (_useCustomPercentages) {
+        // Initialize custom percentage controllers with template or default values
+        if (_selectedTemplate != null) {
+          final percentages = _selectedTemplate!['percentages'] as Map<String, dynamic>? ?? {};
+          _basicPercentageController.text = (percentages['basic'] ?? 40).toString();
+          _hraPercentageController.text = (percentages['hra'] ?? 30).toString();
+          _daPercentageController.text = (percentages['da'] ?? 10).toString();
+          _conveyancePercentageController.text = (percentages['conveyance'] ?? 5).toString();
+          _specialAllowancePercentageController.text = (percentages['specialAllowance'] ?? 15).toString();
+          _otherAllowancesPercentageController.text = (percentages['otherAllowances'] ?? 0).toString();
+        } else {
+          _basicPercentageController.text = '40';
+          _hraPercentageController.text = '30';
+          _daPercentageController.text = '10';
+          _conveyancePercentageController.text = '5';
+          _specialAllowancePercentageController.text = '15';
+          _otherAllowancesPercentageController.text = '0';
+        }
+      }
+      _calculateFromCTC();
+    });
+  }
+
+  void _onTemplateSelected(Map<String, dynamic> template) {
+    setState(() {
+      _selectedTemplate = template;
+      if (!_useCustomPercentages) {
+        _calculateFromCTC();
+      }
+    });
   }
 
   Future<void> _selectDate() async {
@@ -318,13 +466,42 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
       return;
     }
 
+    // Validate custom percentages if in custom mode
+    if (_useCustomPercentages) {
+      final totalPercentage = _getTotalPercentage();
+      if ((totalPercentage - 100).abs() > 0.01) {
+        debugPrint('❌ Custom percentages total to $totalPercentage, must be 100');
+        _showMessage('Percentages must total 100% (current: ${totalPercentage.toStringAsFixed(2)}%)', isError: true);
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     debugPrint('⏳ Saving salary structure...');
 
     try {
+      // Parse effective from date from DD-MM-YYYY to ISO format
+      String effectiveFromDate = '';
+      if (_effectiveFromController.text.isNotEmpty) {
+        try {
+          final parts = _effectiveFromController.text.split('-');
+          if (parts.length == 3) {
+            final day = parts[0];
+            final month = parts[1];
+            final year = parts[2];
+            // Convert to YYYY-MM-DD format
+            effectiveFromDate = '$year-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
+            debugPrint('📅 Converted date from ${_effectiveFromController.text} to $effectiveFromDate');
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing date: $e');
+          throw Exception('Invalid date format. Use DD-MM-YYYY');
+        }
+      }
+
       final data = {
         'ctc': double.parse(_ctcController.text),
-        'effectiveFrom': _effectiveFromController.text,
+        'effectiveFrom': effectiveFromDate,
         // Earnings (flattened for backend)
         'basic': double.parse(_basicController.text),
         'hra': double.parse(_hraController.text),
@@ -332,15 +509,33 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
         'conveyance': double.parse(_conveyanceController.text),
         'specialAllowance': double.parse(_specialAllowanceController.text),
         'otherAllowances': double.parse(_otherAllowancesController.text),
-        // Deductions (flattened for backend)
-        'pfApplicable': _pfApplicable,
-        'pfEmployee': 12,
-        'pfEmployer': 12,
-        'esiApplicable': _esiApplicable,
-        'professionalTax': _ptApplicable,
+        // Deductions (monthly amounts in ₹)
+        'pfEmployee': double.parse(_pfEmployeeController.text),
+        'pfEmployer': double.parse(_pfEmployerController.text),
+        'esiEmployee': double.parse(_esiEmployeeController.text),
+        'esiEmployer': double.parse(_esiEmployerController.text),
+        'professionalTax': double.parse(_ptController.text),
         'tdsMonthly': double.parse(_tdsController.text),
         'loanDeduction': double.parse(_loanDeductionController.text),
       };
+
+      // Add template information
+      if (_useCustomPercentages) {
+        data['customPercentages'] = {
+          'basic': double.tryParse(_basicPercentageController.text) ?? 40,
+          'hra': double.tryParse(_hraPercentageController.text) ?? 30,
+          'da': double.tryParse(_daPercentageController.text) ?? 10,
+          'conveyance': double.tryParse(_conveyancePercentageController.text) ?? 5,
+          'specialAllowance': double.tryParse(_specialAllowancePercentageController.text) ?? 15,
+          'otherAllowances': double.tryParse(_otherAllowancesPercentageController.text) ?? 0,
+        };
+        data['percentageSource'] = 'custom';
+      } else if (_selectedTemplate != null) {
+        data['templateId'] = _selectedTemplate!['_id'];
+        data['percentageSource'] = 'template';
+      } else {
+        data['percentageSource'] = 'none';
+      }
 
       debugPrint('📤 Sending data to API: ${data.toString()}');
       await PayrollApiService.updateSalaryStructure(
@@ -417,6 +612,10 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                   if (_selectedEmployee != null) _buildStatutoryInfoSection(),
                   if (_selectedEmployee != null) const SizedBox(height: 16),
                   _buildCTCSection(),
+                  const SizedBox(height: 16),
+                  _buildTemplateSection(),
+                  const SizedBox(height: 16),
+                  _buildPercentageToggleSection(),
                   const SizedBox(height: 16),
                   _buildEarningsSection(),
                   const SizedBox(height: 16),
@@ -780,6 +979,8 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   }
 
   Widget _buildCTCSection() {
+    final hasCTC = _ctcController.text.isNotEmpty;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -794,6 +995,14 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter your annual CTC and select a salary template to auto-calculate earnings breakdown',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
             ),
             const SizedBox(height: 16),
@@ -845,9 +1054,398 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
               },
               onTap: _selectDate,
             ),
+            if (hasCTC && _selectedTemplate != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5cfbd8).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF5cfbd8),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF5cfbd8),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Earnings breakdown will be calculated using ${_selectedTemplate?['templateName'] ?? 'selected template'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF272579),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTemplateSection() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Salary Template',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select a template to auto-populate earnings breakdown based on your CTC',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_templates.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.amber.withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_rounded, color: Colors.amber, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'No templates available',
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              DropdownButtonFormField<Map<String, dynamic>>(
+                value: _selectedTemplate,
+                decoration: InputDecoration(
+                  labelText: 'Select Template',
+                  prefixIcon: const Icon(Icons.assignment_rounded, color: Color(0xFF0071bf)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF0071bf), width: 2),
+                  ),
+                  helperText: 'Choose a salary structure template',
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(
+                      'Choose a template...',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                  ..._templates.map((template) {
+                    final isDefault = template['isDefault'] ?? false;
+                    final templateName = template['templateName'] ?? 'Unknown';
+                    return DropdownMenuItem(
+                      value: template,
+                      child: Text(
+                        isDefault ? '$templateName (Default)' : templateName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                ],
+                onChanged: (template) {
+                  if (template != null) {
+                    _onTemplateSelected(template);
+                  } else {
+                    setState(() => _selectedTemplate = null);
+                  }
+                },
+              ),
+            if (_selectedTemplate != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTemplatePercentagesPreview(),
+                    const SizedBox(height: 12),
+                    if (_ctcController.text.isNotEmpty)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _calculateFromCTC,
+                          icon: const Icon(Icons.calculate),
+                          label: const Text('Recalculate Earnings'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0071bf),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.warning_rounded,
+                              color: Colors.orange[700],
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Please enter CTC above to calculate earnings',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTemplatePercentagesPreview() {
+    if (_selectedTemplate == null) return const SizedBox.shrink();
+
+    final percentages = _selectedTemplate!['percentages'] as Map<String, dynamic>? ?? {};
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0071bf).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF0071bf).withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Template Breakdown',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF0071bf),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildPercentageBadge('Basic', (percentages['basic'] as num? ?? 40).toDouble()),
+              _buildPercentageBadge('HRA', (percentages['hra'] as num? ?? 30).toDouble()),
+              _buildPercentageBadge('DA', (percentages['da'] as num? ?? 10).toDouble()),
+              _buildPercentageBadge('Conveyance', (percentages['conveyance'] as num? ?? 5).toDouble()),
+              _buildPercentageBadge('Special', (percentages['specialAllowance'] as num? ?? 15).toDouble()),
+              _buildPercentageBadge('Other', (percentages['otherAllowances'] as num? ?? 0).toDouble()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPercentageBadge(String label, double percentage) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0071bf).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$label: ${percentage.toStringAsFixed(0)}%',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF0071bf),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPercentageToggleSection() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Use Custom Percentages',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Override template with custom percentages',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _useCustomPercentages,
+                  activeTrackColor: const Color(0xFF0071bf),
+                  onChanged: (_) => _toggleCustomPercentages(),
+                ),
+              ],
+            ),
+            if (_useCustomPercentages)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _buildCustomPercentagesInputs(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomPercentagesInputs() {
+    final totalPercentage = _getTotalPercentage();
+    final isValid = (totalPercentage - 100).abs() <= 0.01;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPercentageInputField(_basicPercentageController, 'Basic %', 'basic'),
+        const SizedBox(height: 12),
+        _buildPercentageInputField(_hraPercentageController, 'HRA %', 'hra'),
+        const SizedBox(height: 12),
+        _buildPercentageInputField(_daPercentageController, 'DA %', 'da'),
+        const SizedBox(height: 12),
+        _buildPercentageInputField(_conveyancePercentageController, 'Conveyance %', 'conveyance'),
+        const SizedBox(height: 12),
+        _buildPercentageInputField(_specialAllowancePercentageController, 'Special Allowance %', 'special'),
+        const SizedBox(height: 12),
+        _buildPercentageInputField(_otherAllowancesPercentageController, 'Other Allowances %', 'other'),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isValid ? const Color(0xFF5cfbd8).withOpacity(0.1) : Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isValid ? const Color(0xFF5cfbd8).withOpacity(0.5) : Colors.red.withOpacity(0.5),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isValid ? Icons.check_circle : Icons.error_rounded,
+                color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Total: ${totalPercentage.toStringAsFixed(2)}% ${isValid ? '✓' : '(Must be 100%)'}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isValid ? const Color(0xFF5cfbd8) : Colors.red,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPercentageInputField(TextEditingController controller, String label, String fieldName) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.percent, color: Color(0xFF0071bf)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF0071bf), width: 2),
+        ),
+      ),
+      onChanged: (_) => _onCustomPercentageChanged(),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Required';
+        }
+        final percentage = double.tryParse(value);
+        if (percentage == null || percentage < 0 || percentage > 100) {
+          return 'Must be 0-100';
+        }
+        return null;
+      },
     );
   }
 
@@ -861,11 +1459,19 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Earnings Breakdown (Annual)',
+              'Earnings Breakdown (Monthly)',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF272579),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Components are calculated from annual CTC and converted to monthly amounts (CTC ÷ 12)',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
             ),
             const SizedBox(height: 16),
@@ -889,8 +1495,6 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
   }
 
   Widget _buildDeductionsSection() {
-    final pfAmount = _calculatePF();
-
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -907,36 +1511,28 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
                 color: Color(0xFF272579),
               ),
             ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('PF Applicable'),
-              subtitle: Text(
-                'Employee: ${PayrollApiService.formatCurrency(pfAmount)} | Employer: ${PayrollApiService.formatCurrency(pfAmount)}',
-                style: const TextStyle(fontSize: 12),
+            const SizedBox(height: 8),
+            const Text(
+              'Enter monthly deduction amounts in ₹. Leave as 0 to skip.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
               ),
-              value: _pfApplicable,
-              activeTrackColor: const Color(0xFF0071bf),
-              onChanged: (value) => setState(() => _pfApplicable = value),
             ),
-            SwitchListTile(
-              title: const Text('ESI Applicable'),
-              subtitle: const Text('For salary ≤ ₹21,000/month'),
-              value: _esiApplicable,
-              activeTrackColor: const Color(0xFF0071bf),
-              onChanged: (value) => setState(() => _esiApplicable = value),
-            ),
-            SwitchListTile(
-              title: const Text('Professional Tax'),
-              subtitle: const Text('State-based taxation'),
-              value: _ptApplicable,
-              activeTrackColor: const Color(0xFF0071bf),
-              onChanged: (value) => setState(() => _ptApplicable = value),
-            ),
+            const SizedBox(height: 16),
+            _buildAmountField(_pfEmployeeController, 'PF Employee (₹)', Icons.account_balance_wallet),
             const SizedBox(height: 12),
-            _buildAmountField(_tdsController, 'Monthly TDS', Icons.receipt),
+            _buildAmountField(_pfEmployerController, 'PF Employer (₹)', Icons.business),
             const SizedBox(height: 12),
-            _buildAmountField(
-                _loanDeductionController, 'Loan Deduction', Icons.money_off),
+            _buildAmountField(_esiEmployeeController, 'ESI Employee (₹)', Icons.shield),
+            const SizedBox(height: 12),
+            _buildAmountField(_esiEmployerController, 'ESI Employer (₹)', Icons.domain),
+            const SizedBox(height: 12),
+            _buildAmountField(_ptController, 'Professional Tax (₹)', Icons.description),
+            const SizedBox(height: 12),
+            _buildAmountField(_tdsController, 'Monthly TDS (₹)', Icons.receipt),
+            const SizedBox(height: 12),
+            _buildAmountField(_loanDeductionController, 'Loan Deduction (₹)', Icons.money_off),
           ],
         ),
       ),

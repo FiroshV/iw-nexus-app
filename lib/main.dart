@@ -578,21 +578,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
 
             _buildMenuTile(
-              icon: Icons.receipt_long,
-              title: 'My Payslips',
-              subtitle: 'View and download payslips',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        MyPayslipsScreen(userData: currentUser),
-                  ),
-                );
-              },
-            ),
-
-            _buildMenuTile(
               icon: Icons.feedback_outlined,
               title: 'Feedback & Support',
               subtitle: 'Share feedback or report issues',
@@ -1100,17 +1085,20 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ],
 
-                      // Payslip - accessible to admin and director
-                      if (userRole == 'admin' || userRole == 'director') ...[
+                      // Payslip - accessible to all employees
+                      if (AccessControlService.hasAccess(userRole, 'payroll', 'view_own')) ...[
                         _buildDashboardCard(
                           title: 'Payslip',
-                          subtitle: 'Generate & manage',
+                          subtitle: 'View and manage payslips',
                           icon: Icons.receipt_long,
                           color: const Color(0xFF00b8d9),
                           onTap: () {
+                            // Determine initial tab: admin/director open to Employees tab (tab 1),
+                            // regular employees open to View Payslip tab (tab 0)
+                            final initialTab = (userRole == 'admin' || userRole == 'director') ? 1 : 0;
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => const PayrollManagementScreen(initialTab: 1),
+                                builder: (context) => PayrollManagementScreen(initialTab: initialTab),
                               ),
                             );
                           },

@@ -19,7 +19,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -70,7 +70,9 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   @override
   Widget build(BuildContext context) {
     final monthYear = _getMonthYearLabel();
-    final netSalary = widget.payslip['netSalary'] as double? ?? 0.0;
+    // Handle both int and double types from API
+    final netSalaryValue = widget.payslip['netSalary'];
+    final netSalary = (netSalaryValue is int ? netSalaryValue.toDouble() : netSalaryValue as double?) ?? 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFf8f9fa),
@@ -92,18 +94,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _sharePdf,
-            tooltip: 'Share',
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _downloadPdf,
-            tooltip: 'Download PDF',
-          ),
-        ],
+        actions: [],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF5cfbd8),
@@ -118,7 +109,6 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
             Tab(text: 'Earnings'),
             Tab(text: 'Deductions'),
             Tab(text: 'Summary'),
-            Tab(text: 'PDF'),
           ],
         ),
       ),
@@ -166,7 +156,6 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
                 _buildEarningsTab(),
                 _buildDeductionsTab(),
                 _buildSummaryTab(),
-                _buildPdfTab(),
               ],
             ),
           ),
@@ -177,7 +166,14 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
 
   Widget _buildEarningsTab() {
     final earnings = widget.payslip['earnings'] as Map<String, dynamic>? ?? {};
-    final grossEarnings = widget.payslip['grossSalary'] as double? ?? 0.0;
+
+    // Get current (prorated) earnings - the actual amounts paid this month
+    final currentEarnings = earnings['current'] as Map<String, dynamic>? ?? {};
+    final masterEarnings = earnings['master'] as Map<String, dynamic>? ?? {};
+
+    // Handle both int and double types from API
+    final grossEarningsValue = widget.payslip['earnings']?['grossEarnings'];
+    final grossEarnings = (grossEarningsValue is int ? grossEarningsValue.toDouble() : grossEarningsValue as double?) ?? 0.0;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -186,22 +182,28 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
           title: 'Earnings Breakdown',
           icon: Icons.trending_up,
           children: [
-            _buildAmountRow('Basic Salary', earnings['basic']),
-            _buildAmountRow('HRA', earnings['hra']),
-            _buildAmountRow('Dearness Allowance', earnings['da']),
-            _buildAmountRow('Conveyance', earnings['conveyance']),
-            _buildAmountRow('Special Allowance', earnings['specialAllowance']),
-            _buildAmountRow('Other Allowances', earnings['otherAllowances']),
-            if (earnings['bonus'] != null)
+            _buildAmountRow('Basic Salary', currentEarnings['basic']),
+            _buildAmountRow('HRA', currentEarnings['hra']),
+            _buildAmountRow('Dearness Allowance', currentEarnings['da']),
+            _buildAmountRow('Conveyance', currentEarnings['conveyance']),
+            _buildAmountRow('Special Allowance', currentEarnings['specialAllowance']),
+            _buildAmountRow('Other Allowances', currentEarnings['otherAllowances']),
+            if (earnings['bonus'] != null && earnings['bonus'] != 0)
               _buildAmountRow('Bonus', earnings['bonus']),
-            if (earnings['overtime'] != null)
-              _buildAmountRow('Overtime', earnings['overtime']),
+            if (earnings['incentive'] != null && earnings['incentive'] != 0)
+              _buildAmountRow('Incentive', earnings['incentive']),
+            if (earnings['overtimePay'] != null && earnings['overtimePay'] != 0)
+              _buildAmountRow('Overtime Pay', earnings['overtimePay']),
+            if (earnings['arrears'] != null && earnings['arrears'] != 0)
+              _buildAmountRow('Arrears', earnings['arrears']),
+            if (earnings['leaveEncashment'] != null && earnings['leaveEncashment'] != 0)
+              _buildAmountRow('Leave Encashment', earnings['leaveEncashment']),
             const Divider(height: 24, thickness: 1),
             _buildAmountRow(
               'Gross Earnings',
               grossEarnings,
               isBold: true,
-              color: const Color(0xFF5cfbd8),
+              color: const Color(0xFF0071bf),
             ),
           ],
         ),
@@ -213,7 +215,10 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
 
   Widget _buildDeductionsTab() {
     final deductions = widget.payslip['deductions'] as Map<String, dynamic>? ?? {};
-    final totalDeductions = widget.payslip['totalDeductions'] as double? ?? 0.0;
+
+    // Handle both int and double types from API
+    final totalDeductionsValue = deductions['totalDeductions'] ?? widget.payslip['totalDeductions'];
+    final totalDeductions = (totalDeductionsValue is int ? totalDeductionsValue.toDouble() : totalDeductionsValue as double?) ?? 0.0;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -223,14 +228,14 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
           icon: Icons.trending_down,
           children: [
             _buildAmountRow('Provident Fund (PF)', deductions['pfEmployee']),
-            _buildAmountRow('ESI', deductions['esi']),
+            _buildAmountRow('ESI (Employee)', deductions['esiEmployee']),
             _buildAmountRow('Professional Tax', deductions['professionalTax']),
             _buildAmountRow('Income Tax (TDS)', deductions['tds']),
             if (deductions['loanDeduction'] != null &&
-                (deductions['loanDeduction'] as double) > 0)
+                ((deductions['loanDeduction'] is int ? (deductions['loanDeduction'] as int).toDouble() : deductions['loanDeduction'] as double) > 0))
               _buildAmountRow('Loan Deduction', deductions['loanDeduction']),
             if (deductions['otherDeductions'] != null &&
-                (deductions['otherDeductions'] as double) > 0)
+                ((deductions['otherDeductions'] is int ? (deductions['otherDeductions'] as int).toDouble() : deductions['otherDeductions'] as double) > 0))
               _buildAmountRow('Other Deductions', deductions['otherDeductions']),
             const Divider(height: 24, thickness: 1),
             _buildAmountRow(
@@ -246,13 +251,31 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   }
 
   Widget _buildSummaryTab() {
-    final grossSalary = widget.payslip['grossSalary'] as double? ?? 0.0;
-    final totalDeductions = widget.payslip['totalDeductions'] as double? ?? 0.0;
-    final netSalary = widget.payslip['netSalary'] as double? ?? 0.0;
-    final workingDays = widget.payslip['workingDaysInMonth'] as int? ?? 0;
-    final daysPresent = widget.payslip['daysPresent'] as double? ?? 0.0;
-    final daysAbsent = widget.payslip['daysAbsent'] as double? ?? 0.0;
-    final lopDays = widget.payslip['lopDays'] as double? ?? 0.0;
+    // Get earnings and deductions data from the payslip
+    final earnings = widget.payslip['earnings'] as Map<String, dynamic>? ?? {};
+    final deductions = widget.payslip['deductions'] as Map<String, dynamic>? ?? {};
+
+    // Handle both int and double types from API
+    final grossSalaryValue = earnings['grossEarnings'] ?? widget.payslip['grossSalary'];
+    final grossSalary = (grossSalaryValue is int ? grossSalaryValue.toDouble() : grossSalaryValue as double?) ?? 0.0;
+
+    final totalDeductionsValue = deductions['totalDeductions'] ?? widget.payslip['totalDeductions'];
+    final totalDeductions = (totalDeductionsValue is int ? totalDeductionsValue.toDouble() : totalDeductionsValue as double?) ?? 0.0;
+
+    final netSalaryValue = widget.payslip['netSalary'];
+    final netSalary = (netSalaryValue is int ? netSalaryValue.toDouble() : netSalaryValue as double?) ?? 0.0;
+
+    final workingDaysValue = widget.payslip['workingDaysInMonth'];
+    final workingDays = (workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0) as int;
+
+    final daysPresentValue = widget.payslip['daysPresent'];
+    final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;
+
+    final daysAbsentValue = widget.payslip['daysAbsent'];
+    final daysAbsent = (daysAbsentValue is int ? daysAbsentValue.toDouble() : daysAbsentValue as double?) ?? 0.0;
+
+    final lopDaysValue = widget.payslip['lopDays'];
+    final lopDays = (lopDaysValue is int ? lopDaysValue.toDouble() : lopDaysValue as double?) ?? 0.0;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -269,7 +292,7 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
               netSalary,
               isBold: true,
               fontSize: 18,
-              color: const Color(0xFF5cfbd8),
+              color: const Color(0xFF0071bf),
             ),
           ],
         ),
@@ -436,7 +459,8 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
     Color? color,
     double fontSize = 14,
   }) {
-    final amountValue = (amount is double) ? amount : 0.0;
+    // Handle both int and double types from API, default to 0.0 if null or invalid
+    final amountValue = (amount is int ? amount.toDouble() : (amount is double ? amount : 0.0));
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -496,10 +520,18 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   }
 
   Widget _buildAttendanceCard() {
-    final workingDays = widget.payslip['workingDaysInMonth'] as int? ?? 0;
-    final daysPresent = widget.payslip['daysPresent'] as double? ?? 0.0;
-    final daysAbsent = widget.payslip['daysAbsent'] as double? ?? 0.0;
-    final lopDays = widget.payslip['lopDays'] as double? ?? 0.0;
+    // Handle both int and double types from API
+    final workingDaysValue = widget.payslip['workingDaysInMonth'];
+    final workingDays = (workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0) as int;
+
+    final daysPresentValue = widget.payslip['daysPresent'];
+    final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;
+
+    final daysAbsentValue = widget.payslip['daysAbsent'];
+    final daysAbsent = (daysAbsentValue is int ? daysAbsentValue.toDouble() : daysAbsentValue as double?) ?? 0.0;
+
+    final lopDaysValue = widget.payslip['lopDays'];
+    final lopDays = (lopDaysValue is int ? lopDaysValue.toDouble() : lopDaysValue as double?) ?? 0.0;
 
     if (lopDays == 0 && daysAbsent == 0) {
       return const SizedBox.shrink();

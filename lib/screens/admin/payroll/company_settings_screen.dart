@@ -25,8 +25,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   final _pincodeController = TextEditingController();
   final _panController = TextEditingController();
   final _tanController = TextEditingController();
-  final _signatoryNameController = TextEditingController();
-  final _signatoryDesignationController = TextEditingController();
 
   String _selectedState = 'Maharashtra';
 
@@ -79,8 +77,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         _pincodeController.text = settings['companyAddress']?['pincode'] ?? '';
         _panController.text = settings['pan'] ?? '';
         _tanController.text = settings['tan'] ?? '';
-        _signatoryNameController.text = settings['authorizedSignatory']?['name'] ?? '';
-        _signatoryDesignationController.text = settings['authorizedSignatory']?['designation'] ?? '';
       });
     } catch (e) {
       _showMessage('Error loading settings: $e', isError: true);
@@ -98,8 +94,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     _pincodeController.dispose();
     _panController.dispose();
     _tanController.dispose();
-    _signatoryNameController.dispose();
-    _signatoryDesignationController.dispose();
     super.dispose();
   }
 
@@ -145,12 +139,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         'state': _selectedState,
         'pan': _panController.text,
         'tan': _tanController.text,
-        'authorizedSignatory': {
-          if (_signatoryNameController.text.trim().isNotEmpty)
-            'name': _signatoryNameController.text.trim(),
-          if (_signatoryDesignationController.text.trim().isNotEmpty)
-            'designation': _signatoryDesignationController.text.trim(),
-        },
       };
 
       await PayrollApiService.updateCompanySettings(settings);
@@ -366,26 +354,6 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _buildSectionCard(
-          title: 'Authorized Signatory (Optional)',
-          subtitle: 'Details of the authorized person for company',
-          children: [
-            _buildTextField(
-              controller: _signatoryNameController,
-              label: 'Signatory Name',
-              hint: 'e.g., John Doe',
-              icon: Icons.person,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _signatoryDesignationController,
-              label: 'Designation',
-              hint: 'e.g., Company Director',
-              icon: Icons.work_outlined,
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -476,9 +444,11 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   }) {
     return DropdownButtonFormField<String>(
       initialValue: value,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF0071bf)) : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -490,7 +460,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       items: items.map((item) {
         return DropdownMenuItem(
           value: item,
-          child: Text(item),
+          child: Text(
+            item,
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       }).toList(),
       onChanged: onChanged,
@@ -593,8 +566,6 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
   final _pincodeController = TextEditingController();
   final _panController = TextEditingController();
   final _tanController = TextEditingController();
-  final _signatoryNameController = TextEditingController();
-  final _signatoryDesignationController = TextEditingController();
 
   String _selectedState = 'Maharashtra';
 
@@ -620,8 +591,6 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
           _pincodeController.text = settings['companyAddress']?['pincode'] ?? '';
           _panController.text = settings['pan'] ?? '';
           _tanController.text = settings['tan'] ?? '';
-          _signatoryNameController.text = settings['authorizedSignatory']?['name'] ?? '';
-          _signatoryDesignationController.text = settings['authorizedSignatory']?['designation'] ?? '';
           _isLoading = false;
         });
       }
@@ -684,12 +653,6 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
         'state': _selectedState,
         'pan': _panController.text,
         'tan': _tanController.text,
-        'authorizedSignatory': {
-          if (_signatoryNameController.text.trim().isNotEmpty)
-            'name': _signatoryNameController.text.trim(),
-          if (_signatoryDesignationController.text.trim().isNotEmpty)
-            'designation': _signatoryDesignationController.text.trim(),
-        },
       };
 
       await PayrollApiService.updateCompanySettings(settings);
@@ -863,10 +826,16 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
                 decoration: InputDecoration(
                   labelText: 'State *',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 items: _indianStates
-                    .map((state) =>
-                        DropdownMenuItem(value: state, child: Text(state)))
+                    .map((state) => DropdownMenuItem(
+                          value: state,
+                          child: Text(
+                            state,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ))
                     .toList(),
                 onChanged: (value) {
                   setState(() => _selectedState = value ?? 'Maharashtra');
@@ -918,41 +887,6 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           validator: (value) => value?.isEmpty ?? true ? 'TAN is required' : null,
-        ),
-        const SizedBox(height: 32),
-        const Text(
-          'Authorized Signatory (Optional)',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF272579),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Details of the authorized person for company',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _signatoryNameController,
-          decoration: InputDecoration(
-            labelText: 'Signatory Name',
-            hintText: 'e.g., John Doe',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _signatoryDesignationController,
-          decoration: InputDecoration(
-            labelText: 'Designation',
-            hintText: 'e.g., Company Director',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
         ),
       ],
     );
@@ -1021,8 +955,6 @@ class _CompanySettingsContentState extends State<CompanySettingsContent> {
     _pincodeController.dispose();
     _panController.dispose();
     _tanController.dispose();
-    _signatoryNameController.dispose();
-    _signatoryDesignationController.dispose();
     super.dispose();
   }
 }

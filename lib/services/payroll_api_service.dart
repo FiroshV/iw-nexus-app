@@ -295,6 +295,79 @@ class PayrollApiService {
     }
   }
 
+  /// Calculate payslip preview (for viewing before generation)
+  /// Takes userId, month, year, and optional overrides
+  static Future<Map<String, dynamic>> calculatePayslipPreview({
+    required String userId,
+    required int month,
+    required int year,
+    Map<String, dynamic>? overrides,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final body = jsonEncode({
+        'userId': userId,
+        'month': month,
+        'year': year,
+        if (overrides != null) 'overrides': overrides,
+      });
+
+      final response = await http.post(
+        Uri.parse('${ApiService.baseUrl}/payroll/calculate-payslip-preview'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return json['data'] ?? {};
+      } else {
+        throw Exception('Failed to calculate payslip preview: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get all payslips for a specific month/year
+  /// Used to show which employees already have generated payslips
+  static Future<List<Map<String, dynamic>>> getPayslipsForMonth({
+    required int month,
+    required int year,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiService.baseUrl}/payroll/payslips-by-month/$year/$month'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final data = json['data'] as List?;
+        return data?.cast<Map<String, dynamic>>() ?? [];
+      } else {
+        throw Exception('Failed to fetch payslips for month: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Send payslip email to single employee
   static Future<Map<String, dynamic>> sendPayslipEmail(String payslipId, {String? email}) async {
     try {
