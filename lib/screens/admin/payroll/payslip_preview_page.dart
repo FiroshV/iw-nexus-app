@@ -34,6 +34,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
   late TextEditingController _overtimeCtrl;
   late TextEditingController _arrearsCtrl;
   late TextEditingController _leaveEncashmentCtrl;
+  late TextEditingController _workingDaysCtrl;
   late TextEditingController _daysWorkedCtrl;
   late TextEditingController _lopDaysCtrl;
 
@@ -50,6 +51,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
     _overtimeCtrl = TextEditingController(text: '0');
     _arrearsCtrl = TextEditingController(text: '0');
     _leaveEncashmentCtrl = TextEditingController(text: '0');
+    _workingDaysCtrl = TextEditingController();
     _daysWorkedCtrl = TextEditingController();
     _lopDaysCtrl = TextEditingController();
   }
@@ -65,6 +67,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
       if (mounted) {
         setState(() {
           _preview = preview;
+          _workingDaysCtrl.text = (_preview['payslipData']['workingDaysInMonth'] ?? 26).toString();
           _daysWorkedCtrl.text = _preview['payslipData']['daysPresent'].toString();
           _lopDaysCtrl.text = _preview['payslipData']['lopDays'].toString();
           _isLoading = false;
@@ -97,13 +100,49 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
     }
   }
 
+  void _onWorkingDaysChanged(String value) {
+    if (mounted) {
+      setState(() {
+        // Working days changed, nothing auto-updates based on this
+        // It's a reference value for proration calculation
+        _recalculatePreview();
+      });
+    }
+  }
+
+  void _onDaysWorkedChanged(String value) {
+    if (mounted) {
+      setState(() {
+        // Auto-update LOP: LOP = WorkingDays - DaysWorked
+        final workingDays = double.tryParse(_workingDaysCtrl.text) ?? 26;
+        final daysWorked = double.tryParse(value) ?? 0;
+        final lop = workingDays - daysWorked;
+        _lopDaysCtrl.text = lop.toStringAsFixed(1);
+        _recalculatePreview();
+      });
+    }
+  }
+
+  void _onLopDaysChanged(String value) {
+    if (mounted) {
+      setState(() {
+        // Auto-update Days Worked: DaysWorked = WorkingDays - LOP
+        final workingDays = double.tryParse(_workingDaysCtrl.text) ?? 26;
+        final lop = double.tryParse(value) ?? 0;
+        final daysWorked = workingDays - lop;
+        _daysWorkedCtrl.text = daysWorked.toStringAsFixed(1);
+        _recalculatePreview();
+      });
+    }
+  }
+
   void _updateNetSalary() {
     final payslipData = _preview['payslipData'] as Map<String, dynamic>;
     final earnings = payslipData['earnings'] as Map<String, dynamic>;
     final deductions = payslipData['deductions'] as Map<String, dynamic>;
 
-    // Get working days in month and days worked
-    final workingDaysInMonth = (payslipData['workingDaysInMonth'] as num?)?.toDouble() ?? 26;
+    // Get working days in month and days worked from controllers
+    final workingDaysInMonth = double.tryParse(_workingDaysCtrl.text) ?? 26;
     final daysWorked = double.tryParse(_daysWorkedCtrl.text) ?? workingDaysInMonth;
 
     // Calculate new proration factor based on days worked
@@ -153,6 +192,54 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
   /// Round to 2 decimal places for currency calculations
   double roundToTwoDecimals(num value) {
     return (value.toDouble() * 100).roundToDouble() / 100;
+  }
+
+  /// Validate that Days Worked + LOP = Working Days in Month and all values are positive
+  bool _isAttendanceValid() {
+    try {
+      final workingDays = double.tryParse(_workingDaysCtrl.text) ?? 26;
+      final daysWorked = double.tryParse(_daysWorkedCtrl.text) ?? 0;
+      final lop = double.tryParse(_lopDaysCtrl.text) ?? 0;
+
+      // Check if any value is negative
+      if (workingDays < 0 || daysWorked < 0 || lop < 0) {
+        return false;
+      }
+
+      final total = daysWorked + lop;
+      return total == workingDays;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Get detailed error message for attendance validation
+  String _getAttendanceErrorMessage() {
+    try {
+      final workingDays = double.tryParse(_workingDaysCtrl.text) ?? 26;
+      final daysWorked = double.tryParse(_daysWorkedCtrl.text) ?? 0;
+      final lop = double.tryParse(_lopDaysCtrl.text) ?? 0;
+
+      // Check if any value is negative
+      if (workingDays < 0) {
+        return 'Working Days must be positive';
+      }
+      if (daysWorked < 0) {
+        return 'Days Worked cannot be negative';
+      }
+      if (lop < 0) {
+        return 'LOP Days cannot be negative';
+      }
+
+      final total = daysWorked + lop;
+      if (total != workingDays) {
+        return 'Days Worked ($daysWorked) + LOP ($lop) must equal $workingDays Working Days';
+      }
+
+      return '';
+    } catch (e) {
+      return 'Invalid attendance values';
+    }
   }
 
   Future<void> _generatePayslip() async {
@@ -211,6 +298,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
     _overtimeCtrl.dispose();
     _arrearsCtrl.dispose();
     _leaveEncashmentCtrl.dispose();
+    _workingDaysCtrl.dispose();
     _daysWorkedCtrl.dispose();
     _lopDaysCtrl.dispose();
     super.dispose();
@@ -233,10 +321,10 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
         ),
         title: const Text(
           'Payslip Preview',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -415,8 +503,9 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
                 Expanded(
                   child: _buildEditableField(
                     label: 'Working Days in Month',
-                    value: (payslipData['workingDaysInMonth'] ?? 26).toString(),
-                    readOnly: true,
+                    controller: _workingDaysCtrl,
+                    onChanged: _onWorkingDaysChanged,
+                    prefix: '',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -424,7 +513,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
                   child: _buildEditableField(
                     label: 'Days Worked',
                     controller: _daysWorkedCtrl,
-                    onChanged: (_) => _recalculatePreview(),
+                    onChanged: _onDaysWorkedChanged,
                     prefix: '',
                   ),
                 ),
@@ -474,9 +563,37 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
             _buildEditableField(
               label: 'LOP (Loss of Pay) Days',
               controller: _lopDaysCtrl,
-              onChanged: (_) => _recalculatePreview(),
+              onChanged: _onLopDaysChanged,
               prefix: '',
             ),
+            // Validation error message
+            if (!_isAttendanceValid()) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 18, color: Colors.red[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _getAttendanceErrorMessage(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 20),
@@ -605,7 +722,7 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _isGenerating ? null : _generatePayslip,
+                onPressed: (_isGenerating || !_isAttendanceValid()) ? null : _generatePayslip,
                 icon: _isGenerating
                     ? const SizedBox(
                         width: 18,

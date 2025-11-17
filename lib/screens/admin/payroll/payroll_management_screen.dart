@@ -43,6 +43,10 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   String? _payslipsError;
   late int _selectedViewMonth;
   late int _selectedViewYear;
+  String _selectedViewEmployeeId = '';
+  String _currentUserId = '';
+  String _currentUserRole = '';
+  List<Map<String, dynamic>> _allEmployeesForSelector = [];
 
   @override
   void initState() {
@@ -54,17 +58,41 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     _loadPayslips();
   }
 
-  Future<void> _loadPayslips() async {
+  Future<void> _loadPayslips({String? employeeIdFilter}) async {
     try {
       setState(() {
         _payslipsLoading = true;
         _payslipsError = null;
       });
 
-      final payslips = await PayrollApiService.getPayslipsForMonth(
-        month: _selectedViewMonth,
-        year: _selectedViewYear,
-      );
+      final idToFilter = employeeIdFilter ?? _selectedViewEmployeeId;
+
+      List<Map<String, dynamic>> payslips = [];
+
+      if (idToFilter.isNotEmpty) {
+        // Get payslips for specific employee by filtering the month/year results
+        final allPayslips = await PayrollApiService.getPayslipsForMonth(
+          month: _selectedViewMonth,
+          year: _selectedViewYear,
+        );
+        // Filter by employeeId match
+        payslips = allPayslips.where((p) {
+          final empId = p['employeeId'];
+          // Handle both object and string formats
+          if (empId is Map) {
+            return empId['_id'].toString() == idToFilter;
+          } else {
+            return empId.toString() == idToFilter;
+          }
+        }).toList();
+      } else {
+        // Get all payslips for the month/year
+        payslips = await PayrollApiService.getPayslipsForMonth(
+          month: _selectedViewMonth,
+          year: _selectedViewYear,
+        );
+      }
+
       setState(() {
         _payslips = payslips;
         _payslipsLoading = false;
@@ -289,10 +317,13 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
         tabs.add(
           const Tab(
             icon: Icon(Icons.receipt_long, color: Colors.white),
-            text: 'View Payslip',
+            text: 'View',
           ),
         );
-        tabContents.add(_buildViewPayslipTab());
+        tabContents.add(_buildViewPayslipTab(
+          authProvider: authProvider,
+          canManagePayroll: canManagePayroll,
+        ));
 
         // Add management tabs only for users with manage access
         if (canManagePayroll) {
@@ -610,10 +641,186 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     );
   }
 
-  Widget _buildViewPayslipTab() {
+  Widget _buildViewPayslipTab({
+    required AuthProvider authProvider,
+    required bool canManagePayroll,
+  }) {
+    // Initialize current user data on first call
+    if (_currentUserId.isEmpty) {
+      _currentUserId = authProvider.user?['_id'] as String? ?? '';
+      _currentUserRole = authProvider.user?['role'] as String? ?? '';
+      _selectedViewEmployeeId = _currentUserId;
+    }
+
     final previousMonth = PayrollApiService.getPreviousMonth();
     final latestPayslipLabel =
         '${PayrollApiService.getMonthShortName(previousMonth['month']!)} ${previousMonth['year']}';
+
+    // Build employee selector widget (only for admin/director)
+    final employeeSelector = canManagePayroll
+        ? Autocomplete<String>(
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text.isEmpty) {
+                // Show all employees when empty
+                final List<Map<String, dynamic>> allEmpList = [
+                  {
+                    '_id': _currentUserId,
+                    'firstName': authProvider.user?['firstName'] ?? '',
+                    'lastName': authProvider.user?['lastName'] ?? '',
+                    'isCurrentUser': true,
+                  },
+                  ..._employees.where((e) => e['_id'] != _currentUserId),
+                ];
+                return allEmpList.map((e) {
+                  final name = '${e['firstName']} ${e['lastName']}';
+                  return e['_id'] as String;
+                });
+              }
+              // Filter employees by search text
+              final query = textEditingValue.text.toLowerCase();
+              final List<Map<String, dynamic>> allEmpList = [
+                {
+                  '_id': _currentUserId,
+                  'firstName': authProvider.user?['firstName'] ?? '',
+                  'lastName': authProvider.user?['lastName'] ?? '',
+                  'isCurrentUser': true,
+                },
+                ..._employees.where((e) => e['_id'] != _currentUserId),
+              ];
+              return allEmpList
+                  .where((emp) {
+                    final name = '${emp['firstName']} ${emp['lastName']}'.toLowerCase();
+                    return name.contains(query);
+                  })
+                  .map((e) => e['_id'] as String);
+            },
+            onSelected: (String selectedId) {
+              setState(() => _selectedViewEmployeeId = selectedId);
+              _loadPayslips();
+            },
+            fieldViewBuilder: (BuildContext context,
+                TextEditingController textEditingController,
+                FocusNode focusNode,
+                VoidCallback onFieldSubmitted) {
+              // Update field text when selection changes
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_selectedViewEmployeeId.isNotEmpty) {
+                  final selectedEmp = [
+                    {
+                      '_id': _currentUserId,
+                      'firstName': authProvider.user?['firstName'] ?? '',
+                      'lastName': authProvider.user?['lastName'] ?? '',
+                    },
+                    ..._employees,
+                  ].firstWhere((e) => e['_id'] == _selectedViewEmployeeId);
+                  final displayName =
+                      '${selectedEmp['firstName']} ${selectedEmp['lastName']}';
+                  if (textEditingController.text != displayName) {
+                    textEditingController.text = displayName;
+                  }
+                }
+              });
+              return TextField(
+                controller: textEditingController,
+                focusNode: focusNode,
+                decoration: InputDecoration(
+                  labelText: 'Select Employee',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFe0e0e0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0071bf),
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  suffixIcon: const Icon(Icons.search, color: Color(0xFF0071bf)),
+                ),
+              );
+            },
+            optionsViewBuilder: (BuildContext context,
+                AutocompleteOnSelected<String> onSelected,
+                Iterable<String> options) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 300,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final empId = options.elementAt(index);
+                        final emp = [
+                          {
+                            '_id': _currentUserId,
+                            'firstName': authProvider.user?['firstName'] ?? '',
+                            'lastName': authProvider.user?['lastName'] ?? '',
+                            'isCurrentUser': true,
+                          },
+                          ..._employees,
+                        ].firstWhere((e) => e['_id'] == empId);
+                        final isSelected = _selectedViewEmployeeId == empId;
+                        final displayName =
+                            '${emp['firstName']} ${emp['lastName']}';
+                        final isCurrent = emp['_id'] == _currentUserId;
+
+                        return InkWell(
+                          onTap: () => onSelected(empId),
+                          child: Container(
+                            color: isSelected
+                                ? const Color(0xFF0071bf).withValues(alpha: 0.1)
+                                : null,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    isCurrent ? '$displayName (You)' : displayName,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isSelected
+                                          ? const Color(0xFF0071bf)
+                                          : Colors.grey[800],
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check,
+                                    color: Color(0xFF0071bf),
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          )
+        : const SizedBox.shrink();
 
     // Build period selector widget
     final periodSelector = Row(
@@ -744,6 +951,11 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Employee selector - Only visible for admin/director
+          if (canManagePayroll) ...[
+            employeeSelector,
+            const SizedBox(height: 16),
+          ],
           // Period filter - Always visible
           periodSelector,
           const SizedBox(height: 16),
