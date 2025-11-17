@@ -28,8 +28,8 @@ class _PayslipDetailScreenState extends State<PayslipDetailScreen>
   }
 
   String _getMonthYearLabel() {
-    final month = widget.payslip['month'] as int;
-    final year = widget.payslip['year'] as int;
+    final month = (widget.payslip['month'] as int?) ?? DateTime.now().month;
+    final year = (widget.payslip['year'] as int?) ?? DateTime.now().year;
     return '${PayrollApiService.getMonthName(month)} $year';
   }
 

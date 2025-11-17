@@ -712,7 +712,10 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
   }
 
   Future<void> _loadGeneratedPayslips() async {
-    setState(() => _isLoadingPayslips = true);
+    setState(() {
+      _isLoadingPayslips = true;
+      _generatedPayslipIds.clear(); // Clear stale data immediately
+    });
     try {
       final payslips = await PayrollApiService.getPayslipsForMonth(
         month: _selectedMonth,

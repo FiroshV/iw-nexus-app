@@ -41,10 +41,15 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   String _searchQuery = '';
   String? _error;
   String? _payslipsError;
+  late int _selectedViewMonth;
+  late int _selectedViewYear;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedViewMonth = now.month;
+    _selectedViewYear = now.year;
     _loadEmployees();
     _loadPayslips();
   }
@@ -56,7 +61,10 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
         _payslipsError = null;
       });
 
-      final payslips = await PayrollApiService.getMyPayslips();
+      final payslips = await PayrollApiService.getPayslipsForMonth(
+        month: _selectedViewMonth,
+        year: _selectedViewYear,
+      );
       setState(() {
         _payslips = payslips;
         _payslipsLoading = false;
@@ -353,8 +361,8 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   }
 
   String _getMonthYearLabel(Map<String, dynamic> payslip) {
-    final month = payslip['month'] as int;
-    final year = payslip['year'] as int;
+    final month = (payslip['month'] as int?) ?? DateTime.now().month;
+    final year = (payslip['year'] as int?) ?? DateTime.now().year;
     return '${PayrollApiService.getMonthName(month)} $year';
   }
 
@@ -607,153 +615,234 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     final latestPayslipLabel =
         '${PayrollApiService.getMonthShortName(previousMonth['month']!)} ${previousMonth['year']}';
 
-    return _payslipsLoading
-        ? const Center(
-            child: CircularProgressIndicator(
+    // Build period selector widget
+    final periodSelector = Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<int>(
+            value: _selectedViewMonth,
+            decoration: InputDecoration(
+              labelText: 'Month',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
+            items: List.generate(12, (index) {
+              return DropdownMenuItem(
+                value: index + 1,
+                child: Text(PayrollApiService.getMonthName(index + 1)),
+              );
+            }),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedViewMonth = value);
+                _loadPayslips();
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButtonFormField<int>(
+            value: _selectedViewYear,
+            decoration: InputDecoration(
+              labelText: 'Year',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
+            items: List.generate(5, (index) {
+              final year = DateTime.now().year - 2 + index;
+              return DropdownMenuItem(
+                value: year,
+                child: Text(year.toString()),
+              );
+            }),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedViewYear = value);
+                _loadPayslips();
+              }
+            },
+          ),
+        ),
+      ],
+    );
+
+    if (_payslipsLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
               color: Color(0xFF0071bf),
             ),
-          )
-        : _payslipsError != null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error loading payslips',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _payslipsError!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _loadPayslips,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0071bf),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : _payslips.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0071bf).withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_outlined,
-                            size: 64,
-                            color: Color(0xFF0071bf),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'No Payslips Yet',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF272579),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Your payslips will appear here once generated',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadPayslips,
-                    color: const Color(0xFF0071bf),
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        // Info banner
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0071bf), Color(0xFF00b8d9)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.info_outline,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Latest Payslip',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      latestPayslipLabel,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+          ],
+        ),
+      );
+    }
 
-                        // Payslips list
-                        ..._payslips.map((payslip) => _buildPayslipCard(payslip)),
+    if (_payslipsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading payslips',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _payslipsError!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadPayslips,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0071bf),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Always show period selector in a list view
+    return RefreshIndicator(
+      onRefresh: _loadPayslips,
+      color: const Color(0xFF0071bf),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Period filter - Always visible
+          periodSelector,
+          const SizedBox(height: 16),
+
+          // Show info banner and payslips only if payslips exist
+          if (_payslips.isNotEmpty) ...[
+            // Info banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0071bf), Color(0xFF00b8d9)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Latest Payslip',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          latestPayslipLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
                     ),
-                  );
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Payslips list
+            ..._payslips.map((payslip) => _buildPayslipCard(payslip)),
+          ] else ...[
+            // Show empty state with period selector still visible
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 48),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_outlined,
+                      size: 64,
+                      color: Color(0xFF0071bf),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'No Payslips Yet',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Payslips for ${PayrollApiService.getMonthName(_selectedViewMonth)} $_selectedViewYear will appear here once generated',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildSettingsTab() {
