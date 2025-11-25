@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/access_control_service.dart';
-import '../screens/approval_management_screen.dart';
+import '../screens/unified_approval_screen.dart';
 
 class ApprovalCard extends StatefulWidget {
   final String userRole;
@@ -66,7 +66,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
     if (!canView) {
       debugPrint('🚫 User cannot view approvals - hiding widget');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       return;
     }
 
@@ -80,62 +82,70 @@ class _ApprovalCardState extends State<ApprovalCard> {
     }
 
     try {
+      if (!mounted) return;
+
       if (!isAutoRefresh) {
         setState(() => _isLoading = true);
       } else {
         setState(() => _isAutoRefreshing = true);
       }
 
-      final response = await ApiService.getPendingApprovals();
+      // Fetch both attendance and conveyance pending counts in parallel
+      final attendanceResponse = await ApiService.getPendingApprovals();
+      final conveyanceResponse = await ApiService.getPendingConveyanceApprovals();
       _lastRefreshTime = DateTime.now();
 
       // Debug logging
-      debugPrint('🔍 API Response - Success: ${response.success}');
-      debugPrint('🔍 API Response - Data: ${response.data}');
-      debugPrint('🔍 API Response - Message: ${response.message}');
+      debugPrint('🔍 Attendance Response - Success: ${attendanceResponse.success}');
+      debugPrint('🔍 Conveyance Response - Success: ${conveyanceResponse.success}');
 
-      if (response.success && response.data != null) {
+      if (attendanceResponse.success && conveyanceResponse.success) {
         // Reset failed count on successful refresh
         _failedRefreshCount = 0;
 
+        if (!mounted) return;
+
         setState(() {
-          // Handle both response formats:
-          // 1. {success: true, data: [...], count: n} - object format
-          // 2. [...] - direct list format
-          final dynamic responseData = response.data;
+          // Parse attendance approvals
+          final dynamic attendanceData = attendanceResponse.data;
+          List<dynamic> attendanceApprovals = [];
 
-          List<dynamic> approvals;
-
-          if (responseData is List) {
-            // Direct list format
-            approvals = responseData;
-          } else if (responseData is Map && responseData.containsKey('data')) {
-            // Object format with 'data' field
-            approvals = responseData['data'] ?? [];
-          } else {
-            // Unknown format, default to empty
-            approvals = [];
+          if (attendanceData is List) {
+            attendanceApprovals = attendanceData;
+          } else if (attendanceData is Map && attendanceData.containsKey('data')) {
+            attendanceApprovals = attendanceData['data'] ?? [];
           }
 
-          final newCount = approvals.length;
+          // Parse conveyance approvals
+          final conveyanceApprovals = (conveyanceResponse.data as List<dynamic>?) ?? [];
+
+          // Combine both lists
+          final combinedApprovals = [...attendanceApprovals, ...conveyanceApprovals];
+
+          final newCount = combinedApprovals.length;
           final oldCount = _pendingApprovals.length;
 
-          _pendingApprovals = List<Map<String, dynamic>>.from(approvals);
+          _pendingApprovals = List<Map<String, dynamic>>.from(
+            combinedApprovals.map((e) => e is Map ? e : {}).whereType<Map<String, dynamic>>(),
+          );
           _error = null;
           _isLoading = false;
           _isAutoRefreshing = false;
 
           // Log approval count changes for debugging
           if (isAutoRefresh && newCount != oldCount) {
-            debugPrint('🔄 Auto-refresh: Approvals count changed from $oldCount to $newCount');
+            debugPrint('🔄 Auto-refresh: Approvals count changed from $oldCount to $newCount (Attendance: ${attendanceApprovals.length}, Conveyance: ${conveyanceApprovals.length})');
           }
         });
 
         // Update refresh timer based on current approval count
         _updateRefreshTimer();
       } else {
-        debugPrint('❌ API Response failed - Success: ${response.success}, Message: ${response.message}');
-        _handleRefreshFailure(isAutoRefresh, response.message);
+        final errorMsg = !attendanceResponse.success
+            ? attendanceResponse.message
+            : conveyanceResponse.message;
+        debugPrint('❌ API Response failed - Message: $errorMsg');
+        _handleRefreshFailure(isAutoRefresh, errorMsg);
       }
     } catch (e) {
       debugPrint('❌ Exception in _loadPendingApprovals: $e');
@@ -159,6 +169,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
     debugPrint('⚠️ Handling refresh failure #$_failedRefreshCount');
     debugPrint('⚠️ Error message: $errorMessage');
     debugPrint('⚠️ Is auto refresh: $isAutoRefresh');
+
+    // Only update state if widget is still mounted
+    if (!mounted) return;
 
     setState(() {
       _error = errorMessage;
@@ -310,7 +323,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => ApprovalManagementScreen(
+                builder: (context) => UnifiedApprovalScreen(
                   userRole: widget.userRole,
                 ),
               ),

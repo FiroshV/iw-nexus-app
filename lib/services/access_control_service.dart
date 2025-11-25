@@ -87,6 +87,16 @@ class AccessControlService {
       'view_all': ['admin', 'director'],
       'manage': ['admin', 'director'],
       'generate': ['admin', 'director']
+    },
+
+    // Conveyance Management Features
+    'conveyance_management': {
+      'submit_claim': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_team': ['admin', 'manager', 'director'],
+      'view_all': ['admin', 'director'],
+      'approve_claim': ['admin', 'director', 'manager'],
+      'view_analytics': ['admin', 'director']
     }
   };
 

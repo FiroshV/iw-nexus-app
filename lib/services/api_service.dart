@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
@@ -2068,6 +2069,150 @@ class ApiService {
         'branchName': branchName,
         'netSalary': netSalary,
       },
+    );
+  }
+
+  // ============ Conveyance Management ============
+
+  /// Submit a new conveyance claim
+  static Future<ApiResponse> submitConveyanceClaim({
+    required DateTime date,
+    required double amount,
+    String? purpose,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/conveyance/submit',
+      HttpMethods.post,
+      body: {
+        'date': DateFormat('dd/MM/yyyy').format(date),
+        'amount': amount,
+        'purpose': purpose ?? '',
+      },
+    );
+  }
+
+  /// Get user's own conveyance claims
+  static Future<ApiResponse> getMyConveyanceClaims({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    String endpoint = '/conveyance/my-claims?page=$page&limit=$limit';
+
+    if (startDate != null) {
+      endpoint += '&startDate=${DateFormat('dd/MM/yyyy').format(startDate)}';
+    }
+    if (endDate != null) {
+      endpoint += '&endDate=${DateFormat('dd/MM/yyyy').format(endDate)}';
+    }
+    if (status != null) {
+      endpoint += '&status=$status';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get pending conveyance approvals (for managers)
+  static Future<ApiResponse> getPendingConveyanceApprovals() async {
+    return await _makeRequest<List<dynamic>>(
+      '/conveyance/pending-approvals',
+      HttpMethods.get,
+    );
+  }
+
+  /// Approve a conveyance claim
+  static Future<ApiResponse> approveConveyanceClaim({
+    required String claimId,
+    String? comments,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/conveyance/$claimId/approve',
+      HttpMethods.put,
+      body: {
+        if (comments != null) 'comments': comments,
+      },
+    );
+  }
+
+  /// Reject a conveyance claim
+  static Future<ApiResponse> rejectConveyanceClaim({
+    required String claimId,
+    required String comments,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/conveyance/$claimId/reject',
+      HttpMethods.put,
+      body: {
+        'comments': comments,
+      },
+    );
+  }
+
+  /// Get conveyance claims for a specific user (admin/director/manager)
+  static Future<ApiResponse> getUserConveyanceClaims({
+    required String userId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
+  }) async {
+    String endpoint = '/conveyance/team/$userId';
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${startDate.toIso8601String()}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${endDate.toIso8601String()}');
+    }
+    if (status != null) {
+      queryParts.add('status=$status');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get conveyance analytics (admin/director only)
+  static Future<ApiResponse> getConveyanceAnalytics({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? userId,
+    String? branchId,
+  }) async {
+    String endpoint = '/conveyance/analytics';
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${DateFormat('dd/MM/yyyy').format(startDate)}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${DateFormat('dd/MM/yyyy').format(endDate)}');
+    }
+    if (userId != null) {
+      queryParts.add('userId=$userId');
+    }
+    if (branchId != null) {
+      queryParts.add('branchId=$branchId');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
     );
   }
 

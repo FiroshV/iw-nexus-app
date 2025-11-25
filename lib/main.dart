@@ -21,6 +21,7 @@ import 'screens/feedback/feedback_list_screen.dart';
 import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'screens/admin/payroll/payroll_management_screen.dart';
+import 'screens/conveyance/conveyance_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -1119,6 +1120,22 @@ class _DashboardPageState extends State<DashboardPage> {
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const SendAppointmentLetterScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                      // Conveyance - accessible to all users
+                      if (AccessControlService.hasAccess(userRole, 'conveyance_management', 'view_own')) ...[
+                        _buildDashboardCard(
+                          title: 'Conveyance',
+                          subtitle: 'Submit & track claims',
+                          icon: Icons.commute,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ConveyanceScreen(userRole: userRole),
                               ),
                             );
                           },
