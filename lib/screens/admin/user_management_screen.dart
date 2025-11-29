@@ -8,6 +8,7 @@ import '../../widgets/staff_attendance_widget.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
 import 'payroll/salary_structure_form_screen.dart';
+import 'assign_incentive_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -874,9 +875,13 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
   @override
   void initState() {
     super.initState();
-    // Create tab controller with 2 tabs if user can view attendance, otherwise 1 tab
+    // Create tab controller: Details, Attendance (if permitted), Incentive
+    int tabCount = 1; // Details tab
+    if (widget.canViewStaffAttendance) tabCount++;
+    tabCount++; // Incentive tab
+
     _tabController = TabController(
-      length: widget.canViewStaffAttendance ? 2 : 1,
+      length: tabCount,
       vsync: this,
     );
   }
@@ -962,6 +967,75 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
               'Branch',
               widget.user['branchId']['branchName'] ?? 'Unknown Branch',
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncentiveTab() {
+    // Add import at the top of the file
+    // import '../../services/incentive_api_service.dart';
+    // import 'assign_incentive_screen.dart';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AssignIncentiveScreen(
+                      employeeId: widget.userId,
+                      employeeData: widget.user,
+                    ),
+                  ),
+                ).then((result) {
+                  if (result == true && mounted) {
+                    // Refresh if assignment was successful
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Incentive assigned successfully'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                });
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Assign Incentive'),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Incentive Info
+          Text(
+            'Current Incentive Structure',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Show no incentive message or fetch current incentive
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Text(
+              'Click "Assign Incentive" to create or modify this employee\'s incentive structure.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.blue[700],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1125,14 +1199,19 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
-                tabs: const [
-                  Tab(
+                tabs: [
+                  const Tab(
                     icon: Icon(Icons.info_outline, size: 18),
                     text: 'Details',
                   ),
-                  Tab(
-                    icon: Icon(Icons.calendar_today, size: 18),
-                    text: 'Attendance',
+                  if (widget.canViewStaffAttendance)
+                    const Tab(
+                      icon: Icon(Icons.calendar_today, size: 18),
+                      text: 'Attendance',
+                    ),
+                  const Tab(
+                    icon: Icon(Icons.trending_up, size: 18),
+                    text: 'Incentive',
                   ),
                 ],
               ),
@@ -1140,18 +1219,18 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
 
           // Content
           Expanded(
-            child: widget.canViewStaffAttendance
-                ? TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildDetailsTab(),
-                      StaffAttendanceWidget(
-                        userId: widget.userId,
-                        userName: widget.fullName,
-                      ),
-                    ],
-                  )
-                : _buildDetailsTab(),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildDetailsTab(),
+                if (widget.canViewStaffAttendance)
+                  StaffAttendanceWidget(
+                    userId: widget.userId,
+                    userName: widget.fullName,
+                  ),
+                _buildIncentiveTab(),
+              ],
+            ),
           ),
         ],
       ),

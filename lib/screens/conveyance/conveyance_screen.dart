@@ -531,28 +531,6 @@ class _AnalyticsTabState extends State<AnalyticsTab> with SingleTickerProviderSt
     }
   }
 
-  bool _validateDates(DateTime startDate, DateTime endDate) {
-    if (startDate.isAfter(endDate)) {
-      setState(() => _dateError = 'Start date must be before end date');
-      return false;
-    }
-
-    final maxDate = DateTime.now();
-    final minDate = maxDate.subtract(const Duration(days: 365));
-
-    if (startDate.isBefore(minDate) || startDate.isAfter(maxDate)) {
-      setState(() => _dateError = 'Start date must be within the last 365 days');
-      return false;
-    }
-
-    if (endDate.isAfter(maxDate)) {
-      setState(() => _dateError = 'End date cannot be in the future');
-      return false;
-    }
-
-    return true;
-  }
-
   void _applyDatePreset(String preset) {
     final now = DateTime.now();
     DateTime start = now;

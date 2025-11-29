@@ -97,6 +97,17 @@ class AccessControlService {
       'view_all': ['admin', 'director'],
       'approve_claim': ['admin', 'director', 'manager'],
       'view_analytics': ['admin', 'director']
+    },
+
+    // Incentive Management Features
+    'incentive_management': {
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_all': ['admin', 'director'],
+      'create_template': ['admin', 'director'],
+      'edit_template': ['admin', 'director'],
+      'delete_template': ['admin', 'director'],
+      'assign': ['admin', 'director'],
+      'adjust_performance': ['admin', 'director']
     }
   };
 
@@ -492,6 +503,43 @@ class AccessControlService {
       debugPrint('🔐 ACCESS: _extractBranchId - no valid branch ID found');
     }
     return null;
+  }
+
+  /// Check if user can manage incentives
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can create/edit incentive templates
+  static bool canManageIncentives(String? userRole) {
+    return hasAccess(userRole, 'incentive_management', 'create_template') ||
+           hasAccess(userRole, 'incentive_management', 'assign');
+  }
+
+  /// Check if user can create/edit incentive templates
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can create templates
+  static bool canCreateIncentiveTemplate(String? userRole) {
+    return hasAccess(userRole, 'incentive_management', 'create_template');
+  }
+
+  /// Check if user can assign incentives
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can assign incentives
+  static bool canAssignIncentive(String? userRole) {
+    return hasAccess(userRole, 'incentive_management', 'assign');
+  }
+
+  /// Check if user can view all incentives
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can view all incentives
+  static bool canViewAllIncentives(String? userRole) {
+    return hasAccess(userRole, 'incentive_management', 'view_all');
   }
 
   /// Debug method to print all permissions for a role

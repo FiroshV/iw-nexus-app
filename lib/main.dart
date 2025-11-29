@@ -22,6 +22,8 @@ import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'screens/admin/payroll/payroll_management_screen.dart';
 import 'screens/conveyance/conveyance_screen.dart';
+import 'screens/admin/incentive_management_screen.dart';
+import 'screens/incentives/my_incentive_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -1136,6 +1138,37 @@ class _DashboardPageState extends State<DashboardPage> {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => ConveyanceScreen(userRole: userRole),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+
+                      // Incentives - accessible to admin, director for management; all for viewing own
+                      if (AccessControlService.canManageIncentives(userRole)) ...[
+                        _buildDashboardCard(
+                          title: 'Incentives',
+                          subtitle: 'Manage structures & templates',
+                          icon: Icons.trending_up,
+                          color: const Color(0xFF0071bf),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const IncentiveManagementScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ] else if (AccessControlService.hasAccess(userRole, 'incentive_management', 'view_own')) ...[
+                        _buildDashboardCard(
+                          title: 'My Incentive',
+                          subtitle: 'View your structure',
+                          icon: Icons.trending_up,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const MyIncentiveScreen(),
                               ),
                             );
                           },
