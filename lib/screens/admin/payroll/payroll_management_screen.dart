@@ -45,8 +45,8 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   late int _selectedViewYear;
   String _selectedViewEmployeeId = '';
   String _currentUserId = '';
+  // ignore: unused_field
   String _currentUserRole = '';
-  List<Map<String, dynamic>> _allEmployeesForSelector = [];
 
   @override
   void initState() {
@@ -672,7 +672,6 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
                   ..._employees.where((e) => e['_id'] != _currentUserId),
                 ];
                 return allEmpList.map((e) {
-                  final name = '${e['firstName']} ${e['lastName']}';
                   return e['_id'] as String;
                 });
               }
@@ -827,7 +826,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
       children: [
         Expanded(
           child: DropdownButtonFormField<int>(
-            value: _selectedViewMonth,
+            initialValue: _selectedViewMonth,
             decoration: InputDecoration(
               labelText: 'Month',
               border: OutlineInputBorder(
@@ -855,7 +854,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButtonFormField<int>(
-            value: _selectedViewYear,
+            initialValue: _selectedViewYear,
             decoration: InputDecoration(
               labelText: 'Year',
               border: OutlineInputBorder(

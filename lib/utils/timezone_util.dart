@@ -24,7 +24,10 @@ import 'package:intl/intl.dart';
 class TimezoneUtil {
   static tz.Location? _istLocation;
   static String? _deviceTimezone;
-  
+
+  /// Get IST location (internal access)
+  static tz.Location? get istLocation => _istLocation;
+
   /// Initialize timezone data and set up IST location
   /// This should be called during app initialization
   static Future<void> initialize() async {
@@ -78,24 +81,16 @@ class TimezoneUtil {
       debugPrint('Warning: IST location not initialized, using system timezone');
       return tz.TZDateTime.from(utcDateTime, tz.local);
     }
-    
+
     // If the input is already timezone-aware, convert it
     if (utcDateTime is tz.TZDateTime) {
       return tz.TZDateTime.from(utcDateTime.toUtc(), _istLocation!);
     }
-    
-    // Assume input is UTC if it's a regular DateTime
-    final utcTz = tz.TZDateTime.utc(
-      utcDateTime.year,
-      utcDateTime.month,
-      utcDateTime.day,
-      utcDateTime.hour,
-      utcDateTime.minute,
-      utcDateTime.second,
-      utcDateTime.millisecond,
-    );
-    
-    return tz.TZDateTime.from(utcTz, _istLocation!);
+
+    // For regular DateTime, ensure it's in UTC then convert to IST
+    // DateTime.parse() with 'Z' suffix returns the moment in UTC
+    // We need to convert this UTC moment to IST timezone
+    return tz.TZDateTime.from(utcDateTime, _istLocation!);
   }
   
   /// Convert IST TZDateTime to UTC DateTime for API calls

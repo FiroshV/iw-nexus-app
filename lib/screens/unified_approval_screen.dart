@@ -164,10 +164,9 @@ class _AttendanceApprovalsTabState extends State<AttendanceApprovalsTab> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allApprovals = [];
   List<Map<String, dynamic>> _filteredApprovals = [];
-  final Set<String> _selectedApprovals = {};
   String? _error;
   final TextEditingController _searchController = TextEditingController();
-  String _selectedFilter = 'all';
+  final String _selectedFilter = 'all';
   final String _selectedSort = 'date_desc';
 
   @override
@@ -659,55 +658,6 @@ class _ConveyanceApprovalsTabState extends State<ConveyanceApprovalsTab> {
         );
       }
     }
-  }
-
-  void _showRejectDialog(String claimId) {
-    final commentsController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reject Claim'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Please provide a reason for rejection:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: commentsController,
-              maxLines: 3,
-              maxLength: 500,
-              decoration: InputDecoration(
-                hintText: 'Enter rejection reason',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              final comments = commentsController.text.trim();
-              if (comments.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please provide a rejection reason')),
-                );
-                return;
-              }
-              Navigator.pop(context);
-              await _rejectClaim(claimId, comments);
-            },
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildClaimTile(dynamic claim) {

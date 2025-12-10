@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../services/payroll_api_service.dart';
 import '../../../services/api_service.dart';
 import '../../../services/salary_template_api_service.dart';
+import '../../../utils/date_util.dart';
 import '../edit_user_screen.dart';
 
 /// Admin screen for creating/editing employee salary structure
@@ -231,10 +232,12 @@ class _SalaryStructureFormScreenState extends State<SalaryStructureFormScreen> {
       final joiningDateStr = employee['dateOfJoining'] as String?;
       if (joiningDateStr != null && joiningDateStr.isNotEmpty) {
         // Parse the date and format it as DD-MM-YYYY
-        final joiningDate = DateTime.parse(joiningDateStr);
-        _effectiveFromController.text =
-            '${joiningDate.day.toString().padLeft(2, '0')}-${joiningDate.month.toString().padLeft(2, '0')}-${joiningDate.year}';
-        debugPrint('📅 Auto-filled effective from with joining date: ${_effectiveFromController.text}');
+        final joiningDate = DateUtil.parseDateFromApi(joiningDateStr);
+        if (joiningDate != null) {
+          _effectiveFromController.text =
+              '${joiningDate.day.toString().padLeft(2, '0')}-${joiningDate.month.toString().padLeft(2, '0')}-${joiningDate.year}';
+          debugPrint('📅 Auto-filled effective from with joining date: ${_effectiveFromController.text}');
+        }
       }
     } catch (e) {
       debugPrint('⚠️ Error parsing joining date: $e');

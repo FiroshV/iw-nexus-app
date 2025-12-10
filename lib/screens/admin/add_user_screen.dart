@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../utils/date_util.dart';
 
 class AddUserScreen extends StatefulWidget {
   const AddUserScreen({super.key});
@@ -162,13 +163,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
     });
 
     try {
-      // Convert date of joining to IST (midnight)
+      // Convert date of joining to midnight UTC for API
       String? dateOfJoiningIst;
       if (selectedJoiningDate != null) {
-        final doj = selectedJoiningDate!;
-        // Store date at midnight IST (Asia/Kolkata timezone)
-        final istDoj = DateTime(doj.year, doj.month, doj.day, 0, 0, 0);
-        dateOfJoiningIst = istDoj.toIso8601String();
+        // Convert local date to UTC midnight - preserves the date component
+        final utcMidnightDate = DateUtil.dateOnlyToUtcMidnight(selectedJoiningDate!);
+        dateOfJoiningIst = DateUtil.utcMidnightToApiString(utcMidnightDate);
       }
 
       final response = await ApiService.createUser(
@@ -763,7 +763,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                   const SizedBox(height: 4),
                   Text(
                     selectedJoiningDate != null
-                        ? '${selectedJoiningDate!.day}/${selectedJoiningDate!.month}/${selectedJoiningDate!.year}'
+                        ? DateUtil.formatDateForDisplay(selectedJoiningDate)
                         : 'Select date (optional)',
                     style: TextStyle(
                       fontSize: 16,

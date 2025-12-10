@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../services/access_control_service.dart';
 import '../../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
+import '../../utils/date_util.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -83,7 +84,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
     // selectedBranchId will be set in _loadBranches() after data is loaded
 
     if (widget.user['dateOfJoining'] != null) {
-      selectedJoiningDate = DateTime.parse(widget.user['dateOfJoining']);
+      selectedJoiningDate = DateUtil.parseDateFromApi(widget.user['dateOfJoining']);
     }
 
     // Manager will be loaded from the branch information
@@ -231,12 +232,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
         if (_esiNumberController.text.trim().isNotEmpty) 'esiNumber': _esiNumberController.text.trim(),
       };
 
-      // Convert date of joining to IST (midnight)
+      // Convert date of joining to midnight UTC for API
       if (selectedJoiningDate != null) {
-        final doj = selectedJoiningDate!;
-        // Store date at midnight IST (Asia/Kolkata timezone)
-        final istDoj = DateTime(doj.year, doj.month, doj.day, 0, 0, 0);
-        updateData['dateOfJoining'] = istDoj.toIso8601String();
+        final utcMidnightDate = DateUtil.dateOnlyToUtcMidnight(selectedJoiningDate!);
+        updateData['dateOfJoining'] = DateUtil.utcMidnightToApiString(utcMidnightDate);
       }
 
       final response = await ApiService.updateUser(
@@ -868,9 +867,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    selectedJoiningDate != null
-                        ? '${selectedJoiningDate!.day}/${selectedJoiningDate!.month}/${selectedJoiningDate!.year}'
-                        : 'Select date',
+                    DateUtil.formatDateForDisplay(selectedJoiningDate),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,

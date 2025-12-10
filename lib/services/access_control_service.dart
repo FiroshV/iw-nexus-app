@@ -97,6 +97,23 @@ class AccessControlService {
       'view_all': ['admin', 'director'],
       'approve_claim': ['admin', 'director', 'manager'],
       'view_analytics': ['admin', 'director']
+    },
+
+    // CRM Management Features (Appointments, Visits, Sales)
+    'crm_management': {
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_team': ['admin', 'manager', 'director'],
+      'view_all': ['admin', 'director'],
+      'schedule_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_appointments': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'edit_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'cancel_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'delete_appointment': ['admin', 'director'],
+      'complete_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_team_schedule': ['admin', 'manager', 'director'],
+      'view_all_schedules': ['admin', 'director'],
+      'schedule_for_others': ['admin', 'manager', 'director'],
+      'manage_team_appointments': ['admin', 'manager', 'director']
     }
   };
 
@@ -492,6 +509,78 @@ class AccessControlService {
       debugPrint('🔐 ACCESS: _extractBranchId - no valid branch ID found');
     }
     return null;
+  }
+
+  /// Check if user can schedule appointments
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can schedule appointments
+  static bool canScheduleAppointment(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'schedule_appointment');
+  }
+
+  /// Check if user can view team schedule
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can view team schedule
+  static bool canViewTeamSchedule(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'view_team_schedule');
+  }
+
+  /// Check if user can view all schedules
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can view all schedules
+  static bool canViewAllSchedules(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'view_all_schedules');
+  }
+
+  /// Check if user can schedule appointments for others
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can schedule for others
+  static bool canScheduleForOthers(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'schedule_for_others');
+  }
+
+  /// Check if user can manage team appointments
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can manage team appointments
+  static bool canManageTeamAppointments(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'manage_team_appointments');
+  }
+
+  /// Check if user can complete appointments
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can complete appointments
+  static bool canCompleteAppointment(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'complete_appointment');
+  }
+
+  /// Check if user can cancel appointments
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can cancel appointments
+  static bool canCancelAppointment(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'cancel_appointment');
+  }
+
+  /// Check if user can delete appointments (admin/director only)
+  ///
+  /// [userRole] - The user's role
+  ///
+  /// Returns true if user can delete appointments
+  static bool canDeleteAppointment(String? userRole) {
+    return hasAccess(userRole, 'crm_management', 'delete_appointment');
   }
 
   /// Debug method to print all permissions for a role

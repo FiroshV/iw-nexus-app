@@ -45,8 +45,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
   Future<void> _loadExistingPayslips() async {
     setState(() => _isLoadingPayslips = true);
     try {
-      // TODO: Load existing payslips for the selected month/year
-      // For now, just set to empty
       setState(() {
         _generatedPayslips = [];
         _isLoadingPayslips = false;
@@ -470,7 +468,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
         const Spacer(),
         TextButton.icon(
           onPressed: () {
-            // TODO: Implement email all
             _showMessage('Email feature coming soon!');
           },
           icon: const Icon(Icons.email),
@@ -536,7 +533,6 @@ class _PayslipGenerationScreenState extends State<PayslipGenerationScreen> {
                 IconButton(
                   icon: const Icon(Icons.visibility, color: Color(0xFF0071bf)),
                   onPressed: () {
-                    // TODO: Navigate to payslip detail
                     _showMessage('View feature coming soon!');
                   },
                   tooltip: 'View',
@@ -1550,10 +1546,12 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
       }
 
       if (mounted) {
+        final currentContext = context;
         await _loadGeneratedPayslips();
         _selectedEmployeeIds.clear();
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) return;
+        ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
             content: Text(
               failedCount == 0
@@ -1566,14 +1564,14 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      final currentContextError = context;
+      ScaffoldMessenger.of(currentContextError).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

@@ -70,14 +70,17 @@ class _ConveyanceManagementScreenState extends State<ConveyanceManagementScreen>
   }
 
   Future<void> _selectDateRange() async {
+    final currentContext = context;
     final startDate = await showDatePicker(
-      context: context,
+      context: currentContext,
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
 
     if (startDate == null) return;
+
+    if (!mounted) return;
 
     final endDate = await showDatePicker(
       context: context,
@@ -88,12 +91,14 @@ class _ConveyanceManagementScreenState extends State<ConveyanceManagementScreen>
 
     if (endDate == null) return;
 
-    setState(() {
-      _startDate = startDate;
-      _endDate = endDate;
-    });
+    if (mounted) {
+      setState(() {
+        _startDate = startDate;
+        _endDate = endDate;
+      });
 
-    _loadAnalytics();
+      _loadAnalytics();
+    }
   }
 
   @override

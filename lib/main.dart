@@ -22,6 +22,19 @@ import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'screens/admin/payroll/payroll_management_screen.dart';
 import 'screens/conveyance/conveyance_screen.dart';
+import 'screens/crm/crm_module_screen.dart';
+import 'screens/crm/customer_list_screen.dart';
+import 'screens/crm/customer_detail_screen.dart';
+import 'screens/crm/appointment_details_screen.dart';
+import 'screens/crm/team_schedule_screen.dart';
+import 'screens/crm/sales_list_screen.dart';
+import 'screens/crm/add_edit_customer_screen.dart';
+import 'screens/crm/add_edit_sale_screen.dart';
+import 'screens/crm/simplified_appointment_screen.dart';
+import 'screens/crm/quick_activity_log_screen.dart';
+import 'screens/crm/activity_list_screen.dart';
+import 'screens/crm/activity_details_screen.dart';
+import 'screens/crm/unified_appointments_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -138,8 +151,147 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: const AuthWrapper(),
+        onGenerateRoute: _generateRoute,
       ),
     );
+  }
+
+  /// Generate routes for the application
+  static Route<dynamic> _generateRoute(RouteSettings settings) {
+    final args = settings.arguments as Map<String, dynamic>?;
+
+    switch (settings.name) {
+      // CRM Routes
+      case '/crm/customer-list':
+        return MaterialPageRoute(
+          builder: (_) => CustomerListScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/customer-detail':
+        return MaterialPageRoute(
+          builder: (_) => CustomerDetailScreen(
+            customerId: args?['customerId'] ?? '',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/appointment-details':
+        return MaterialPageRoute(
+          builder: (_) => AppointmentDetailsScreen(
+            appointmentId: args?['appointmentId'] ?? '',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/team-schedule':
+        return MaterialPageRoute(
+          builder: (_) => TeamScheduleScreen(
+            branchId: args?['branchId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/sales-list':
+        return MaterialPageRoute(
+          builder: (_) => SalesListScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/sale-details':
+        // Note: This route would need the actual Sale object passed via Navigator.push
+        // For now, returning a placeholder. Sales details are typically accessed via push with Sale object
+        return MaterialPageRoute(
+          builder: (_) => const Scaffold(
+            body: Center(child: Text('Sale details not found')),
+          ),
+          settings: settings,
+        );
+
+      case '/crm/add-customer':
+        return MaterialPageRoute(
+          builder: (_) => const AddEditCustomerScreen(),
+          settings: settings,
+        );
+
+      case '/crm/add-edit-sale':
+        return MaterialPageRoute(
+          builder: (_) => const AddEditSaleScreen(),
+          settings: settings,
+        );
+
+      case '/crm/simplified-appointment':
+        return MaterialPageRoute(
+          builder: (_) => SimplifiedAppointmentScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+            initialCustomerId: args?['customerId'],
+          ),
+          settings: settings,
+        );
+
+      case '/crm/log-activity':
+        return MaterialPageRoute(
+          builder: (_) => QuickActivityLogScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+            initialCustomerId: args?['customerId'],
+          ),
+          settings: settings,
+        );
+
+      case '/crm/activity-list':
+        return MaterialPageRoute(
+          builder: (_) => ActivityListScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/activity-details':
+        return MaterialPageRoute(
+          builder: (_) => ActivityDetailsScreen(
+            activityId: args?['activityId'] ?? '',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/appointments':
+        return MaterialPageRoute(
+          builder: (_) => UnifiedAppointmentsScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+            initialTab: args?['initialTab'] ?? 0,
+          ),
+          settings: settings,
+        );
+
+      default:
+        // Return a 404-like screen for undefined routes
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Not Found')),
+            body: Center(
+              child: Text('Route ${settings.name} not found'),
+            ),
+          ),
+          settings: settings,
+        );
+    }
   }
 }
 
@@ -1141,6 +1293,24 @@ class _DashboardPageState extends State<DashboardPage> {
                           },
                         ),
                       ],
+
+                      // CRM - Sales, Visits & Follow-ups - accessible to all users
+                      _buildDashboardCard(
+                        title: 'CRM Module',
+                        subtitle: 'Manage sales, visits & follow-ups',
+                        icon: Icons.trending_up,
+                        color: const Color(0xFF5cfbd8),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => CrmModuleScreen(
+                                userId: currentUser?['_id'] ?? '',
+                                userRole: userRole,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],

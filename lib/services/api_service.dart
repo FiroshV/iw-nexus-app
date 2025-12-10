@@ -52,7 +52,7 @@ class ApiService {
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
   );
-  
+
   // Add auth debug logging with IST timestamp
   static void _authLog(String message) {
     if (ApiConfig.enableAuthDebugLogging) {
@@ -567,14 +567,34 @@ class ApiService {
   /// Returns:
   /// - Success: User existence status and user data if exists
   /// - Error: User not found or validation errors
-  /// 
+  /// Generic GET request method for making GET calls to any endpoint
+  static Future<http.Response> get(String endpoint) async {
+    try {
+      final token = await getToken();
+      final headers = {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final response = await _client.get(uri, headers: headers).timeout(
+        const Duration(seconds: 30),
+      );
+
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  ///
   /// Example:
   /// ```dart
   /// final response = await ApiService.checkUserExists(
   ///   identifier: 'john.doe@company.com',
   ///   method: 'email',
   /// );
-  /// 
+  ///
   /// if (response.success) {
   ///   print('User exists: ${response.data!['exists']}');
   /// }
@@ -2204,6 +2224,423 @@ class ApiService {
     }
     if (branchId != null) {
       queryParts.add('branchId=$branchId');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  // ============= CRM MANAGEMENT METHODS =============
+
+  /// Create a new customer
+  static Future<ApiResponse> createCustomer({
+    required String name,
+    required String mobileNumber,
+    String? email,
+    String? address,
+    Map<String, dynamic>? location,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.crmCustomers,
+      HttpMethods.post,
+      body: {
+        'name': name,
+        'mobileNumber': mobileNumber,
+        if (email != null) 'email': email,
+        if (address != null) 'address': address,
+        if (location != null) 'location': location,
+      },
+    );
+  }
+
+  /// Get list of customers
+  static Future<ApiResponse> getCustomers({
+    int skip = 0,
+    int limit = 20,
+    String? search,
+  }) async {
+    final endpoint = ApiEndpoints.buildCustomersQuery(
+      skip: skip,
+      limit: limit,
+      search: search,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get customer details with sales and visit history
+  static Future<ApiResponse> getCustomerDetails(String customerId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.customerByIdEndpoint(customerId),
+      HttpMethods.get,
+    );
+  }
+
+  /// Create a new sale
+  static Future<ApiResponse> createSale({
+    required String customerId,
+    required String productType,
+    required DateTime dateOfSale,
+    required String companyName,
+    required String productPlanName,
+    double? premiumAmount,
+    double? investmentAmount,
+    double? sipAmount,
+    String? paymentFrequency,
+    String? investmentType,
+    String? notes,
+    String? initialVisitId,
+    List<String>? assignedEmployeeIds,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.crmSales,
+      HttpMethods.post,
+      body: {
+        'customerId': customerId,
+        'productType': productType,
+        'dateOfSale': dateOfSale.toIso8601String(),
+        'companyName': companyName,
+        'productPlanName': productPlanName,
+        if (premiumAmount != null) 'premiumAmount': premiumAmount,
+        if (investmentAmount != null) 'investmentAmount': investmentAmount,
+        if (sipAmount != null) 'sipAmount': sipAmount,
+        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
+        if (investmentType != null) 'investmentType': investmentType,
+        if (notes != null) 'notes': notes,
+        if (initialVisitId != null) 'initialVisitId': initialVisitId,
+        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
+      },
+    );
+  }
+
+  /// Get list of sales with filters
+  static Future<ApiResponse> getSales({
+    int skip = 0,
+    int limit = 20,
+    String? productType,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? branch,
+    String? status,
+    String? search,
+    String view = 'assigned',
+  }) async {
+    final endpoint = ApiEndpoints.buildSalesQuery(
+      skip: skip,
+      limit: limit,
+      productType: productType,
+      startDate: startDate?.toIso8601String(),
+      endDate: endDate?.toIso8601String(),
+      branch: branch,
+      status: status,
+      search: search,
+      view: view,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get sale details with related visits
+  static Future<ApiResponse> getSaleDetails(String saleId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.saleByIdEndpoint(saleId),
+      HttpMethods.get,
+    );
+  }
+
+  /// Update a sale
+  static Future<ApiResponse> updateSale({
+    required String saleId,
+    String? productType,
+    DateTime? dateOfSale,
+    String? companyName,
+    String? productPlanName,
+    double? premiumAmount,
+    double? investmentAmount,
+    double? sipAmount,
+    String? paymentFrequency,
+    String? investmentType,
+    String? notes,
+    String? status,
+    List<String>? assignedEmployeeIds,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.saleByIdEndpoint(saleId),
+      HttpMethods.put,
+      body: {
+        if (productType != null) 'productType': productType,
+        if (dateOfSale != null) 'dateOfSale': dateOfSale.toIso8601String(),
+        if (companyName != null) 'companyName': companyName,
+        if (productPlanName != null) 'productPlanName': productPlanName,
+        if (premiumAmount != null) 'premiumAmount': premiumAmount,
+        if (investmentAmount != null) 'investmentAmount': investmentAmount,
+        if (sipAmount != null) 'sipAmount': sipAmount,
+        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
+        if (investmentType != null) 'investmentType': investmentType,
+        if (notes != null) 'notes': notes,
+        if (status != null) 'status': status,
+        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
+      },
+    );
+  }
+
+  /// Delete a sale
+  static Future<ApiResponse> deleteSale(String saleId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.saleByIdEndpoint(saleId),
+      HttpMethods.delete,
+    );
+  }
+
+  /// Create a new visit
+  static Future<ApiResponse> createVisit({
+    required String customerId,
+    required DateTime dateOfVisit,
+    required String purpose,
+    String? purposeOther,
+    required String outcome,
+    String? outcomeOther,
+    String? notes,
+    DateTime? nextFollowUpDate,
+    String? address,
+    int? timeSpentMinutes,
+    List<String>? linkedSaleIds,
+    List<String>? assignedEmployeeIds,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.crmVisits,
+      HttpMethods.post,
+      body: {
+        'customerId': customerId,
+        'dateOfVisit': dateOfVisit.toIso8601String(),
+        'purpose': purpose,
+        if (purposeOther != null) 'purposeOther': purposeOther,
+        'outcome': outcome,
+        if (outcomeOther != null) 'outcomeOther': outcomeOther,
+        if (notes != null) 'notes': notes,
+        if (nextFollowUpDate != null) 'nextFollowUpDate': nextFollowUpDate.toIso8601String(),
+        if (address != null) 'address': address,
+        if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+        if (linkedSaleIds != null && linkedSaleIds.isNotEmpty) 'linkedSaleIds': linkedSaleIds,
+        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
+      },
+    );
+  }
+
+  /// Get list of visits with filters
+  static Future<ApiResponse> getVisits({
+    int skip = 0,
+    int limit = 20,
+    String? customerId,
+    String? linkedSaleId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? outcome,
+    String? search,
+    String? followupFilter,
+  }) async {
+    final endpoint = ApiEndpoints.buildVisitsQuery(
+      skip: skip,
+      limit: limit,
+      customerId: customerId,
+      linkedSaleId: linkedSaleId,
+      startDate: startDate?.toIso8601String(),
+      endDate: endDate?.toIso8601String(),
+      outcome: outcome,
+      search: search,
+      followupFilter: followupFilter,
+    );
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get visit details with linked sales
+  static Future<ApiResponse> getVisitDetails(String visitId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.visitByIdEndpoint(visitId),
+      HttpMethods.get,
+    );
+  }
+
+  /// Update a visit
+  static Future<ApiResponse> updateVisit({
+    required String visitId,
+    DateTime? dateOfVisit,
+    String? purpose,
+    String? purposeOther,
+    String? outcome,
+    String? outcomeOther,
+    String? notes,
+    DateTime? nextFollowUpDate,
+    String? address,
+    int? timeSpentMinutes,
+    List<String>? assignedEmployeeIds,
+  }) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.visitByIdEndpoint(visitId),
+      HttpMethods.put,
+      body: {
+        if (dateOfVisit != null) 'dateOfVisit': dateOfVisit.toIso8601String(),
+        if (purpose != null) 'purpose': purpose,
+        if (purposeOther != null) 'purposeOther': purposeOther,
+        if (outcome != null) 'outcome': outcome,
+        if (outcomeOther != null) 'outcomeOther': outcomeOther,
+        if (notes != null) 'notes': notes,
+        if (nextFollowUpDate != null) 'nextFollowUpDate': nextFollowUpDate.toIso8601String(),
+        if (address != null) 'address': address,
+        if (timeSpentMinutes != null) 'timeSpentMinutes': timeSpentMinutes,
+        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
+      },
+    );
+  }
+
+  /// Delete a visit
+  static Future<ApiResponse> deleteVisit(String visitId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.visitByIdEndpoint(visitId),
+      HttpMethods.delete,
+    );
+  }
+
+  /// Link a visit to a sale
+  static Future<ApiResponse> linkVisitToSale(String visitId, String saleId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.linkVisitToSaleEndpoint(visitId, saleId),
+      HttpMethods.post,
+    );
+  }
+
+  /// Unlink a visit from a sale
+  static Future<ApiResponse> unlinkVisitFromSale(String visitId, String saleId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      ApiEndpoints.unlinkVisitFromSaleEndpoint(visitId, saleId),
+      HttpMethods.delete,
+    );
+  }
+
+  /// Get sales by product type report
+  static Future<ApiResponse> getSalesByProductReport({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? branch,
+    String? userId,
+  }) async {
+    String endpoint = ApiEndpoints.salesByProduct;
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${startDate.toIso8601String()}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${endDate.toIso8601String()}');
+    }
+    if (branch != null) {
+      queryParts.add('branch=$branch');
+    }
+    if (userId != null) {
+      queryParts.add('userId=$userId');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get employee performance report
+  static Future<ApiResponse> getEmployeePerformanceReport({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? branch,
+    String? sortBy,
+  }) async {
+    String endpoint = ApiEndpoints.employeePerformance;
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${startDate.toIso8601String()}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${endDate.toIso8601String()}');
+    }
+    if (branch != null) {
+      queryParts.add('branch=$branch');
+    }
+    if (sortBy != null) {
+      queryParts.add('sortBy=$sortBy');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get visit effectiveness report
+  static Future<ApiResponse> getVisitEffectivenessReport({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? branch,
+  }) async {
+    String endpoint = ApiEndpoints.visitEffectiveness;
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${startDate.toIso8601String()}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${endDate.toIso8601String()}');
+    }
+    if (branch != null) {
+      queryParts.add('branch=$branch');
+    }
+
+    if (queryParts.isNotEmpty) {
+      endpoint += '?${queryParts.join('&')}';
+    }
+
+    return await _makeRequest<Map<String, dynamic>>(
+      endpoint,
+      HttpMethods.get,
+    );
+  }
+
+  /// Get branch sales report (admin/director only)
+  static Future<ApiResponse> getBranchSalesReport({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    String endpoint = ApiEndpoints.branchSales;
+
+    final queryParts = <String>[];
+    if (startDate != null) {
+      queryParts.add('startDate=${startDate.toIso8601String()}');
+    }
+    if (endDate != null) {
+      queryParts.add('endDate=${endDate.toIso8601String()}');
     }
 
     if (queryParts.isNotEmpty) {

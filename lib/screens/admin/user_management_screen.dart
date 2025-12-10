@@ -5,6 +5,7 @@ import '../../services/access_control_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/staff_attendance_widget.dart';
+import '../../utils/date_util.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
 import 'payroll/salary_structure_form_screen.dart';
@@ -954,7 +955,9 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
             _buildDetailRow(
               Icons.calendar_today_rounded,
               'Date of Joining',
-              DateTime.parse(widget.user['dateOfJoining']).toString().split(' ')[0],
+              DateUtil.formatDateForDisplayLong(
+                DateUtil.parseDateFromApi(widget.user['dateOfJoining']),
+              ),
             ),
           if (widget.user['branchId'] != null && widget.user['branchId'] is Map)
             _buildDetailRow(

@@ -15,7 +15,7 @@ class _SubmitConveyanceScreenState extends State<SubmitConveyanceScreen> {
   DateTime? _selectedDate;
   bool _isLoading = false;
   String? _error;
-  bool _isSubmitted = false;
+  final bool _isSubmitted = false;
 
   @override
   void initState() {

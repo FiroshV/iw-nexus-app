@@ -70,6 +70,17 @@ class ApiEndpoints {
   static const String addFeedbackResponse = '$feedback/{feedbackId}/response';
   static const String deleteFeedback = '$feedback/{feedbackId}';
 
+  // CRM endpoints
+  static const String crm = '/crm';
+  static const String crmSales = '$crm/sales';
+  static const String crmCustomers = '$crm/customers';
+  static const String crmVisits = '$crm/visits';
+  static const String crmReports = '$crm/reports';
+  static const String salesByProduct = '$crmReports/sales-by-product';
+  static const String employeePerformance = '$crmReports/employee-performance';
+  static const String visitEffectiveness = '$crmReports/visit-effectiveness';
+  static const String branchSales = '$crmReports/branch-sales';
+
   // System endpoints
   static const String healthCheck = health;
 
@@ -168,6 +179,83 @@ class ApiEndpoints {
 
     return '$getAllFeedback?${params.join('&')}';
   }
+
+  // CRM query builders
+  static String buildSalesQuery({
+    int skip = 0,
+    int limit = 20,
+    String? productType,
+    String? startDate,
+    String? endDate,
+    String? branch,
+    String? status,
+    String? search,
+    String view = 'assigned',
+  }) {
+    final params = <String>[];
+    params.add('skip=$skip');
+    params.add('limit=$limit');
+    params.add('view=$view');
+
+    if (productType != null) params.add('productType=${Uri.encodeComponent(productType)}');
+    if (startDate != null) params.add('startDate=${Uri.encodeComponent(startDate)}');
+    if (endDate != null) params.add('endDate=${Uri.encodeComponent(endDate)}');
+    if (branch != null) params.add('branch=${Uri.encodeComponent(branch)}');
+    if (status != null) params.add('status=${Uri.encodeComponent(status)}');
+    if (search != null) params.add('search=${Uri.encodeComponent(search)}');
+
+    return '$crmSales?${params.join('&')}';
+  }
+
+  static String buildCustomersQuery({
+    int skip = 0,
+    int limit = 20,
+    String? search,
+  }) {
+    final params = <String>[];
+    params.add('skip=$skip');
+    params.add('limit=$limit');
+
+    if (search != null) params.add('search=${Uri.encodeComponent(search)}');
+
+    return '$crmCustomers?${params.join('&')}';
+  }
+
+  static String buildVisitsQuery({
+    int skip = 0,
+    int limit = 20,
+    String? customerId,
+    String? linkedSaleId,
+    String? startDate,
+    String? endDate,
+    String? outcome,
+    String? search,
+    String? followupFilter,
+  }) {
+    final params = <String>[];
+    params.add('skip=$skip');
+    params.add('limit=$limit');
+
+    if (customerId != null) params.add('customerId=${Uri.encodeComponent(customerId)}');
+    if (linkedSaleId != null) params.add('linkedSaleId=${Uri.encodeComponent(linkedSaleId)}');
+    if (startDate != null) params.add('startDate=${Uri.encodeComponent(startDate)}');
+    if (endDate != null) params.add('endDate=${Uri.encodeComponent(endDate)}');
+    if (outcome != null) params.add('outcome=${Uri.encodeComponent(outcome)}');
+    if (search != null && search.isNotEmpty) params.add('search=${Uri.encodeComponent(search)}');
+    if (followupFilter != null) params.add('followupFilter=${Uri.encodeComponent(followupFilter)}');
+
+    return '$crmVisits?${params.join('&')}';
+  }
+
+  static String saleByIdEndpoint(String saleId) => '$crmSales/$saleId';
+
+  static String customerByIdEndpoint(String customerId) => '$crmCustomers/$customerId';
+
+  static String visitByIdEndpoint(String visitId) => '$crmVisits/$visitId';
+
+  static String linkVisitToSaleEndpoint(String visitId, String saleId) => '$crmVisits/$visitId/link-sale/$saleId';
+
+  static String unlinkVisitFromSaleEndpoint(String visitId, String saleId) => '$crmVisits/$visitId/unlink-sale/$saleId';
 }
 
 /// HTTP methods constants
