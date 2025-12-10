@@ -225,9 +225,9 @@ class _SaleCardState extends State<SaleCard> {
                     ),
 
                     // Status if available
-                    if (widget.sale.status != null && widget.sale.status != 'active') ...[
+                    if (widget.sale.status != 'active') ...[
                       const SizedBox(height: 16),
-                      _buildStatusBadge(context, widget.sale.status!),
+                      _buildStatusBadge(context, widget.sale.status),
                     ],
 
                     // Notes if available

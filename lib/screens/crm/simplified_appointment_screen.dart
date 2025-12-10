@@ -348,8 +348,8 @@ class _SimplifiedAppointmentScreenState extends State<SimplifiedAppointmentScree
 
   // Show customer selection bottom sheet
   void _showCustomerBottomSheet() {
-    List<Customer> _filteredCustomers = _customers;
-    final TextEditingController _searchController = TextEditingController();
+    List<Customer> filteredCustomers = _customers;
+    final TextEditingController searchController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -395,14 +395,14 @@ class _SimplifiedAppointmentScreenState extends State<SimplifiedAppointmentScree
                     vertical: CrmDesignSystem.md,
                   ),
                   child: TextField(
-                    controller: _searchController,
+                    controller: searchController,
                     onChanged: (query) {
                       setModalState(() {
                         if (query.isEmpty) {
-                          _filteredCustomers = _customers;
+                          filteredCustomers = _customers;
                         } else {
                           final lowerQuery = query.toLowerCase();
-                          _filteredCustomers = _customers.where((customer) {
+                          filteredCustomers = _customers.where((customer) {
                             final name = customer.name.toLowerCase();
                             final mobile = customer.mobileNumber.toLowerCase();
                             return name.contains(lowerQuery) || mobile.contains(lowerQuery);
@@ -413,13 +413,13 @@ class _SimplifiedAppointmentScreenState extends State<SimplifiedAppointmentScree
                     decoration: InputDecoration(
                       hintText: 'Search by name or phone...',
                       prefixIcon: const Icon(Icons.search, color: CrmColors.primary),
-                      suffixIcon: _searchController.text.isNotEmpty
+                      suffixIcon: searchController.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
-                                _searchController.clear();
+                                searchController.clear();
                                 setModalState(() {
-                                  _filteredCustomers = _customers;
+                                  filteredCustomers = _customers;
                                 });
                               },
                             )
@@ -438,7 +438,7 @@ class _SimplifiedAppointmentScreenState extends State<SimplifiedAppointmentScree
                 ),
                 // Customer list
                 Expanded(
-                  child: _filteredCustomers.isEmpty
+                  child: filteredCustomers.isEmpty
                       ? Center(
                           child: Text(
                             'No customers found',
@@ -449,10 +449,10 @@ class _SimplifiedAppointmentScreenState extends State<SimplifiedAppointmentScree
                         )
                       : ListView.separated(
                           controller: scrollController,
-                          itemCount: _filteredCustomers.length,
+                          itemCount: filteredCustomers.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
-                            final customer = _filteredCustomers[index];
+                            final customer = filteredCustomers[index];
                             final isSelected = _selectedCustomer?.id == customer.id;
                             return ListTile(
                               onTap: () {

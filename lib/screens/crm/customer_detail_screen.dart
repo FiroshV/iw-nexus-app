@@ -50,7 +50,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       }
     } catch (e) {
       // Silent fail - timeline is optional
-      print('Error loading timeline: $e');
     } finally {
       setState(() {
         _isLoadingTimeline = false;

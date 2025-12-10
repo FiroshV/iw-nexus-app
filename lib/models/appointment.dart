@@ -92,9 +92,6 @@ class Appointment {
     final now = TimezoneUtil.nowIST();
     final effectiveDate = _effectiveScheduledDateTime;
     final result = effectiveDate.isBefore(now) && status == 'scheduled';
-    if (result) {
-      print('🔴 OVERDUE: Apt "$customerName" - Scheduled: ${effectiveDate.toIso8601String()}, Now: ${now.toIso8601String()}, Status: $status');
-    }
     return result;
   }
 
@@ -197,7 +194,6 @@ class Appointment {
         final parsed = DateTime.parse(value);
         // The parsed DateTime is in UTC, convert it to IST
         final result = TimezoneUtil.utcToIST(parsed);
-        print('📅 PARSED: Raw="$value" → UTC=${parsed.toIso8601String()} → IST=${result.toIso8601String()}');
         return result;
       }
       if (value is int) {
@@ -208,7 +204,6 @@ class Appointment {
       // Fallback for unknown format
       return TimezoneUtil.nowIST();
     } catch (e) {
-      print('Error parsing DateTime: $e');
       return TimezoneUtil.nowIST();
     }
   }

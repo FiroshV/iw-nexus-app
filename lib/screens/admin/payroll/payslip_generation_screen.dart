@@ -1546,12 +1546,12 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
       }
 
       if (mounted) {
-        final currentContext = context;
         await _loadGeneratedPayslips();
         _selectedEmployeeIds.clear();
 
         if (!mounted) return;
-        ScaffoldMessenger.of(currentContext).showSnackBar(
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               failedCount == 0
@@ -1565,8 +1565,8 @@ class _PayslipGenerationContentState extends State<PayslipGenerationContent> {
       }
     } catch (e) {
       if (!mounted) return;
-      final currentContextError = context;
-      ScaffoldMessenger.of(currentContextError).showSnackBar(
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
           backgroundColor: Colors.red,

@@ -145,7 +145,6 @@ class Activity {
       }
       return TimezoneUtil.nowIST();
     } catch (e) {
-      print('Error parsing DateTime: $e');
       return TimezoneUtil.nowIST();
     }
   }

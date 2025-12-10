@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
-import '../../models/activity.dart';
 import '../../models/customer.dart';
 import '../../services/activity_service.dart';
 import '../../services/api_service.dart';
-import '../../services/appointment_service.dart';
 import '../../widgets/crm/employee_selection_section.dart';
 
 class QuickActivityLogScreen extends StatefulWidget {
@@ -39,7 +37,6 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   List<String> _selectedEmployees = [];
   bool _isLoading = false;
   bool _isSaving = false;
-  bool _isLoadingEmployees = false;
 
   final TextEditingController _notesController = TextEditingController();
 
@@ -70,7 +67,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   }
 
   Future<void> _loadEmployees() async {
-    setState(() => _isLoadingEmployees = true);
+    setState(() => _isLoading = true);
     try {
       final response = await ApiService.get('/crm/employees?limit=100');
       if (response.statusCode == 200) {
@@ -83,10 +80,9 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
       }
     } catch (e) {
       // Silent fail - employees are optional
-      print('Error loading employees: $e');
     } finally {
       if (mounted) {
-        setState(() => _isLoadingEmployees = false);
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -157,8 +153,8 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   }
 
   void _showCustomerBottomSheet() {
-    List<Customer> _filteredCustomers = _customers;
-    final TextEditingController _searchController = TextEditingController();
+    List<Customer> filteredCustomers = _customers;
+    final TextEditingController searchController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -204,14 +200,14 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                     vertical: CrmDesignSystem.md,
                   ),
                   child: TextField(
-                    controller: _searchController,
+                    controller: searchController,
                     onChanged: (query) {
                       setModalState(() {
                         if (query.isEmpty) {
-                          _filteredCustomers = _customers;
+                          filteredCustomers = _customers;
                         } else {
                           final lowerQuery = query.toLowerCase();
-                          _filteredCustomers = _customers.where((customer) {
+                          filteredCustomers = _customers.where((customer) {
                             final name = customer.name.toLowerCase();
                             final mobile = customer.mobileNumber.toLowerCase();
                             return name.contains(lowerQuery) || mobile.contains(lowerQuery);
@@ -222,13 +218,13 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                     decoration: InputDecoration(
                       hintText: 'Search by name or phone...',
                       prefixIcon: const Icon(Icons.search, color: CrmColors.primary),
-                      suffixIcon: _searchController.text.isNotEmpty
+                      suffixIcon: searchController.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
-                                _searchController.clear();
+                                searchController.clear();
                                 setModalState(() {
-                                  _filteredCustomers = _customers;
+                                  filteredCustomers = _customers;
                                 });
                               },
                             )
@@ -247,7 +243,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                 ),
                 // Customer list
                 Expanded(
-                  child: _filteredCustomers.isEmpty
+                  child: filteredCustomers.isEmpty
                       ? Center(
                           child: Text(
                             'No customers found',
@@ -258,10 +254,10 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                         )
                       : ListView.separated(
                           controller: scrollController,
-                          itemCount: _filteredCustomers.length,
+                          itemCount: filteredCustomers.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (context, index) {
-                            final customer = _filteredCustomers[index];
+                            final customer = filteredCustomers[index];
                             final isSelected = _selectedCustomer?.id == customer.id;
                             return ListTile(
                               onTap: () {
@@ -479,7 +475,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
               onSurface: CrmColors.textDark,
             ),
           ),
-          child: child!,
+          child: child ?? const SizedBox(),
         );
       },
     );
@@ -520,7 +516,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
 
       // Create activity
       final activityResponse = await ActivityService.createActivity(
-        customerId: _selectedCustomer!.id!,
+        customerId: _selectedCustomer!.id,
         type: _selectedActivityType,
         outcome: _selectedOutcome,
         activityDate: _activityDate,
