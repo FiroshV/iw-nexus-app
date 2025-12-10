@@ -23,6 +23,7 @@ class AddEditSaleScreen extends StatefulWidget {
 class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   late GlobalKey<FormState> _formKey;
   bool _isLoading = false;
+  // ignore: unused_field
   bool _isLoadingCustomers = false;
 
   // Customer selection
@@ -171,37 +172,320 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     }
   }
 
-  Future<void> _createNewCustomer() async {
-    if (_customerNameController.text.isEmpty || _mobileController.text.isEmpty) {
-      _showError('Please enter customer name and mobile number');
-      return;
-    }
+  void _showCustomerBottomSheet() {
+    List<Customer> filteredCustomers = _customers;
+    final TextEditingController searchController = TextEditingController();
 
-    try {
-      final response = await ApiService.createCustomer(
-        name: _customerNameController.text.trim(),
-        mobileNumber: _mobileController.text.trim(),
-      );
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select Customer',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: CrmColors.textDark,
+                            ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                // Search field
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: (query) {
+                      setModalState(() {
+                        if (query.isEmpty) {
+                          filteredCustomers = _customers;
+                        } else {
+                          final lowerQuery = query.toLowerCase();
+                          filteredCustomers = _customers.where((customer) {
+                            final name = customer.name.toLowerCase();
+                            final mobile = customer.mobileNumber.toLowerCase();
+                            return name.contains(lowerQuery) || mobile.contains(lowerQuery);
+                          }).toList();
+                        }
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or phone...',
+                      prefixIcon: const Icon(Icons.search, color: CrmColors.primary),
+                      suffixIcon: searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                searchController.clear();
+                                setModalState(() {
+                                  filteredCustomers = _customers;
+                                });
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: CrmColors.surface,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                // Customer list
+                Expanded(
+                  child: filteredCustomers.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No customers found',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: CrmColors.textLight,
+                                ),
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          itemCount: filteredCustomers.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final customer = filteredCustomers[index];
+                            final isSelected = _selectedCustomer?.id == customer.id;
+                            return ListTile(
+                              onTap: () {
+                                setState(() => _selectedCustomer = customer);
+                                Navigator.pop(context);
+                              },
+                              title: Text(customer.name),
+                              subtitle: Text(customer.mobileNumber),
+                              trailing: isSelected
+                                  ? const Icon(Icons.check_circle, color: CrmColors.primary)
+                                  : null,
+                              selected: isSelected,
+                              selectedTileColor: CrmColors.primary.withValues(alpha: 0.1),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-      if (mounted) {
-        if (response.success) {
-          final customerData = response.data as Map<String, dynamic>;
-          setState(() {
-            _selectedCustomer = Customer.fromJson(customerData);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Customer created successfully'),
-              backgroundColor: CrmColors.successColor,
-            ),
-          );
-        } else {
-          _showError(response.message);
-        }
-      }
-    } catch (e) {
-      _showError('Failed to create customer: $e');
-    }
+  void _showPaymentFrequencyBottomSheet(List<String> frequencies) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Payment Frequency',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: CrmColors.textDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: CrmColors.textLight),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Frequency options
+              ...frequencies.map((frequency) {
+                final isSelected = _selectedPaymentFrequency == frequency;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedPaymentFrequency = frequency);
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? CrmColors.primary.withValues(alpha: 0.1)
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? CrmColors.primary : Colors.grey.shade200,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _formatFrequency(frequency),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: CrmColors.textDark,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(
+                            Icons.check_circle,
+                            color: CrmColors.primary,
+                            size: 24,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showInvestmentTypeBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Investment Type',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: CrmColors.textDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: CrmColors.textLight),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Investment type options
+              ...['sip', 'lumpsum'].map((type) {
+                final isSelected = _selectedInvestmentType == type;
+                final label = type == 'sip' ? 'SIP (Systematic Investment)' : 'Lumpsum';
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedInvestmentType = type;
+                      _sipAmountController.clear();
+                      _investmentAmountController.clear();
+                      _selectedPaymentFrequency = null;
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? CrmColors.primary.withValues(alpha: 0.1)
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? CrmColors.primary : Colors.grey.shade200,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: CrmColors.textDark,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(
+                            Icons.check_circle,
+                            color: CrmColors.primary,
+                            size: 24,
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _selectDateOfSale() async {
@@ -223,7 +507,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     }
 
     if (_selectedCustomer == null) {
-      _showError('Please select or create a customer');
+      _showError('Please select a customer');
       return;
     }
 
@@ -235,6 +519,25 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     if (_selectedDateOfSale == null) {
       _showError('Please select a date of sale');
       return;
+    }
+
+    // Validate payment frequency for insurance
+    if ((_selectedProductType == 'life_insurance' || _selectedProductType == 'general_insurance') &&
+        _selectedPaymentFrequency == null) {
+      _showError('Please select a payment frequency');
+      return;
+    }
+
+    // Validate investment type and frequency for mutual funds
+    if (_selectedProductType == 'mutual_funds') {
+      if (_selectedInvestmentType == null) {
+        _showError('Please select an investment type');
+        return;
+      }
+      if (_selectedInvestmentType == 'sip' && _selectedPaymentFrequency == null) {
+        _showError('Please select a SIP frequency');
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
@@ -379,7 +682,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       controller: _companyNameController,
                       decoration: InputDecoration(
                         labelText: _selectedProductType == 'mutual_funds'
-                            ? 'Fund House *'
+                            ? 'AMC Name *'
                             : 'Company Name (Insurer) *',
                         filled: true,
                         fillColor: CrmColors.surface,
@@ -390,7 +693,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       validator: (value) {
                         if (value?.isEmpty ?? true) {
                           return _selectedProductType == 'mutual_funds'
-                              ? 'Fund house is required'
+                              ? 'AMC name is required'
                               : 'Company name is required';
                         }
                         return null;
@@ -524,173 +827,34 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   }
 
   Widget _buildCustomerSelection() {
-    if (_selectedCustomer != null) {
-      return Container(
-        padding: const EdgeInsets.all(12),
+    return GestureDetector(
+      onTap: _showCustomerBottomSheet,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         decoration: BoxDecoration(
-          color: CrmColors.success.withValues(alpha: 0.15),
+          border: Border.all(color: CrmColors.borderColor),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: CrmColors.success.withValues(alpha: 0.3)),
+          color: Colors.white,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _selectedCustomer!.name,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: CrmColors.textDark,
-                      ),
-                ),
-                Text(
-                  _selectedCustomer!.mobileNumber,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: CrmColors.textLight,
-                      ),
-                ),
-              ],
+            Text(
+              _selectedCustomer?.name ?? 'Select customer...',
+              style: TextStyle(
+                fontSize: 14,
+                color: _selectedCustomer != null
+                    ? CrmColors.textDark
+                    : CrmColors.textLight,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: CrmColors.primary),
-              onPressed: () {
-                setState(() => _selectedCustomer = null);
-              },
-            ),
+            Icon(Icons.expand_more, color: CrmColors.primary),
           ],
         ),
-      );
-    }
-
-    return Column(
-      children: [
-        // New Customer Creation
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: CrmColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: CrmColors.borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Create New Customer',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: CrmColors.textLight,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _customerNameController,
-                decoration: InputDecoration(
-                  labelText: 'Customer Name *',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                validator: (value) {
-                  if (_selectedCustomer == null && (value?.isEmpty ?? true)) {
-                    return 'Customer name is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _mobileController,
-                decoration: InputDecoration(
-                  labelText: 'Mobile Number *',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (_selectedCustomer == null && (value?.isEmpty ?? true)) {
-                    return 'Mobile number is required';
-                  }
-                  if (_selectedCustomer == null && (value?.length ?? 0) < 10) {
-                    return 'Mobile number must be at least 10 digits';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoadingCustomers ? null : _createNewCustomer,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: CrmColors.secondary,
-                  ),
-                  child: _isLoadingCustomers
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Create Customer'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Or select from existing customers:',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: CrmColors.textLight,
-              ),
-        ),
-        const SizedBox(height: 12),
-        if (_customers.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'No customers found. Create one above.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: CrmColors.textLight,
-                    ),
-              ),
-            ),
-          )
-        else
-          ...List.generate(
-            _customers.length,
-            (index) {
-              final customer = _customers[index];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: CrmColors.borderColor),
-                ),
-                child: ListTile(
-                  title: Text(customer.name),
-                  subtitle: Text(customer.mobileNumber),
-                  onTap: () {
-                    setState(() => _selectedCustomer = customer);
-                  },
-                ),
-              );
-            },
-          ),
-      ],
+      ),
     );
   }
 
@@ -723,34 +887,52 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           },
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedPaymentFrequency,
-          decoration: InputDecoration(
-            labelText: 'Payment Frequency *',
-            filled: true,
-            fillColor: CrmColors.surface,
-            border: OutlineInputBorder(
+        // Payment Frequency Bottom Sheet
+        GestureDetector(
+          onTap: () => _showPaymentFrequencyBottomSheet(
+            ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly', 'single'],
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(color: CrmColors.borderColor),
               borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _selectedPaymentFrequency != null
+                      ? _formatFrequency(_selectedPaymentFrequency!)
+                      : 'Select frequency...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _selectedPaymentFrequency != null
+                        ? CrmColors.textDark
+                        : CrmColors.textLight,
+                  ),
+                ),
+                Icon(Icons.expand_more, color: CrmColors.primary),
+              ],
             ),
           ),
-          items: ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly', 'single']
-              .map(
-                (frequency) => DropdownMenuItem(
-                  value: frequency,
-                  child: Text(_formatFrequency(frequency)),
-                ),
-              )
-              .toList(),
-          onChanged: (value) {
-            setState(() => _selectedPaymentFrequency = value);
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Payment frequency is required';
-            }
-            return null;
-          },
         ),
+        // Validation for payment frequency
+        if (_selectedPaymentFrequency == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Payment frequency is required',
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontSize: 12,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -758,39 +940,52 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   Widget _buildMutualFundsFields() {
     return Column(
       children: [
-        DropdownButtonFormField<String>(
-          initialValue: _selectedInvestmentType,
-          decoration: InputDecoration(
-            labelText: 'Investment Type *',
-            filled: true,
-            fillColor: CrmColors.surface,
-            border: OutlineInputBorder(
+        // Investment Type Bottom Sheet
+        GestureDetector(
+          onTap: _showInvestmentTypeBottomSheet,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(color: CrmColors.borderColor),
               borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _selectedInvestmentType != null
+                      ? (_selectedInvestmentType == 'sip'
+                          ? 'SIP (Systematic Investment)'
+                          : 'Lumpsum')
+                      : 'Select investment type...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _selectedInvestmentType != null
+                        ? CrmColors.textDark
+                        : CrmColors.textLight,
+                  ),
+                ),
+                Icon(Icons.expand_more, color: CrmColors.primary),
+              ],
             ),
           ),
-          items: ['sip', 'lumpsum']
-              .map(
-                (type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type == 'sip' ? 'SIP (Systematic Investment)' : 'Lumpsum'),
-                ),
-              )
-              .toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedInvestmentType = value;
-              _sipAmountController.clear();
-              _investmentAmountController.clear();
-              _selectedPaymentFrequency = null;
-            });
-          },
-          validator: (value) {
-            if (value == null) {
-              return 'Investment type is required';
-            }
-            return null;
-          },
         ),
+        // Validation for investment type
+        if (_selectedInvestmentType == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Investment type is required',
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontSize: 12,
+              ),
+            ),
+          ),
         const SizedBox(height: 12),
         if (_selectedInvestmentType == 'sip') ...[
           TextFormField(
@@ -819,34 +1014,52 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedPaymentFrequency,
-            decoration: InputDecoration(
-              labelText: 'SIP Frequency *',
-              filled: true,
-              fillColor: CrmColors.surface,
-              border: OutlineInputBorder(
+          // SIP Frequency Bottom Sheet
+          GestureDetector(
+            onTap: () => _showPaymentFrequencyBottomSheet(
+              ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly'],
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(color: CrmColors.borderColor),
                 borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _selectedPaymentFrequency != null
+                        ? _formatFrequency(_selectedPaymentFrequency!)
+                        : 'Select SIP frequency...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _selectedPaymentFrequency != null
+                          ? CrmColors.textDark
+                          : CrmColors.textLight,
+                    ),
+                  ),
+                  Icon(Icons.expand_more, color: CrmColors.primary),
+                ],
               ),
             ),
-            items: ['monthly', 'quarterly', 'weekly']
-                .map(
-                  (frequency) => DropdownMenuItem(
-                    value: frequency,
-                    child: Text(_formatFrequency(frequency)),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) {
-              setState(() => _selectedPaymentFrequency = value);
-            },
-            validator: (value) {
-              if (_selectedInvestmentType == 'sip' && value == null) {
-                return 'SIP frequency is required';
-              }
-              return null;
-            },
           ),
+          // Validation for SIP frequency
+          if (_selectedPaymentFrequency == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'SIP frequency is required',
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
         ] else if (_selectedInvestmentType == 'lumpsum') ...[
           TextFormField(
             controller: _investmentAmountController,

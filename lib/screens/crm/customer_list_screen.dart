@@ -422,9 +422,6 @@ class _CustomerListScreenState extends State<CustomerListScreen>
                                   child: CustomerCard(
                                     customer: customer,
                                     onTap: () => _openCustomerDetail(customer),
-                                    appointmentCount: 0,
-                                    visitCount: 0,
-                                    saleCount: 0,
                                   ),
                                 ),
                             );

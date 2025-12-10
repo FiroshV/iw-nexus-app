@@ -205,20 +205,6 @@ class _SalesListScreenState extends State<SalesListScreen>
     );
   }
 
-  void _openSaleDetails(Sale sale) {
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (context) => AddEditSaleScreen(sale: sale),
-          ),
-        )
-        .then((refreshNeeded) {
-          if (refreshNeeded == true) {
-            _loadSales();
-          }
-        });
-  }
-
   void _addNewSale() {
     Navigator.of(context)
         .push(
@@ -631,7 +617,6 @@ class _SalesListScreenState extends State<SalesListScreen>
                       final sale = _sales[index];
                       return SaleCard(
                         sale: sale,
-                        onTap: () => _openSaleDetails(sale),
                         onDelete: () => _deleteSale(sale),
                         onEdit: () {
                           Navigator.of(context)

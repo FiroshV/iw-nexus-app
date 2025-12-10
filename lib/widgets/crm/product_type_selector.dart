@@ -111,7 +111,7 @@ class _ProductTypeSelectorState extends State<ProductTypeSelector> {
             children: [
               Icon(
                 icon,
-                color: isSelected ? color : CrmColors.textLight,
+                color: isSelected ? Colors.black : CrmColors.textLight,
                 size: 28,
               ),
               const SizedBox(height: 8),
@@ -119,7 +119,7 @@ class _ProductTypeSelectorState extends State<ProductTypeSelector> {
                 label,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: isSelected ? color : CrmColors.textDark,
+                      color: isSelected ? Colors.black : CrmColors.textDark,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
                 maxLines: 2,

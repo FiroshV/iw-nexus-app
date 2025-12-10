@@ -3,29 +3,38 @@ import 'package:intl/intl.dart';
 import '../../config/crm_colors.dart';
 import '../../models/sale.dart';
 
-class SaleCard extends StatelessWidget {
+class SaleCard extends StatefulWidget {
   final Sale sale;
-  final VoidCallback onTap;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
 
   const SaleCard({
     super.key,
     required this.sale,
-    required this.onTap,
     this.onDelete,
     this.onEdit,
   });
 
   @override
+  State<SaleCard> createState() => _SaleCardState();
+}
+
+class _SaleCardState extends State<SaleCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final productColor = CrmColors.getProductTypeColor(sale.productType);
-    final productName = CrmColors.getProductTypeName(sale.productType);
+    final productColor = CrmColors.getProductTypeColor(widget.sale.productType);
+    final productName = CrmColors.getProductTypeName(widget.sale.productType);
     final dateFormatter = DateFormat('dd MMM yyyy');
     final amountFormatter = NumberFormat('#,##0.00', 'en_US');
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        setState(() {
+          _isExpanded = !_isExpanded;
+        });
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -46,14 +55,18 @@ class SaleCard extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Section: Customer info + Product Type Tag
+                  // Top Section: Customer info + Product Type Tag + Expand indicator
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,7 +76,7 @@ class SaleCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              sale.customerName,
+                              widget.sale.customerName,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: CrmColors.textDark,
@@ -73,7 +86,7 @@ class SaleCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              sale.mobileNumber,
+                              widget.sale.mobileNumber,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: CrmColors.textLight,
                               ),
@@ -98,141 +111,171 @@ class SaleCard extends StatelessWidget {
                               ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      // Expand/Collapse indicator
+                      AnimatedRotation(
+                        turns: _isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.expand_more,
+                          color: CrmColors.textLight,
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
 
-                  // Divider
-                  Container(
-                    height: 1,
-                    color: CrmColors.borderColor,
-                  ),
-                  const SizedBox(height: 16),
+                  // Expanded content
+                  if (_isExpanded) ...[
+                    const SizedBox(height: 16),
 
-                  // Middle Section: Product details
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoRow(
-                        context,
-                        'Company',
-                        sale.companyName,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(
-                        context,
-                        sale.productType == 'mutual_funds' ? 'Scheme' : 'Product',
-                        sale.productPlanName,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(
-                        context,
-                        sale.amountLabel,
-                        '₹${amountFormatter.format(sale.displayAmount)}',
-                        valueColor: CrmColors.primary,
-                      ),
-                      if (sale.paymentFrequency != null) ...[
+                    // Divider
+                    Container(
+                      height: 1,
+                      color: CrmColors.borderColor,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Middle Section: Product details
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoRow(
+                          context,
+                          'Company',
+                          widget.sale.companyName,
+                        ),
                         const SizedBox(height: 12),
                         _buildInfoRow(
                           context,
-                          'Frequency',
-                          _formatFrequency(sale.paymentFrequency!),
+                          widget.sale.productType == 'mutual_funds' ? 'Scheme' : 'Product',
+                          widget.sale.productPlanName,
                         ),
+                        const SizedBox(height: 12),
+                        _buildInfoRow(
+                          context,
+                          widget.sale.amountLabel,
+                          '₹${amountFormatter.format(widget.sale.displayAmount)}',
+                          valueColor: CrmColors.primary,
+                        ),
+                        if (widget.sale.paymentFrequency != null) ...[
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            context,
+                            'Frequency',
+                            _formatFrequency(widget.sale.paymentFrequency!),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Divider
-                  Container(
-                    height: 1,
-                    color: CrmColors.borderColor,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Bottom Section: Date and visit status
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Date of Sale',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: CrmColors.textLight,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              dateFormatter.format(sale.dateOfSale),
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: CrmColors.textDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Visit status badge if available
-                      if (sale.visitStatus != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: CrmColors.success.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: CrmColors.success.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            'Visited',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: CrmColors.success,
-                                  fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-
-                  // Action buttons (if needed, can show on tap)
-                  if (onEdit != null || onDelete != null) ...[
+                    ),
                     const SizedBox(height: 16),
+
+                    // Divider
+                    Container(
+                      height: 1,
+                      color: CrmColors.borderColor,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bottom Section: Date and visit status
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (onEdit != null)
-                          Expanded(
-                            child: TextButton.icon(
-                              onPressed: onEdit,
-                              icon: const Icon(Icons.edit, size: 18),
-                              label: const Text('Edit'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: CrmColors.primary,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Date of Sale',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: CrmColors.textLight,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                dateFormatter.format(widget.sale.dateOfSale),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: CrmColors.textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Visit status badge if available
+                        if (widget.sale.visitStatus != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: CrmColors.success.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: CrmColors.success.withValues(alpha: 0.3),
                               ),
                             ),
-                          ),
-                        if (onEdit != null && onDelete != null) const SizedBox(width: 4),
-                        if (onDelete != null)
-                          Expanded(
-                            child: TextButton.icon(
-                              onPressed: () {
-                                _showDeleteConfirmation(context, onDelete!);
-                              },
-                              icon: const Icon(Icons.delete, size: 18),
-                              label: const Text('Delete'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: CrmColors.errorColor,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'Visited',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: CrmColors.success,
+                                    fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                       ],
                     ),
+
+                    // Status if available
+                    if (widget.sale.status != null && widget.sale.status != 'active') ...[
+                      const SizedBox(height: 16),
+                      _buildStatusBadge(context, widget.sale.status!),
+                    ],
+
+                    // Notes if available
+                    if (widget.sale.notes != null && widget.sale.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _buildInfoRow(
+                        context,
+                        'Notes',
+                        widget.sale.notes!,
+                      ),
+                    ],
+
+                    // Action buttons
+                    if (widget.onEdit != null || widget.onDelete != null) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (widget.onEdit != null)
+                            Expanded(
+                              child: TextButton.icon(
+                                onPressed: widget.onEdit,
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('Edit'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: CrmColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                          if (widget.onEdit != null && widget.onDelete != null) const SizedBox(width: 4),
+                          if (widget.onDelete != null)
+                            Expanded(
+                              child: TextButton.icon(
+                                onPressed: () {
+                                  _showDeleteConfirmation(context, widget.onDelete!);
+                                },
+                                icon: const Icon(Icons.delete, size: 18),
+                                label: const Text('Delete'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: CrmColors.errorColor,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -273,6 +316,27 @@ class SaleCard extends StatelessWidget {
     );
   }
 
+  Widget _buildStatusBadge(BuildContext context, String status) {
+    final statusColor = status == 'active' ? CrmColors.success : CrmColors.primary;
+    final statusLabel = status.toUpperCase();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        statusLabel,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: statusColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   String _formatFrequency(String frequency) {
     switch (frequency) {
       case 'daily':
@@ -298,7 +362,7 @@ class SaleCard extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Sale?'),
-          content: Text('Are you sure you want to delete the sale for ${sale.customerName}?'),
+          content: Text('Are you sure you want to delete the sale for ${widget.sale.customerName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
