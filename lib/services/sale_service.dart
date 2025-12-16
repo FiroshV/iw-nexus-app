@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../models/sale.dart';
+import '../models/sale_document.dart';
 import 'api_service.dart';
 
 class ApiResponse<T> {
@@ -209,5 +211,173 @@ class SaleService {
         error: e,
       );
     }
+  }
+
+  /// Get all documents for a sale
+  static Future<ApiResponse<List<SaleDocument>>> getSaleDocuments(
+    String saleId,
+  ) async {
+    try {
+      await _setupHeaders();
+      final response = await _dio.get(
+        '/$saleId/documents',
+      );
+
+      if (response.statusCode == 200) {
+        final documents = (response.data['data'] as List)
+            .map((d) => SaleDocument.fromJson(d as Map<String, dynamic>))
+            .toList();
+
+        return ApiResponse(
+          success: true,
+          data: documents,
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: response.data['message'] ?? 'Failed to fetch documents',
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.response?.data['message'] ?? 'Error fetching documents',
+        error: e,
+      );
+    }
+  }
+
+  /// Upload a document to a sale
+  static Future<ApiResponse<SaleDocument>> uploadSaleDocument(
+    String saleId,
+    File documentFile, {
+    required String documentName,
+    required String documentType,
+  }) async {
+    try {
+      await _setupHeaders();
+
+      // Create multipart form data
+      final formData = FormData.fromMap({
+        'document': await MultipartFile.fromFile(
+          documentFile.path,
+          filename: documentFile.path.split('/').last,
+        ),
+        'documentName': documentName,
+        'documentType': documentType,
+      });
+
+      final response = await _dio.post(
+        '/$saleId/documents',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      if (response.statusCode == 201) {
+        final document = SaleDocument.fromJson(response.data['data']);
+        return ApiResponse(
+          success: true,
+          message: response.data['message'],
+          data: document,
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: response.data['message'] ?? 'Failed to upload document',
+      );
+    } on DioException catch (e) {
+      String errorMessage = 'Error uploading document';
+      if (e.response != null) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        errorMessage = 'Upload timeout. Please check your connection.';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        errorMessage = 'Upload timeout. Please try again.';
+      }
+
+      return ApiResponse(
+        success: false,
+        message: errorMessage,
+        error: e,
+      );
+    }
+  }
+
+  /// Update document name
+  static Future<ApiResponse<SaleDocument>> updateSaleDocument({
+    required String saleId,
+    required String documentId,
+    required String documentName,
+  }) async {
+    try {
+      await _setupHeaders();
+      final response = await _dio.put(
+        '/$saleId/documents/$documentId',
+        data: {
+          'documentName': documentName,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final document = SaleDocument.fromJson(response.data['data']);
+        return ApiResponse(
+          success: true,
+          message: response.data['message'],
+          data: document,
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: response.data['message'] ?? 'Failed to update document',
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.response?.data['message'] ?? 'Error updating document',
+        error: e,
+      );
+    }
+  }
+
+  /// Delete a sale document
+  static Future<ApiResponse<void>> deleteSaleDocument(
+    String saleId,
+    String documentId,
+  ) async {
+    try {
+      await _setupHeaders();
+      final response = await _dio.delete(
+        '/$saleId/documents/$documentId',
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse(
+          success: true,
+          message: response.data['message'],
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: response.data['message'] ?? 'Failed to delete document',
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.response?.data['message'] ?? 'Error deleting document',
+        error: e,
+      );
+    }
+  }
+
+  /// Get document download URL
+  static String getSaleDocumentDownloadUrl(String saleId, String documentId) {
+    return '${ApiConfig.baseUrl}/api/crm/sales/$saleId/documents/$documentId';
   }
 }

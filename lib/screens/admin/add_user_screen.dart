@@ -42,7 +42,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
     'field_staff',
     'telecaller',
     'director',
-    'admin'
+    'admin',
+    'external'
   ];
 
   @override
@@ -69,6 +70,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
     switch (role) {
       case 'field_staff':
         return 'Field Staff';
+      case 'external':
+        return 'External';
       default:
         return role[0].toUpperCase() + role.substring(1).toLowerCase();
     }
@@ -506,6 +509,31 @@ class _AddUserScreenState extends State<AddUserScreen> {
   }
 
   Widget _buildBranchDropdown() {
+    // For external employees, show info message instead of branch dropdown
+    if (selectedRole == 'external') {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.grey[600], size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'External employees are not assigned to a branch',
+                style: TextStyle(color: Colors.grey[700], fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Normal branch dropdown for other roles
     return DropdownButtonFormField<String>(
       initialValue: selectedBranchId,
       decoration: InputDecoration(

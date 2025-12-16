@@ -54,7 +54,7 @@ class AccessControlService {
     'settings': {
       'company_settings': ['admin', 'director'],
       'branch_settings': ['admin', 'director', 'manager'],
-      'user_preferences': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'user_preferences': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
       'system_settings': ['admin', 'director']
     },
 
@@ -101,15 +101,15 @@ class AccessControlService {
 
     // CRM Management Features (Appointments, Visits, Sales)
     'crm_management': {
-      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
       'view_team': ['admin', 'manager', 'director'],
       'view_all': ['admin', 'director'],
-      'schedule_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
-      'view_appointments': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
-      'edit_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
-      'cancel_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'schedule_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'view_appointments': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'edit_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'cancel_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
       'delete_appointment': ['admin', 'director'],
-      'complete_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller'],
+      'complete_appointment': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
       'view_team_schedule': ['admin', 'manager', 'director'],
       'view_all_schedules': ['admin', 'director'],
       'schedule_for_others': ['admin', 'manager', 'director'],

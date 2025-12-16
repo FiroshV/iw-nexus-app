@@ -85,7 +85,7 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
 
                   const SizedBox(height: CrmDesignSystem.lg),
 
-                  // Row 2: Sales and Activity Log
+                  // Row 2: Pipeline and Sales
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
@@ -94,6 +94,17 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
                     crossAxisSpacing: CrmDesignSystem.lg,
                     childAspectRatio: 1.05,
                     children: [
+                      _buildDashboardCard(
+                        context,
+                        title: 'Pipeline',
+                        subtitle: 'Sales funnel',
+                        icon: Icons.trending_up,
+                        color: CrmColors.brand,
+                        onTap: () => Navigator.of(context).pushNamed(
+                          '/crm/pipeline',
+                          arguments: {'userId': widget.userId, 'userRole': widget.userRole},
+                        ),
+                      ),
                       _buildDashboardCard(
                         context,
                         title: 'Sales',
@@ -105,6 +116,20 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
                           arguments: {'userId': widget.userId, 'userRole': widget.userRole},
                         ),
                       ),
+                    ],
+                  ),
+
+                  const SizedBox(height: CrmDesignSystem.lg),
+
+                  // Row 3: Activity Log
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: CrmDesignSystem.lg,
+                    crossAxisSpacing: CrmDesignSystem.lg,
+                    childAspectRatio: 1.05,
+                    children: [
                       _buildDashboardCard(
                         context,
                         title: 'Activity Log',
@@ -113,6 +138,17 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
                         color: CrmColors.secondary,
                         onTap: () => Navigator.of(context).pushNamed(
                           '/crm/activity-list',
+                          arguments: {'userId': widget.userId, 'userRole': widget.userRole},
+                        ),
+                      ),
+                      _buildDashboardCard(
+                        context,
+                        title: 'Overdue',
+                        subtitle: 'Urgent follow-ups',
+                        icon: Icons.warning,
+                        color: Colors.red,
+                        onTap: () => Navigator.of(context).pushNamed(
+                          '/crm/pipeline/overdue',
                           arguments: {'userId': widget.userId, 'userRole': widget.userRole},
                         ),
                       ),

@@ -18,6 +18,7 @@ import 'screens/admin/send_appointment_letter_screen.dart';
 import 'screens/enhanced_attendance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
+import 'screens/work_principles_screen.dart';
 import 'widgets/approval_card.dart';
 import 'screens/id_card_screen.dart';
 import 'screens/admin/payroll/payroll_management_screen.dart';
@@ -35,6 +36,9 @@ import 'screens/crm/quick_activity_log_screen.dart';
 import 'screens/crm/activity_list_screen.dart';
 import 'screens/crm/activity_details_screen.dart';
 import 'screens/crm/unified_appointments_screen.dart';
+import 'screens/crm/pipeline_dashboard_screen.dart';
+import 'screens/crm/pipeline_stage_detail_screen.dart';
+import 'screens/crm/overdue_followups_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -276,6 +280,36 @@ class MyApp extends StatelessWidget {
             userId: args?['userId'] ?? '',
             userRole: args?['userRole'] ?? '',
             initialTab: args?['initialTab'] ?? 0,
+          ),
+          settings: settings,
+        );
+
+      case '/crm/pipeline':
+        return MaterialPageRoute(
+          builder: (_) => PipelineDashboardScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/pipeline/stage':
+        return MaterialPageRoute(
+          builder: (_) => PipelineStageDetailScreen(
+            stage: args?['stage'] ?? 'active',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+            view: args?['view'] ?? 'assigned',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/pipeline/overdue':
+        return MaterialPageRoute(
+          builder: (_) => OverdueFollowupsScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+            view: args?['view'] ?? 'assigned',
           ),
           settings: settings,
         );
@@ -744,6 +778,20 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
 
             _buildMenuTile(
+              icon: Icons.lightbulb_outline,
+              title: 'Work Principles',
+              subtitle: 'Our guiding values at work',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const WorkPrinciplesScreen(),
+                  ),
+                );
+              },
+            ),
+
+            _buildMenuTile(
               icon: Icons.logout,
               title: 'Logout',
               subtitle: 'Sign out of your account',
@@ -962,6 +1010,26 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Redirect external employees directly to CRM module
+    if (userRole == 'external' && !isLoading && currentUser != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => CrmModuleScreen(
+              userId: currentUser?['_id'] ?? '',
+              userRole: userRole,
+            ),
+          ),
+        );
+      });
+
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
