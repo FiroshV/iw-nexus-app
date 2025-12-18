@@ -264,6 +264,20 @@ class _SalesListScreenState extends State<SalesListScreen>
     }
   }
 
+  void _navigateToSaleDetails(Sale sale) {
+    Navigator.of(context).pushNamed(
+      '/crm/sale-details',
+      arguments: {
+        'saleId': sale.id,
+        'userId': widget.userId,
+        'userRole': widget.userRole,
+      },
+    ).then((_) {
+      // Refresh sales list when returning
+      _loadSales();
+    });
+  }
+
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -632,6 +646,7 @@ class _SalesListScreenState extends State<SalesListScreen>
                                 }
                               });
                         },
+                        onTap: () => _navigateToSaleDetails(sale),
                       );
                     },
                   ),

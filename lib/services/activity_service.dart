@@ -44,6 +44,7 @@ class ActivityService {
     required String outcome,
     DateTime? activityDate,
     String? notes,
+    int? durationMinutes,
     List<Map<String, dynamic>>? assignedEmployees,
   }) async {
     try {
@@ -56,6 +57,7 @@ class ActivityService {
           'outcome': outcome,
           if (activityDate != null) 'activityDate': activityDate.toIso8601String(),
           if (notes != null) 'notes': notes,
+          if (durationMinutes != null) 'durationMinutes': durationMinutes,
           if (assignedEmployees != null && assignedEmployees.isNotEmpty)
             'assignedEmployees': assignedEmployees,
         },

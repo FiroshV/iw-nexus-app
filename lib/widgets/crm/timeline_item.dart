@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../config/crm_colors.dart';
+import '../../utils/date_utils.dart';
 
 class TimelineItem extends StatefulWidget {
   final String type; // 'activity', 'appointment', 'sale'
@@ -83,36 +83,59 @@ class _TimelineItemState extends State<TimelineItem> {
     }
   }
 
+  /// Map outcome values to display labels for better UX
+  String _getOutcomeDisplayName(String outcome) {
+    const labels = {
+      'connected': 'Connected',
+      'no_answer': 'No Answer',
+      'voicemail': 'Voicemail',
+      'busy': 'Busy',
+      'failed': 'Failed',
+      'interested': 'Interested',
+      'not_interested': 'Not Interested',
+      'callback_requested': 'Callback Requested',
+      'other': 'Other',
+    };
+    return labels[outcome] ?? outcome;
+  }
+
   String _getSummary() {
     switch (widget.type) {
       case 'activity':
         final outcome = widget.data['outcome'] as String?;
         final notes = widget.data['notes'] as String?;
-        return notes?.isNotEmpty == true ? notes! : outcome ?? '';
+        // Show notes if available, otherwise show outcome display name, fallback to generic
+        if (notes?.isNotEmpty == true) return notes!;
+        if (outcome != null) return _getOutcomeDisplayName(outcome);
+        return 'Activity logged'; // Fallback for empty data
       case 'appointment':
         final purpose = widget.data['purpose'] as String?;
         final status = widget.data['status'] as String?;
-        return '${purpose ?? 'Appointment'} - ${status ?? ''}';
+        if (purpose == null && status == null) return 'Appointment scheduled'; // Fallback
+        return '${purpose ?? 'Appointment'} - ${status ?? 'Scheduled'}';
       case 'sale':
         final productPlanName = widget.data['productPlanName'] as String?;
         final amount = widget.data['premiumAmount'] ??
                        widget.data['investmentAmount'] ??
                        widget.data['sipAmount'];
+        if (productPlanName == null && amount == null) return 'Sale recorded'; // Fallback
         return '${productPlanName ?? 'Product'} - ₹${amount ?? 0}';
       default:
-        return '';
+        return 'Activity'; // Generic fallback
     }
   }
 
   String _getFormattedDate() {
     try {
       final date = widget.data['date'];
-      if (date == null) return '';
-
-      final dateTime = date is DateTime ? date : DateTime.parse(date.toString());
-      return DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
+      if (date == null) {
+        print('WARNING: Timeline item has no date field: ${widget.data}');
+        return 'Date unknown';
+      }
+      return DateTimeUtils.formatActivityDate(date);
     } catch (e) {
-      return '';
+      print('ERROR formatting timeline date: $e, data: ${widget.data}');
+      return 'Invalid date';
     }
   }
 
@@ -123,7 +146,7 @@ class _TimelineItemState extends State<TimelineItem> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.data['outcome'] != null)
-              _buildDetailRow('Outcome', widget.data['outcome'].toString()),
+              _buildDetailRow('Outcome', _getOutcomeDisplayName(widget.data['outcome'].toString())),
             if (widget.data['notes'] != null && (widget.data['notes'] as String).isNotEmpty)
               _buildDetailRow('Notes', widget.data['notes'].toString()),
             if (widget.data['assignedEmployees'] != null &&

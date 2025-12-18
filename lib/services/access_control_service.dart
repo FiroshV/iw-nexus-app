@@ -114,6 +114,16 @@ class AccessControlService {
       'view_all_schedules': ['admin', 'director'],
       'schedule_for_others': ['admin', 'manager', 'director'],
       'manage_team_appointments': ['admin', 'manager', 'director']
+    },
+
+    // Call Management Features
+    'call_management': {
+      'make_call': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'view_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'view_team': ['admin', 'manager', 'director'],
+      'view_all': ['admin', 'director'],
+      'edit_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
+      'delete': ['admin', 'director']
     }
   };
 

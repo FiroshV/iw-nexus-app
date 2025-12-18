@@ -3,7 +3,6 @@ import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/customer.dart';
 import '../../services/pipeline_service.dart';
-import '../../utils/timezone_util.dart';
 import '../../widgets/crm/lead_status_badge.dart';
 import '../../widgets/crm/priority_indicator.dart';
 

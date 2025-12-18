@@ -12,12 +12,18 @@ class QuickActivityLogScreen extends StatefulWidget {
   final String userId;
   final String userRole;
   final String? initialCustomerId;
+  final String? initialActivityType;
+  final String? initialPhoneNumber;
+  final int? initialDurationSeconds;
 
   const QuickActivityLogScreen({
     super.key,
     required this.userId,
     required this.userRole,
     this.initialCustomerId,
+    this.initialActivityType,
+    this.initialPhoneNumber,
+    this.initialDurationSeconds,
   });
 
   @override
@@ -30,6 +36,9 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   String _selectedActivityType = 'quick_call';
   String _selectedOutcome = 'connected';
   DateTime _activityDate = DateTime.now();
+  int? _durationSeconds;
+  String? _phoneNumber;
+  String _deviceType = 'android';
 
   // UI state
   List<Customer> _customers = [];
@@ -39,6 +48,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   bool _isSaving = false;
 
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _durationSecondsController = TextEditingController();
 
   final List<String> _activityTypes = [
     'walkin_visit',
@@ -49,21 +59,62 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
     'other',
   ];
 
-  final List<String> _outcomes = [
-    'connected',
-    'no_answer',
-    'voicemail',
-    'interested',
-    'not_interested',
-    'callback_requested',
-    'other',
-  ];
+  /// Get available outcomes based on activity type.
+  /// Phone calls can include 'busy' and 'failed' outcomes.
+  /// Other activity types exclude these call-specific outcomes.
+  List<String> get _outcomes {
+    if (_selectedActivityType == 'quick_call') {
+      return [
+        'connected',
+        'no_answer',
+        'voicemail',
+        'busy',
+        'failed',
+        'interested',
+        'not_interested',
+        'callback_requested',
+        'other',
+      ];
+    }
+
+    // For non-call activities, exclude call-specific outcomes
+    return [
+      'connected',
+      'no_answer',
+      'voicemail',
+      'interested',
+      'not_interested',
+      'callback_requested',
+      'other',
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
     _loadCustomers();
     _loadEmployees();
+
+    // Handle pre-population parameters (for post-call logging)
+    if (widget.initialActivityType != null) {
+      _selectedActivityType = widget.initialActivityType!;
+    }
+
+    if (widget.initialPhoneNumber != null) {
+      _phoneNumber = widget.initialPhoneNumber;
+    }
+
+    if (widget.initialDurationSeconds != null) {
+      _durationSeconds = widget.initialDurationSeconds;
+      _durationSecondsController.text = widget.initialDurationSeconds.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    _durationSecondsController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEmployees() async {
@@ -144,6 +195,8 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
       'connected': 'Connected',
       'no_answer': 'No Answer',
       'voicemail': 'Voicemail',
+      'busy': 'Busy',
+      'failed': 'Failed',
       'interested': 'Interested',
       'not_interested': 'Not Interested',
       'callback_requested': 'Callback Requested',
@@ -521,6 +574,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
         outcome: _selectedOutcome,
         activityDate: _activityDate,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        durationMinutes: _durationSeconds != null ? (_durationSeconds! / 60).round() : null,
         assignedEmployees: assignedEmployees.isNotEmpty ? assignedEmployees : null,
       );
 
@@ -553,12 +607,6 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   }
 
   @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -573,6 +621,53 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Call context banner (shown when logging a call)
+                  if (_phoneNumber != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(CrmDesignSystem.md),
+                      decoration: BoxDecoration(
+                        color: CrmColors.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+                        border: Border.all(color: CrmColors.success.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.call_made,
+                            color: CrmColors.success,
+                            size: 20,
+                          ),
+                          const SizedBox(width: CrmDesignSystem.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Log call to $_phoneNumber',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: CrmColors.success,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Duration: ${_formatDuration(_durationSeconds)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: CrmColors.success.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: CrmDesignSystem.lg),
+                  ],
+
                   // Customer Selection
                   _buildSectionTitle('Customer'),
                   const SizedBox(height: CrmDesignSystem.sm),
@@ -670,6 +765,70 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                     ),
                   ),
                   const SizedBox(height: CrmDesignSystem.lg),
+
+                  // Duration (only for quick calls)
+                  if (_selectedActivityType == 'quick_call') ...[
+                    _buildSectionTitle('Call Duration'),
+                    const SizedBox(height: CrmDesignSystem.sm),
+                    // Quick duration options
+                    Wrap(
+                      spacing: CrmDesignSystem.sm,
+                      children: [
+                        _buildDurationChip('< 1 min', 30),
+                        _buildDurationChip('1-3 min', 120),
+                        _buildDurationChip('3-5 min', 240),
+                        _buildDurationChip('> 5 min', 600),
+                      ],
+                    ),
+                    const SizedBox(height: CrmDesignSystem.md),
+                    // Manual duration input
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _durationSecondsController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              hintText: 'Seconds',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: CrmDesignSystem.md,
+                                vertical: CrmDesignSystem.sm,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _durationSeconds = int.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: CrmDesignSystem.md),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: CrmDesignSystem.md,
+                            vertical: CrmDesignSystem.sm,
+                          ),
+                          decoration: BoxDecoration(
+                            color: CrmColors.surface,
+                            borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+                            border: Border.all(color: CrmColors.borderColor),
+                          ),
+                          child: Text(
+                            _formatDuration(_durationSeconds),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: CrmColors.textDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: CrmDesignSystem.lg),
+                  ],
 
                   // Activity Date
                   _buildSectionTitle('Activity Date'),
@@ -778,5 +937,47 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
         color: CrmColors.textDark,
       ),
     );
+  }
+
+  Widget _buildDurationChip(String label, int seconds) {
+    final isSelected = _durationSeconds == seconds;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _durationSeconds = seconds;
+          _durationSecondsController.text = seconds.toString();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: CrmDesignSystem.md,
+          vertical: CrmDesignSystem.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? CrmColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+          border: Border.all(
+            color: isSelected ? CrmColors.primary : CrmColors.borderColor,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : CrmColors.textDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int? seconds) {
+    if (seconds == null || seconds <= 0) {
+      return '00:00';
+    }
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 }

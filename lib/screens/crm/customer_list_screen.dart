@@ -4,7 +4,6 @@ import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/customer.dart';
 import '../../services/api_service.dart';
-import '../../services/access_control_service.dart';
 import '../../widgets/crm/customer_card.dart';
 import '../../widgets/crm/scope_tab_selector.dart';
 
@@ -29,32 +28,15 @@ class _CustomerListScreenState extends State<CustomerListScreen>
   List<Customer> _filteredCustomers = [];
   bool _isLoading = false;
   String? _error;
-  String _selectedFilter = 'all'; // all, recent, hot_leads, inactive
 
   TabController? _tabController;
-  bool _hasViewTeamPermission = false;
-
-  final List<Map<String, String>> _filters = [
-    {'label': 'All', 'value': 'all'},
-    {'label': 'Recent', 'value': 'recent'},
-    {'label': 'Hot Leads', 'value': 'hot_leads'},
-    {'label': 'Inactive', 'value': 'inactive'},
-  ];
 
   @override
   void initState() {
     super.initState();
 
-    _hasViewTeamPermission = AccessControlService.hasAccess(
-      widget.userRole,
-      'crm_management',
-      'view_team',
-    );
-
-    if (_hasViewTeamPermission) {
-      _tabController = TabController(length: 2, vsync: this);
-      _tabController!.addListener(_onTabChanged);
-    }
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController!.addListener(_onTabChanged);
 
     _loadCustomers();
   }
@@ -67,7 +49,6 @@ class _CustomerListScreenState extends State<CustomerListScreen>
   }
 
   String _getCurrentView() {
-    if (!_hasViewTeamPermission) return 'assigned';
     if (_tabController == null || _tabController!.index == 0) return 'assigned';
 
     if (widget.userRole == 'admin' || widget.userRole == 'director') {
@@ -152,38 +133,6 @@ class _CustomerListScreenState extends State<CustomerListScreen>
           .toList();
     }
 
-    // Apply filter chips
-    final now = DateTime.now();
-    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-
-    switch (_selectedFilter) {
-      case 'recent':
-        filtered = filtered
-            .where((c) => c.updatedAt.isAfter(thirtyDaysAgo))
-            .toList();
-        break;
-      case 'hot_leads':
-        // Hot leads: recently created (last 7 days) customers with no activity
-        final sevenDaysAgo = now.subtract(const Duration(days: 7));
-        filtered = filtered
-            .where((c) =>
-                c.createdAt.isAfter(sevenDaysAgo) &&
-                c.updatedAt.isBefore(sevenDaysAgo))
-            .toList();
-        break;
-      case 'inactive':
-        // Inactive: no activity in last 60 days
-        final sixtyDaysAgo = now.subtract(const Duration(days: 60));
-        filtered = filtered
-            .where((c) => c.updatedAt.isBefore(sixtyDaysAgo))
-            .toList();
-        break;
-      case 'all':
-      default:
-        // No additional filter
-        break;
-    }
-
     // Sort by recent first
     filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
@@ -193,13 +142,6 @@ class _CustomerListScreenState extends State<CustomerListScreen>
   }
 
   void _onSearchChanged(String query) {
-    _applyFilter();
-  }
-
-  void _onFilterChanged(String filterValue) {
-    setState(() {
-      _selectedFilter = filterValue;
-    });
     _applyFilter();
   }
 
@@ -232,12 +174,10 @@ class _CustomerListScreenState extends State<CustomerListScreen>
         backgroundColor: CrmColors.primary,
         elevation: 2,
         shadowColor: CrmColors.primary.withValues(alpha: 0.3),
-        bottom: _hasViewTeamPermission
-            ? ScopeTabSelector(
-                controller: _tabController!,
-                userRole: widget.userRole,
-              )
-            : null,
+        bottom: ScopeTabSelector(
+          controller: _tabController!,
+          userRole: widget.userRole,
+        ),
       ),
       body: Column(
         children: [
@@ -253,45 +193,6 @@ class _CustomerListScreenState extends State<CustomerListScreen>
               ),
             ),
           ),
-
-          // Filter chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: CrmDesignSystem.lg),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _filters.map((filter) {
-                  final isSelected = _selectedFilter == filter['value'];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: CrmDesignSystem.sm),
-                    child: AnimatedContainer(
-                      duration: CrmDesignSystem.durationNormal,
-                      child: FilterChip(
-                        label: Text(filter['label']!),
-                        selected: isSelected,
-                        onSelected: (_) => _onFilterChanged(filter['value']!),
-                        backgroundColor: CrmColors.surface,
-                        selectedColor: CrmColors.primary.withValues(alpha: 0.15),
-                        labelStyle: TextStyle(
-                          color: isSelected ? CrmColors.primary : CrmColors.textLight,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                        side: BorderSide(
-                          color: isSelected
-                              ? CrmColors.primary
-                              : CrmColors.borderColor,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: CrmDesignSystem.md),
 
           // Results count
           Padding(

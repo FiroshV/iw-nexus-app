@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/customer.dart';
 import '../../services/api_service.dart';
 import '../../services/customer_service.dart';
+import '../../services/call_service.dart';
 import '../../widgets/crm/timeline_widget.dart';
+import 'quick_activity_log_screen.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
@@ -44,11 +46,25 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       final timelineResponse = await CustomerService.getCustomerTimeline(widget.customerId);
 
       if (timelineResponse.success && timelineResponse.data != null) {
+        print('Timeline data received for customer ${widget.customerId}');
+        print('Total activities: ${timelineResponse.data!['activities']?.length ?? 0}');
+
+        // Debug log each activity to identify problematic ones
+        final activities = timelineResponse.data!['activities'] as List?;
+        activities?.asMap().forEach((index, activity) {
+          print('Activity $index: '
+              'type=${activity['type']}, '
+              'date=${activity['date']}, '
+              'hasNotes=${activity['notes'] != null}, '
+              'outcome=${activity['outcome']}');
+        });
+
         setState(() {
           _timelineData = timelineResponse.data;
         });
       }
     } catch (e) {
+      print('ERROR loading timeline: $e');
       // Silent fail - timeline is optional
     } finally {
       setState(() {
@@ -114,6 +130,57 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       '/crm/add-edit-sale',
       arguments: {'customerId': widget.customerId},
     );
+  }
+
+  Future<void> _initiateCall(String phoneNumber, String customerId) async {
+    try {
+      // Make direct call using CallService
+      final callInitiated = await CallService.makeDirectCall(phoneNumber);
+
+      if (!callInitiated) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot make calls. Please grant permission in settings.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Show call logging screen after call ends (with a delay for user to complete the call)
+      // Note: This provides a reasonable window for users to complete their call
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        _showCallLoggingScreen(customerId, phoneNumber);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error initiating call: $e')),
+      );
+    }
+  }
+
+  Future<void> _showCallLoggingScreen(String customerId, String phoneNumber) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuickActivityLogScreen(
+          userId: widget.userId,
+          userRole: widget.userRole,
+          initialCustomerId: customerId,
+          initialActivityType: 'quick_call',
+          initialPhoneNumber: phoneNumber,
+          initialDurationSeconds: 120, // 2 minutes default estimate
+        ),
+      ),
+    );
+
+    // Refresh timeline if activity was logged
+    if (result == true) {
+      _loadTimeline();
+    }
   }
 
   @override
@@ -212,6 +279,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.call, color: Color(0xFF5cfbd8)),
+                                        onPressed: () => _initiateCall(_customer!.mobileNumber, _customer!.id),
+                                        tooltip: 'Call Customer',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
                                     ],
                                   ),

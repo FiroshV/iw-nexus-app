@@ -1,10 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/crm_colors.dart';
 import '../../models/customer.dart';
 import '../../models/sale.dart';
+import '../../models/sale_document.dart';
 import '../../services/api_service.dart';
+import '../../services/sale_service.dart';
 import '../../widgets/crm/product_type_selector.dart';
 import '../../utils/timezone_util.dart';
 
@@ -56,14 +60,35 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   // ignore: unused_field
   bool _loadingEmployees = false;
 
+  // Document upload state
+  late List<PendingDocument> _pendingDocuments;
+  late List<SaleDocument> _existingDocuments;
+  late bool _isLoadingDocuments;
+
+  // Predefined document types
+  final List<String> _predefinedDocTypes = [
+    'KYC Documents',
+    'Proposal Form',
+    'Policy Copy',
+    'Medical Reports',
+    'ID Proof',
+    'Address Proof',
+    'Payment Receipt',
+    'Other (Custom Name)',
+  ];
+
   @override
   void initState() {
     super.initState();
     _formKey = GlobalKey<FormState>();
+    _pendingDocuments = [];
+    _existingDocuments = [];
+    _isLoadingDocuments = false;
     _initializeControllers();
     _loadEmployees();
     if (widget.sale != null) {
       _populateFormWithSaleData(widget.sale!);
+      _loadExistingDocuments();
     }
     _loadCustomers();
   }
@@ -172,6 +197,260 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     }
   }
 
+  // Document methods
+
+  Future<void> _loadExistingDocuments() async {
+    if (widget.sale == null) return;
+
+    setState(() => _isLoadingDocuments = true);
+
+    try {
+      final response = await SaleService.getSaleDocuments(widget.sale!.id);
+      if (response.success && response.data != null) {
+        setState(() => _existingDocuments = response.data!);
+      }
+    } catch (e) {
+      debugPrint('Error loading documents: $e');
+    } finally {
+      setState(() => _isLoadingDocuments = false);
+    }
+  }
+
+  Future<void> _deleteExistingDocument(String documentId) async {
+    if (widget.sale == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: const Text('Are you sure you want to delete this document?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final response = await SaleService.deleteSaleDocument(
+        widget.sale!.id,
+        documentId,
+      );
+
+      if (!mounted) return;
+
+      if (response.success) {
+        setState(() {
+          _existingDocuments.removeWhere((doc) => doc.id == documentId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document deleted successfully')),
+        );
+      } else {
+        _showError(response.message ?? 'Failed to delete document');
+      }
+    } catch (e) {
+      _showError('Error deleting document: $e');
+    }
+  }
+
+  Future<String?> _showDocumentTypeBottomSheet() async {
+    final localCustomNameController = TextEditingController();
+
+    return showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Title
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Select Document Type',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Predefined document types list (excluding "Other")
+                ...(_predefinedDocTypes.where((type) => type != 'Other (Custom Name)').map((docType) {
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    title: Text(
+                      docType,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    leading: Icon(
+                      Icons.radio_button_unchecked,
+                      color: const Color(0xFF0071bf),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context, docType);
+                    },
+                  );
+                })),
+
+                const SizedBox(height: 16),
+
+                // Divider
+                const Divider(),
+
+                const SizedBox(height: 8),
+
+                // Custom name section
+                const Text(
+                  'Or Enter Custom Name',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF272579),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Custom name text field
+                TextField(
+                  controller: localCustomNameController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter document name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    prefixIcon: const Icon(Icons.edit, color: Color(0xFF0071bf)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+
+                // Use custom name button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final customName = localCustomNameController.text.trim();
+                      if (customName.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter a document name')),
+                        );
+                        return;
+                      }
+                      Navigator.pop(context, customName);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0071bf),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Use Custom Name',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDocument() async {
+    final selectedDocType = await _showDocumentTypeBottomSheet();
+
+    if (selectedDocType == null || selectedDocType.isEmpty) {
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt'],
+      allowMultiple: false,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = File(result.files.single.path!);
+    final fileSize = await file.length();
+
+    if (fileSize > 10 * 1024 * 1024) {
+      _showError('File size exceeds 10MB limit');
+      return;
+    }
+
+    // Always add to pending documents (both create and edit mode)
+    setState(() {
+      _pendingDocuments.add(PendingDocument(
+        file: file,
+        documentName: selectedDocType,
+        documentType: _predefinedDocTypes.contains(selectedDocType)
+            ? selectedDocType
+            : 'Other',
+      ));
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${result.files.single.name} added')),
+    );
+  }
+
+  void _removePendingDocument(int index) {
+    setState(() {
+      _pendingDocuments.removeAt(index);
+    });
+  }
+
   void _showCustomerBottomSheet() {
     List<Customer> filteredCustomers = _customers;
     final TextEditingController searchController = TextEditingController();
@@ -266,37 +545,43 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                 ),
                 // Customer list
                 Expanded(
-                  child: filteredCustomers.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No customers found',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: CrmColors.textLight,
-                                ),
+                  child: _isLoadingCustomers
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF0071bf),
                           ),
                         )
-                      : ListView.separated(
-                          controller: scrollController,
-                          itemCount: filteredCustomers.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final customer = filteredCustomers[index];
-                            final isSelected = _selectedCustomer?.id == customer.id;
-                            return ListTile(
-                              onTap: () {
-                                setState(() => _selectedCustomer = customer);
-                                Navigator.pop(context);
+                      : filteredCustomers.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No customers found',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: CrmColors.textLight,
+                                    ),
+                              ),
+                            )
+                          : ListView.separated(
+                              controller: scrollController,
+                              itemCount: filteredCustomers.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final customer = filteredCustomers[index];
+                                final isSelected = _selectedCustomer?.id == customer.id;
+                                return ListTile(
+                                  onTap: () {
+                                    setState(() => _selectedCustomer = customer);
+                                    Navigator.pop(context);
+                                  },
+                                  title: Text(customer.name),
+                                  subtitle: Text(customer.mobileNumber),
+                                  trailing: isSelected
+                                      ? const Icon(Icons.check_circle, color: CrmColors.primary)
+                                      : null,
+                                  selected: isSelected,
+                                  selectedTileColor: CrmColors.primary.withValues(alpha: 0.1),
+                                );
                               },
-                              title: Text(customer.name),
-                              subtitle: Text(customer.mobileNumber),
-                              trailing: isSelected
-                                  ? const Icon(Icons.check_circle, color: CrmColors.primary)
-                                  : null,
-                              selected: isSelected,
-                              selectedTileColor: CrmColors.primary.withValues(alpha: 0.1),
-                            );
-                          },
-                        ),
+                            ),
                 ),
               ],
             );
@@ -544,7 +829,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
 
     try {
       if (widget.sale != null) {
-        // Update existing sale
+        // Update existing sale with documents
         final response = await ApiService.updateSale(
           saleId: widget.sale!.id,
           productType: _selectedProductType,
@@ -561,6 +846,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           paymentFrequency: _selectedPaymentFrequency,
           investmentType: _selectedInvestmentType,
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          documents: _pendingDocuments.isNotEmpty ? _pendingDocuments : null,
         );
 
         if (!mounted) return;
@@ -577,7 +863,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           _showError(response.message);
         }
       } else {
-        // Create new sale
+        // Create new sale with documents
         final response = await ApiService.createSale(
           customerId: _selectedCustomer!.id,
           productType: _selectedProductType!,
@@ -594,6 +880,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           paymentFrequency: _selectedPaymentFrequency,
           investmentType: _selectedInvestmentType,
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          documents: _pendingDocuments.isNotEmpty ? _pendingDocuments : null,
         );
 
         if (!mounted) return;
@@ -770,6 +1057,149 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       ),
                       maxLines: 3,
                       minLines: 3,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Documents Section
+                    _buildSectionTitle('Documents (Optional)'),
+                    const SizedBox(height: 12),
+
+                    // Document upload card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: CrmColors.borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Upload button
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _isLoading ? null : _pickDocument,
+                              icon: const Icon(Icons.add, color: Color(0xFF0071bf)),
+                              label: const Text('Add Document'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: const BorderSide(color: Color(0xFF0071bf)),
+                              ),
+                            ),
+                          ),
+
+                          // Existing documents (edit mode only)
+                          if (widget.sale != null && _existingDocuments.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Existing Documents',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF272579),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...List.generate(_existingDocuments.length, (index) {
+                              final doc = _existingDocuments[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: const Icon(Icons.description, color: Color(0xFF0071bf)),
+                                  title: Text(
+                                    doc.documentName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    doc.originalFileName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _deleteExistingDocument(doc.id),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+
+                          // Pending documents list (create mode only)
+                          if (widget.sale == null && _pendingDocuments.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Documents to Upload',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF272579),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...List.generate(_pendingDocuments.length, (index) {
+                              final doc = _pendingDocuments[index];
+                              final fileName = doc.file.path.split('/').last;
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: const Icon(Icons.description, color: Color(0xFF0071bf)),
+                                  title: Text(
+                                    doc.documentName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    fileName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _removePendingDocument(index),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+
+                          // Info text (create mode only)
+                          if (widget.sale == null && _pendingDocuments.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Documents will be uploaded after sale is created',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+
+                          // Loading indicator
+                          if (_isLoadingDocuments)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -1146,4 +1576,16 @@ class Employee {
   });
 
   String get fullName => '$firstName $lastName';
+}
+
+class PendingDocument {
+  final File file;
+  final String documentName;
+  final String documentType;
+
+  PendingDocument({
+    required this.file,
+    required this.documentName,
+    required this.documentType,
+  });
 }

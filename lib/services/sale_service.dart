@@ -22,7 +22,7 @@ class ApiResponse<T> {
 class SaleService {
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: '${ApiConfig.baseUrl}/api/crm/sales',
+      baseUrl: '${ApiConfig.baseUrl}/crm/sales',
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
     ),
@@ -39,15 +39,63 @@ class SaleService {
     }
   }
 
-  /// Create a new sale
-  static Future<ApiResponse<Sale>> createSale(
-    Map<String, dynamic> saleData,
-  ) async {
+  /// Create a new sale with optional document uploads
+  static Future<ApiResponse<Sale>> createSale({
+    required String customerId,
+    required String productType,
+    required DateTime dateOfSale,
+    required String companyName,
+    required String productPlanName,
+    double? premiumAmount,
+    double? investmentAmount,
+    double? sipAmount,
+    String? paymentFrequency,
+    String? investmentType,
+    String? notes,
+    List<dynamic>? documents, // PendingDocument
+  }) async {
     try {
       await _setupHeaders();
+
+      // Create multipart form data
+      final formData = FormData.fromMap({
+        'customerId': customerId,
+        'productType': productType,
+        'dateOfSale': dateOfSale.toIso8601String(),
+        'companyName': companyName,
+        'productPlanName': productPlanName,
+        if (premiumAmount != null) 'premiumAmount': premiumAmount.toString(),
+        if (investmentAmount != null) 'investmentAmount': investmentAmount.toString(),
+        if (sipAmount != null) 'sipAmount': sipAmount.toString(),
+        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
+        if (investmentType != null) 'investmentType': investmentType,
+        if (notes != null) 'notes': notes,
+      });
+
+      // Add documents if any
+      if (documents != null && documents.isNotEmpty) {
+        for (int i = 0; i < documents.length; i++) {
+          final doc = documents[i];
+          formData.files.add(MapEntry(
+            'documents',
+            await MultipartFile.fromFile(
+              doc.file.path,
+              filename: doc.file.path.split('/').last,
+            ),
+          ));
+          formData.fields.add(MapEntry('documentName_$i', doc.documentName));
+          formData.fields.add(MapEntry('documentType_$i', doc.documentType));
+        }
+      }
+
       final response = await _dio.post(
         '/',
-        data: saleData,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
 
       if (response.statusCode == 201) {
@@ -153,16 +201,62 @@ class SaleService {
     }
   }
 
-  /// Update a sale
-  static Future<ApiResponse<Sale>> updateSale(
-    String saleId,
-    Map<String, dynamic> updates,
-  ) async {
+  /// Update a sale with optional document uploads
+  static Future<ApiResponse<Sale>> updateSale({
+    required String saleId,
+    String? productType,
+    DateTime? dateOfSale,
+    String? companyName,
+    String? productPlanName,
+    double? premiumAmount,
+    double? investmentAmount,
+    double? sipAmount,
+    String? paymentFrequency,
+    String? investmentType,
+    String? notes,
+    List<dynamic>? documents, // PendingDocument
+  }) async {
     try {
       await _setupHeaders();
+
+      // Create multipart form data
+      final formData = FormData.fromMap({
+        if (productType != null) 'productType': productType,
+        if (dateOfSale != null) 'dateOfSale': dateOfSale.toIso8601String(),
+        if (companyName != null) 'companyName': companyName,
+        if (productPlanName != null) 'productPlanName': productPlanName,
+        if (premiumAmount != null) 'premiumAmount': premiumAmount.toString(),
+        if (investmentAmount != null) 'investmentAmount': investmentAmount.toString(),
+        if (sipAmount != null) 'sipAmount': sipAmount.toString(),
+        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
+        if (investmentType != null) 'investmentType': investmentType,
+        if (notes != null) 'notes': notes,
+      });
+
+      // Add documents if any
+      if (documents != null && documents.isNotEmpty) {
+        for (int i = 0; i < documents.length; i++) {
+          final doc = documents[i];
+          formData.files.add(MapEntry(
+            'documents',
+            await MultipartFile.fromFile(
+              doc.file.path,
+              filename: doc.file.path.split('/').last,
+            ),
+          ));
+          formData.fields.add(MapEntry('documentName_$i', doc.documentName));
+          formData.fields.add(MapEntry('documentType_$i', doc.documentType));
+        }
+      }
+
       final response = await _dio.put(
         '/$saleId',
-        data: updates,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -378,6 +472,6 @@ class SaleService {
 
   /// Get document download URL
   static String getSaleDocumentDownloadUrl(String saleId, String documentId) {
-    return '${ApiConfig.baseUrl}/api/crm/sales/$saleId/documents/$documentId';
+    return '${ApiConfig.baseUrl}/crm/sales/$saleId/documents/$documentId';
   }
 }

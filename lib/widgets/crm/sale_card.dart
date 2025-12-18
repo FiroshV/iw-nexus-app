@@ -7,12 +7,14 @@ class SaleCard extends StatefulWidget {
   final Sale sale;
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
+  final VoidCallback? onTap;
 
   const SaleCard({
     super.key,
     required this.sale,
     this.onDelete,
     this.onEdit,
+    this.onTap,
   });
 
   @override
@@ -56,9 +58,12 @@ class _SaleCardState extends State<SaleCard> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
+              // Toggle expand state
               setState(() {
                 _isExpanded = !_isExpanded;
               });
+              // Call the onTap callback if provided
+              widget.onTap?.call();
             },
             borderRadius: BorderRadius.circular(16),
             child: Padding(

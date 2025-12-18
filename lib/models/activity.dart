@@ -64,6 +64,8 @@ class Activity {
       'connected': 'Connected',
       'no_answer': 'No Answer',
       'voicemail': 'Voicemail',
+      'busy': 'Busy',
+      'failed': 'Failed',
       'interested': 'Interested',
       'not_interested': 'Not Interested',
       'callback_requested': 'Callback Requested',

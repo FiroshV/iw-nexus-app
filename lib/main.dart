@@ -29,6 +29,7 @@ import 'screens/crm/customer_detail_screen.dart';
 import 'screens/crm/appointment_details_screen.dart';
 import 'screens/crm/team_schedule_screen.dart';
 import 'screens/crm/sales_list_screen.dart';
+import 'screens/crm/sale_details_screen.dart';
 import 'screens/crm/add_edit_customer_screen.dart';
 import 'screens/crm/add_edit_sale_screen.dart';
 import 'screens/crm/simplified_appointment_screen.dart';
@@ -39,6 +40,8 @@ import 'screens/crm/unified_appointments_screen.dart';
 import 'screens/crm/pipeline_dashboard_screen.dart';
 import 'screens/crm/pipeline_stage_detail_screen.dart';
 import 'screens/crm/overdue_followups_screen.dart';
+import 'screens/crm/call_logs_screen.dart';
+import 'screens/crm/call_detail_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -214,11 +217,12 @@ class MyApp extends StatelessWidget {
         );
 
       case '/crm/sale-details':
-        // Note: This route would need the actual Sale object passed via Navigator.push
-        // For now, returning a placeholder. Sales details are typically accessed via push with Sale object
+        final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('Sale details not found')),
+          builder: (_) => SaleDetailsScreen(
+            saleId: args?['saleId'] ?? '',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
           ),
           settings: settings,
         );
@@ -310,6 +314,25 @@ class MyApp extends StatelessWidget {
             userId: args?['userId'] ?? '',
             userRole: args?['userRole'] ?? '',
             view: args?['view'] ?? 'assigned',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/call-logs':
+        return MaterialPageRoute(
+          builder: (_) => CallLogsScreen(
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
+          ),
+          settings: settings,
+        );
+
+      case '/crm/call-detail':
+        return MaterialPageRoute(
+          builder: (_) => CallDetailScreen(
+            callLogId: args?['callLogId'] ?? '',
+            userId: args?['userId'] ?? '',
+            userRole: args?['userRole'] ?? '',
           ),
           settings: settings,
         );
@@ -951,7 +974,7 @@ class _DashboardPageState extends State<DashboardPage> {
             padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -974,31 +997,33 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF272579),
-                    letterSpacing: -0.2,
-                    height: 1.2,
+                Flexible(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                      letterSpacing: -0.2,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.fade,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
+                Flexible(
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.1,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.fade,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -1010,26 +1035,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Redirect external employees directly to CRM module
-    if (userRole == 'external' && !isLoading && currentUser != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => CrmModuleScreen(
-              userId: currentUser?['_id'] ?? '',
-              userRole: userRole,
-            ),
-          ),
-        );
-      });
-
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -1217,23 +1222,24 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.1,
+                    childAspectRatio: 0.9,
                     children: [
-                      // Attendance card
-                      _buildDashboardCard(
-                        title: 'Attendance',
-                        subtitle: 'Check in/out',
-                        icon: Icons.schedule,
-                        color: const Color(0xFF5cfbd8),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const EnhancedAttendanceScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                      // Attendance card - hidden for external employees
+                      if (userRole != 'external')
+                        _buildDashboardCard(
+                          title: 'Attendance',
+                          subtitle: 'Check in/out',
+                          icon: Icons.schedule,
+                          color: const Color(0xFF5cfbd8),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const EnhancedAttendanceScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
                       // User Management - accessible to admin, hr, manager, director
                       if (AccessControlService.hasAccess(

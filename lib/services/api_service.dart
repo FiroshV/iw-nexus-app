@@ -10,6 +10,7 @@ import '../config/api_config.dart';
 import '../config/api_endpoints.dart';
 import '../config/http_client_config.dart';
 import '../utils/timezone_util.dart';
+import 'sale_service.dart';
 
 /// Centralized API service for handling all HTTP requests to the IW Nexus backend.
 /// 
@@ -2286,7 +2287,7 @@ class ApiService {
   }
 
   /// Create a new sale
-  static Future<ApiResponse> createSale({
+  static Future<dynamic> createSale({
     required String customerId,
     required String productType,
     required DateTime dateOfSale,
@@ -2300,25 +2301,22 @@ class ApiService {
     String? notes,
     String? initialVisitId,
     List<String>? assignedEmployeeIds,
+    List<dynamic>? documents,
   }) async {
-    return await _makeRequest<Map<String, dynamic>>(
-      ApiEndpoints.crmSales,
-      HttpMethods.post,
-      body: {
-        'customerId': customerId,
-        'productType': productType,
-        'dateOfSale': dateOfSale.toIso8601String(),
-        'companyName': companyName,
-        'productPlanName': productPlanName,
-        if (premiumAmount != null) 'premiumAmount': premiumAmount,
-        if (investmentAmount != null) 'investmentAmount': investmentAmount,
-        if (sipAmount != null) 'sipAmount': sipAmount,
-        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
-        if (investmentType != null) 'investmentType': investmentType,
-        if (notes != null) 'notes': notes,
-        if (initialVisitId != null) 'initialVisitId': initialVisitId,
-        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
-      },
+    // Delegate to SaleService for multipart/form-data support
+    return SaleService.createSale(
+      customerId: customerId,
+      productType: productType,
+      dateOfSale: dateOfSale,
+      companyName: companyName,
+      productPlanName: productPlanName,
+      premiumAmount: premiumAmount,
+      investmentAmount: investmentAmount,
+      sipAmount: sipAmount,
+      paymentFrequency: paymentFrequency,
+      investmentType: investmentType,
+      notes: notes,
+      documents: documents,
     );
   }
 
@@ -2361,7 +2359,7 @@ class ApiService {
   }
 
   /// Update a sale
-  static Future<ApiResponse> updateSale({
+  static Future<dynamic> updateSale({
     required String saleId,
     String? productType,
     DateTime? dateOfSale,
@@ -2375,24 +2373,22 @@ class ApiService {
     String? notes,
     String? status,
     List<String>? assignedEmployeeIds,
+    List<dynamic>? documents,
   }) async {
-    return await _makeRequest<Map<String, dynamic>>(
-      ApiEndpoints.saleByIdEndpoint(saleId),
-      HttpMethods.put,
-      body: {
-        if (productType != null) 'productType': productType,
-        if (dateOfSale != null) 'dateOfSale': dateOfSale.toIso8601String(),
-        if (companyName != null) 'companyName': companyName,
-        if (productPlanName != null) 'productPlanName': productPlanName,
-        if (premiumAmount != null) 'premiumAmount': premiumAmount,
-        if (investmentAmount != null) 'investmentAmount': investmentAmount,
-        if (sipAmount != null) 'sipAmount': sipAmount,
-        if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
-        if (investmentType != null) 'investmentType': investmentType,
-        if (notes != null) 'notes': notes,
-        if (status != null) 'status': status,
-        if (assignedEmployeeIds != null && assignedEmployeeIds.isNotEmpty) 'assignedEmployeeIds': assignedEmployeeIds,
-      },
+    // Delegate to SaleService for multipart/form-data support
+    return SaleService.updateSale(
+      saleId: saleId,
+      productType: productType,
+      dateOfSale: dateOfSale,
+      companyName: companyName,
+      productPlanName: productPlanName,
+      premiumAmount: premiumAmount,
+      investmentAmount: investmentAmount,
+      sipAmount: sipAmount,
+      paymentFrequency: paymentFrequency,
+      investmentType: investmentType,
+      notes: notes,
+      documents: documents,
     );
   }
 

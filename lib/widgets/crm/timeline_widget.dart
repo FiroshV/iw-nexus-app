@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
+import '../../utils/date_utils.dart';
 import 'timeline_item.dart';
 
 class TimelineWidget extends StatelessWidget {
@@ -15,13 +16,7 @@ class TimelineWidget extends StatelessWidget {
   });
 
   String _formatDate(dynamic date) {
-    if (date == null) return 'Never';
-    try {
-      final dateTime = date is DateTime ? date : DateTime.parse(date.toString());
-      return DateFormat('dd MMM yyyy').format(dateTime);
-    } catch (e) {
-      return 'Unknown';
-    }
+    return DateTimeUtils.formatShortDate(date);
   }
 
   String _formatCurrency(dynamic amount) {

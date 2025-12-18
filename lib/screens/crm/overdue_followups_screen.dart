@@ -126,7 +126,6 @@ class _OverdueFollowupsScreenState extends State<OverdueFollowupsScreen> {
   }
 
   Widget _buildOverdueCard(Customer customer, int daysOverdue) {
-    final isHotPriority = customer.leadPriority == 'hot';
     final urgencyColor = daysOverdue > 7 ? Colors.red : daysOverdue > 3 ? Colors.orange : Colors.amber;
 
     return GestureDetector(

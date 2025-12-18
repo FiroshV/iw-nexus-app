@@ -88,6 +88,9 @@ dependencies:
   # Calendar widget for attendance view
   table_calendar: ^3.1.2
 
+  # Direct phone calling without dialer selection
+  flutter_phone_direct_caller: ^2.1.1
+
 
 dev_dependencies:
   flutter_test:

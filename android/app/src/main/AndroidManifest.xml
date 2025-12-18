@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Call permissions for CRM calling feature -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- Record audio permission (for future call recording feature - Phase 2) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:label="IW Nexus"
         android:name="${applicationName}"

@@ -77,7 +77,7 @@ class Sale {
     return Sale(
       id: json['_id'] ?? '',
       saleId: json['saleId'] ?? '',
-      userId: json['userId'] ?? '',
+      userId: json['userId'] is Map ? json['userId']['_id'] ?? '' : json['userId'] ?? '',
       customerId: json['customerId'] is Map ? json['customerId']['_id'] ?? '' : json['customerId'] ?? '',
       customerName: json['customerId'] is Map ? json['customerId']['name'] ?? '' : json['customerName'] ?? '',
       mobileNumber: json['customerId'] is Map ? json['customerId']['mobileNumber'] ?? '' : json['mobileNumber'] ?? '',

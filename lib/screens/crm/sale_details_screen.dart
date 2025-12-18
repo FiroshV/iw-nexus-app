@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../config/crm_colors.dart';
 import '../../models/sale.dart';
 import '../../models/sale_document.dart';
 import '../../services/sale_service.dart';
@@ -33,7 +32,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
   String? _error;
   late TabController _tabController;
 
-  String _selectedDocumentType = 'KYC Documents';
+  String? _selectedDocumentType;
   final TextEditingController _customDocNameController = TextEditingController();
 
   final List<String> _predefinedDocTypes = [
@@ -105,6 +104,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
 
   Future<void> _pickAndUploadDocument() async {
     try {
+      // Validate document type is selected
+      if (_selectedDocumentType == null || _selectedDocumentType!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select or enter a document type')),
+          );
+        }
+        return;
+      }
+
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt'],
@@ -129,23 +138,12 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
       }
 
       // Get document name
-      String documentName = _selectedDocumentType;
-      if (_selectedDocumentType == 'Other (Custom Name)') {
-        if (_customDocNameController.text.trim().isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please enter a custom document name')),
-            );
-          }
-          return;
-        }
-        documentName = _customDocNameController.text.trim();
-      }
+      String documentName = _selectedDocumentType!;
 
-      // Determine document type for backend (without "Custom Name" text)
-      String docType = _selectedDocumentType == 'Other (Custom Name)'
-          ? 'Other'
-          : _selectedDocumentType;
+      // Determine document type for backend
+      String docType = _predefinedDocTypes.contains(_selectedDocumentType)
+          ? _selectedDocumentType!
+          : 'Other';
 
       await _uploadDocument(file, documentName, docType);
     } catch (e) {
@@ -181,7 +179,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
 
         // Reset form
         _customDocNameController.clear();
-        setState(() => _selectedDocumentType = 'KYC Documents');
+        setState(() => _selectedDocumentType = null);
 
         // Reload documents
         await _loadDocuments();
@@ -280,6 +278,155 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
     }
   }
 
+  void _showDocumentTypeBottomSheet() {
+    final localCustomNameController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Title
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Select Document Type',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Predefined document types list (excluding "Other")
+                ...(_predefinedDocTypes.where((type) => type != 'Other (Custom Name)').map((docType) {
+                  final isSelected = _selectedDocumentType == docType;
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    title: Text(
+                      docType,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected ? const Color(0xFF0071bf) : Colors.black87,
+                      ),
+                    ),
+                    leading: Icon(
+                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      color: const Color(0xFF0071bf),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _selectedDocumentType = docType;
+                        _customDocNameController.clear();
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                })),
+
+                const SizedBox(height: 16),
+
+                // Divider
+                const Divider(),
+
+                const SizedBox(height: 8),
+
+                // Custom name section
+                const Text(
+                  'Or Enter Custom Name',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF272579),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Custom name text field
+                TextField(
+                  controller: localCustomNameController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter document name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    prefixIcon: const Icon(Icons.edit, color: Color(0xFF0071bf)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 12),
+
+                // Use custom name button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final customName = localCustomNameController.text.trim();
+                      if (customName.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter a document name')),
+                        );
+                        return;
+                      }
+                      setState(() {
+                        _selectedDocumentType = customName;
+                        _customDocNameController.text = customName;
+                      });
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0071bf),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Use Custom Name',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,7 +442,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         centerTitle: true,
         backgroundColor: const Color(0xFF0071bf),
         elevation: 2,
-        shadowColor: const Color(0xFF0071bf).withOpacity(0.3),
+        shadowColor: const Color(0xFF0071bf).withValues(alpha: 0.3),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -372,7 +519,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -410,7 +557,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -479,7 +626,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -504,51 +651,31 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 ),
                 const SizedBox(height: 20),
 
-                // Document Type Dropdown
-                DropdownButtonFormField<String>(
-                  value: _selectedDocumentType,
-                  items: _predefinedDocTypes
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedDocumentType = value!;
-                      _customDocNameController.clear();
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Document Type',
-                    hintText: 'Select document type',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                // Document Type Selection Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _showDocumentTypeBottomSheet,
+                    icon: const Icon(Icons.category, color: Color(0xFF0071bf)),
+                    label: Text(
+                      _selectedDocumentType ?? 'Select document type',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: _selectedDocumentType != null ? Colors.black87 : Colors.grey[600],
+                      ),
                     ),
-                    prefixIcon: const Icon(Icons.category, color: Color(0xFF0071bf)),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(
+                        color: Colors.grey,
+                        width: 1,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
-
-                // Custom Name Field (shown if "Other" is selected)
-                if (_selectedDocumentType == 'Other (Custom Name)') ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _customDocNameController,
-                    decoration: InputDecoration(
-                      labelText: 'Custom Document Name',
-                      hintText: 'Enter document name',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      prefixIcon: const Icon(Icons.edit, color: Color(0xFF0071bf)),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                    ),
-                  ),
-                ],
 
                 const SizedBox(height: 20),
 
@@ -566,10 +693,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Icon(Icons.add),
+                        : const Icon(Icons.add, color: Colors.white),
                     label: Text(
                       _isUploadingDocument ? 'Uploading...' : 'Select Document',
-                      style: const TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF272579),
@@ -598,7 +725,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -683,7 +810,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF272579).withOpacity(0.1),
+              color: const Color(0xFF272579).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -717,9 +844,13 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      'Uploaded by ${document.uploadedByName ?? 'Unknown'}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    Expanded(
+                      child: Text(
+                        'Uploaded by ${document.uploadedByName ?? 'Unknown'}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Text(
                       ' • ${document.fileSizeFormatted}',
@@ -751,7 +882,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                   ],
                 ),
               ),
-              if (_canAccessDocuments)
+              if (_canAccessDocuments())
                 PopupMenuItem(
                   value: 'delete',
                   child: Row(

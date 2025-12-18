@@ -10,70 +10,60 @@ class WorkPrinciplesScreen extends StatefulWidget {
 class _WorkPrinciplesScreenState extends State<WorkPrinciplesScreen> {
   final List<Map<String, dynamic>> _principles = [
     {
-      'number': 1,
       'icon': Icons.handshake_outlined,
       'title': 'Trust & Respect',
       'content': 'Trust no one but respect everyone.',
       'color': const Color(0xFF0071bf),
     },
     {
-      'number': 2,
       'icon': Icons.lock_outline,
       'title': 'Confidentiality',
       'content': 'What happens in office, remain in office. Never take office gossips to home and vice versa.',
       'color': const Color(0xFF00b8d9),
     },
     {
-      'number': 3,
       'icon': Icons.schedule_outlined,
       'title': 'Work-Life Balance',
       'content': 'Enter office on time, leave on time. Your desktop is not helping to improve your health.',
       'color': const Color(0xFF5cfbd8),
     },
     {
-      'number': 4,
       'icon': Icons.favorite_border,
       'title': 'Professional Relationships',
       'content': 'Never make Relationships in the work place. It will always backfire.',
       'color': const Color(0xFF0071bf),
     },
     {
-      'number': 5,
       'icon': Icons.support_outlined,
       'title': 'Gratitude & Independence',
       'content': 'Expect nothing. If somebody helps, feel thankful. If not, you will learn to know things on your own.',
       'color': const Color(0xFF00b8d9),
     },
     {
-      'number': 6,
       'icon': Icons.trending_up_outlined,
       'title': 'Career Growth',
       'content': 'Never rush for a position. If you get promoted, congrats. If not, it doesn\'t matter. You will always be remembered for your knowledge and politeness, not for your designation.',
       'color': const Color(0xFF5cfbd8),
     },
     {
-      'number': 7,
       'icon': Icons.work_outline,
       'title': 'Priorities',
       'content': 'Never run behind office stuff. You have better things to do in life.',
       'color': const Color(0xFF0071bf),
     },
     {
-      'number': 8,
       'icon': Icons.account_balance_wallet_outlined,
       'title': 'Ego & Compensation',
       'content': 'Avoid taking everything on your ego. Your salary matters. You are being paid. Use your assets to get happiness.',
       'color': const Color(0xFF00b8d9),
     },
     {
-      'number': 9,
       'icon': Icons.sentiment_satisfied_outlined,
       'title': 'Humility',
       'content': 'It doesn\'t matter how people treat you. Be humble. You are not everyone\'s cup of tea.',
       'color': const Color(0xFF5cfbd8),
     },
     {
-      'number': 10,
       'icon': Icons.home_outlined,
       'title': 'Life Priorities',
       'content': 'In the end nothing matters except family, friends, home, and Inner peace.',
@@ -207,20 +197,7 @@ class _WorkPrinciplesScreenState extends State<WorkPrinciplesScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            // Card tap feedback
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Principle ${principle['number']}: ${principle['title']}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                backgroundColor: principle['color'],
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
+          onTap: null,
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -261,24 +238,6 @@ class _WorkPrinciplesScreenState extends State<WorkPrinciplesScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: principle['color'] as Color,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${principle['number']}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(width: 16),
