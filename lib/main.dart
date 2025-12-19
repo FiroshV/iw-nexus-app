@@ -5,6 +5,11 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/crm/customer_provider.dart';
+import 'providers/crm/activity_provider.dart';
+import 'providers/crm/appointment_provider.dart';
+import 'providers/crm/sale_provider.dart';
+import 'models/sale.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/id_card_widget.dart';
 import 'widgets/user_avatar.dart';
@@ -131,7 +136,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        // CRM Providers
+        ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => ActivityProvider()),
+        ChangeNotifierProvider(create: (_) => AppointmentProvider()),
+        ChangeNotifierProvider(create: (_) => SaleProvider()),
+      ],
       child: MaterialApp(
         title: 'IW Nexus',
         debugShowCheckedModeBanner: false,
@@ -234,8 +246,11 @@ class MyApp extends StatelessWidget {
         );
 
       case '/crm/add-edit-sale':
+        final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => const AddEditSaleScreen(),
+          builder: (_) => AddEditSaleScreen(
+            sale: args?['sale'] as Sale?,
+          ),
           settings: settings,
         );
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/activity.dart';
-import '../../services/activity_service.dart';
 import '../../services/access_control_service.dart';
 import '../../widgets/crm/activity_card.dart';
 import '../../widgets/crm/scope_tab_selector.dart';
+import '../../providers/crm/activity_provider.dart';
 
 class ActivityListScreen extends StatefulWidget {
   final String userId;
@@ -23,15 +24,9 @@ class ActivityListScreen extends StatefulWidget {
 
 class _ActivityListScreenState extends State<ActivityListScreen>
     with SingleTickerProviderStateMixin {
-  List<Activity> _activities = [];
-  bool _isLoading = true;
-  String? _error;
-
   String _searchQuery = '';
-
   TabController? _tabController;
   bool _hasViewTeamPermission = false;
-
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -49,13 +44,18 @@ class _ActivityListScreenState extends State<ActivityListScreen>
       _tabController!.addListener(_onTabChanged);
     }
 
-    _loadActivities();
+    // Load activities using provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final view = _getCurrentView();
+      context.read<ActivityProvider>().fetchActivities(view: view);
+    });
   }
 
   void _onTabChanged() {
     // Prevent listener from firing multiple times during tab animation
     if (!_tabController!.indexIsChanging) {
-      _loadActivities();
+      final view = _getCurrentView();
+      context.read<ActivityProvider>().fetchActivities(view: view);
     }
   }
 
@@ -76,45 +76,6 @@ class _ActivityListScreenState extends State<ActivityListScreen>
     super.dispose();
   }
 
-  Future<void> _loadActivities() async {
-    // Clear old data immediately to prevent showing stale data
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _activities = [];
-    });
-
-    try {
-      final view = _getCurrentView();
-      final response = await ActivityService.getUserActivities(
-        userId: widget.userId,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-        limit: 100,
-        view: view,
-      );
-
-      if (!mounted) return;
-
-      if (response.success && response.data != null) {
-        setState(() {
-          _activities = response.data!;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = response.error?.toString() ?? 'Failed to load activities';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
   void _navigateToActivityDetails(Activity activity) {
     Navigator.of(context).pushNamed(
       '/crm/activity-details',
@@ -123,84 +84,105 @@ class _ActivityListScreenState extends State<ActivityListScreen>
         'userId': widget.userId,
         'userRole': widget.userRole,
       },
-    ).then((_) {
-      // Refresh activities after returning from details page
-      _loadActivities();
+    ).then((result) {
+      if (mounted) {
+        // Invalidate cache when returning from activity details
+        final view = _getCurrentView();
+        try {
+          context.read<ActivityProvider>().fetchActivities(
+                view: view,
+                forceRefresh: true,
+              );
+        } catch (e) {
+          // Provider might not be available
+        }
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Activity Log',
-          style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        backgroundColor: CrmColors.primary,
-        elevation: 2,
-        bottom: _hasViewTeamPermission
-            ? ScopeTabSelector(
-                controller: _tabController!,
-                userRole: widget.userRole,
-              )
-            : null,
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(CrmDesignSystem.md),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search by customer name...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                          _loadActivities();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: CrmDesignSystem.md,
-                  vertical: CrmDesignSystem.sm,
+    return Consumer<ActivityProvider>(
+      builder: (context, provider, child) {
+        final view = _getCurrentView();
+        final cache = provider.getCache(view);
+        final activities = provider.getActivities(view, searchQuery: _searchQuery);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Activity Log',
+              style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
+            ),
+            centerTitle: true,
+            backgroundColor: CrmColors.primary,
+            elevation: 2,
+            bottom: _hasViewTeamPermission
+                ? ScopeTabSelector(
+                    controller: _tabController!,
+                    userRole: widget.userRole,
+                  )
+                : null,
+          ),
+          body: Column(
+            children: [
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.all(CrmDesignSystem.md),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by customer name...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: CrmDesignSystem.md,
+                      vertical: CrmDesignSystem.sm,
+                    ),
+                  ),
+                  onSubmitted: (value) {
+                    setState(() => _searchQuery = value);
+                  },
                 ),
               ),
-              onSubmitted: (value) {
-                setState(() => _searchQuery = value);
-                _loadActivities();
-              },
-            ),
-          ),
 
-          // Activities list
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(CrmColors.primary),
-                    ),
-                  )
-                : _error != null
-                    ? Center(
+              // Activities list
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Show loading ONLY if no cached data
+                    if (cache.isLoading && !cache.hasData)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(CrmColors.primary),
+                        ),
+                      )
+
+                    // Show error ONLY if no cached data
+                    else if (cache.error != null && !cache.hasData)
+                      Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                            Icon(Icons.error_outline,
+                                size: 48, color: Colors.red.shade400),
                             const SizedBox(height: 16),
-                            Text(_error!),
+                            Text(cache.error!),
                             const SizedBox(height: 16),
                             ElevatedButton(
-                              onPressed: _loadActivities,
+                              onPressed: () => provider.fetchActivities(
+                                  view: view, forceRefresh: true),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: CrmColors.primary,
                               ),
@@ -209,65 +191,98 @@ class _ActivityListScreenState extends State<ActivityListScreen>
                           ],
                         ),
                       )
-                    : _activities.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.history,
-                                  size: 64,
-                                  color: Colors.grey[300],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No activities found',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Try searching or check back later',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[500],
-                                  ),
-                                ),
-                              ],
+
+                    // Show data (cached or fresh)
+                    else if (activities.isEmpty)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.history,
+                              size: 64,
+                              color: Colors.grey[300],
                             ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadActivities,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(CrmDesignSystem.md),
-                              itemCount: _activities.length,
-                              itemBuilder: (context, index) {
-                                final activity = _activities[index];
-                                return ActivityCard(
-                                  activity: activity,
-                                  onTap: () => _navigateToActivityDetails(activity),
-                                );
-                              },
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchQuery.isEmpty
+                                  ? 'No activities found'
+                                  : 'No match found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _searchQuery.isEmpty
+                                  ? 'Try logging new activities'
+                                  : 'Try adjusting your search',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      RefreshIndicator(
+                        onRefresh: () =>
+                            provider.fetchActivities(view: view, forceRefresh: true),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(CrmDesignSystem.md),
+                          itemCount: activities.length,
+                          itemBuilder: (context, index) {
+                            final activity = activities[index];
+                            return ActivityCard(
+                              activity: activity,
+                              onTap: () => _navigateToActivityDetails(activity),
+                            );
+                          },
+                        ),
+                      ),
+
+                    // Show refresh indicator at top when refreshing
+                    if (cache.isRefreshing)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.transparent,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(CrmColors.primary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: CrmColors.primary,
-        onPressed: () {
-          Navigator.of(context).pushNamed(
-            '/crm/log-activity',
-            arguments: {
-              'userId': widget.userId,
-              'userRole': widget.userRole,
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: CrmColors.primary,
+            onPressed: () {
+              Navigator.of(context).pushNamed(
+                '/crm/log-activity',
+                arguments: {
+                  'userId': widget.userId,
+                  'userRole': widget.userRole,
+                },
+              ).then((_) {
+                // Invalidate cache when returning from log activity
+                try {
+                  provider.invalidateAll();
+                } catch (e) {
+                  // Provider might not be available
+                }
+              });
             },
-          ).then((_) => _loadActivities());
-        },
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        );
+      },
     );
   }
 }

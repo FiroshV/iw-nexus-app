@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../models/customer.dart';
 import '../../services/customer_service.dart';
+import '../../providers/crm/customer_provider.dart';
 
 class AddEditCustomerScreen extends StatefulWidget {
   final Customer? customer;
@@ -61,6 +63,15 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
 
       if (response.success) {
         if (!mounted) return;
+
+        // Invalidate customer list cache
+        try {
+          context.read<CustomerProvider>().invalidateAll();
+        } catch (e) {
+          // Provider might not be available in context
+          debugPrint('Error invalidating cache: $e');
+        }
+
         Navigator.pop(context, response.data);
       } else {
         if (!mounted) return;

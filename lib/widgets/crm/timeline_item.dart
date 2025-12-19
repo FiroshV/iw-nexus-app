@@ -63,6 +63,9 @@ class _TimelineItemState extends State<TimelineItem> {
 
   String _getTypeLabel() {
     switch (widget.type) {
+      case 'quick_call':
+        return 'Call';
+      case 'walkin_visit':
       case 'activity':
         final activityType = widget.data['type'] as String?;
         const labels = {
@@ -101,6 +104,10 @@ class _TimelineItemState extends State<TimelineItem> {
 
   String _getSummary() {
     switch (widget.type) {
+      case 'quick_call':
+        final outcome = widget.data['outcome'] as String?;
+        if (outcome != null) return _getOutcomeDisplayName(outcome);
+        return 'Call made'; // Fallback for empty data
       case 'activity':
         final outcome = widget.data['outcome'] as String?;
         final notes = widget.data['notes'] as String?;
@@ -141,6 +148,20 @@ class _TimelineItemState extends State<TimelineItem> {
 
   Widget _buildExpandedContent() {
     switch (widget.type) {
+      case 'quick_call':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.data['duration'] != null)
+              _buildDetailRow('Duration', '${widget.data['duration']} seconds'),
+            if (widget.data['callType'] != null)
+              _buildDetailRow('Call Type', widget.data['callType'].toString()),
+            if (widget.data['outcome'] != null)
+              _buildDetailRow('Outcome', _getOutcomeDisplayName(widget.data['outcome'].toString())),
+            if (widget.data['notes'] != null && (widget.data['notes'] as String).isNotEmpty)
+              _buildDetailRow('Notes', widget.data['notes'].toString()),
+          ],
+        );
       case 'activity':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

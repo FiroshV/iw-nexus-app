@@ -2,10 +2,16 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/sale.dart';
 import '../../models/sale_document.dart';
 import '../../services/sale_service.dart';
+import '../../providers/crm/sale_provider.dart';
+import '../../services/access_control_service.dart';
+import '../../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../config/crm_design_system.dart';
+import '../../config/crm_colors.dart';
 
 class SaleDetailsScreen extends StatefulWidget {
   final String saleId;
@@ -23,7 +29,8 @@ class SaleDetailsScreen extends StatefulWidget {
   State<SaleDetailsScreen> createState() => _SaleDetailsScreenState();
 }
 
-class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProviderStateMixin {
+class _SaleDetailsScreenState extends State<SaleDetailsScreen>
+    with TickerProviderStateMixin {
   Sale? _sale;
   List<SaleDocument> _documents = [];
   bool _isLoadingSale = true;
@@ -33,7 +40,8 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
   late TabController _tabController;
 
   String? _selectedDocumentType;
-  final TextEditingController _customDocNameController = TextEditingController();
+  final TextEditingController _customDocNameController =
+      TextEditingController();
 
   final List<String> _predefinedDocTypes = [
     'KYC Documents',
@@ -72,7 +80,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
       if (response.success && response.data != null) {
         setState(() => _sale = response.data);
       } else {
-        setState(() => _error = response.message ?? 'Failed to load sale details');
+        setState(
+          () => _error = response.message ?? 'Failed to load sale details',
+        );
       }
     } catch (e) {
       setState(() => _error = 'Error: $e');
@@ -93,9 +103,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading documents: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading documents: $e')));
       }
     } finally {
       setState(() => _isLoadingDocuments = false);
@@ -108,7 +118,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
       if (_selectedDocumentType == null || _selectedDocumentType!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select or enter a document type')),
+            const SnackBar(
+              content: Text('Please select or enter a document type'),
+            ),
           );
         }
         return;
@@ -148,9 +160,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
       await _uploadDocument(file, documentName, docType);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -185,14 +197,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         await _loadDocuments();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Failed to upload document')),
+          SnackBar(
+            content: Text(response.message ?? 'Failed to upload document'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Upload error: $e')));
       }
     } finally {
       setState(() => _isUploadingDocument = false);
@@ -236,14 +250,16 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         await _loadDocuments();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Failed to delete document')),
+          SnackBar(
+            content: Text(response.message ?? 'Failed to delete document'),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -265,8 +281,144 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
     return _sale!.assignedEmployees.any((emp) => emp.userId == widget.userId);
   }
 
+  bool _canEditSale() {
+    // Admin/director can edit all sales
+    if (['admin', 'director'].contains(widget.userRole)) {
+      return true;
+    }
+
+    if (_sale == null) return false;
+
+    // Sale creator can edit
+    if (_sale!.userId == widget.userId) {
+      return true;
+    }
+
+    // Managers can edit sales in their branch
+    if (widget.userRole == 'manager') {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool _canDeleteSale() {
+    // Admin/director can delete all sales
+    if (['admin', 'director'].contains(widget.userRole)) {
+      return true;
+    }
+
+    if (_sale == null) return false;
+
+    // Sale creator can delete
+    if (_sale!.userId == widget.userId) {
+      return true;
+    }
+
+    return false;
+  }
+
+  void _editSale() {
+    if (_sale == null) return;
+
+    Navigator.of(context)
+        .pushNamed(
+          '/crm/add-edit-sale',
+          arguments: {
+            'userId': widget.userId,
+            'userRole': widget.userRole,
+            'saleId': widget.saleId,
+            'sale': _sale,
+          },
+        )
+        .then((result) {
+          if (result == true && mounted) {
+            // Refresh sale details
+            _loadSaleDetails();
+
+            // Invalidate cache
+            try {
+              context.read<SaleProvider>().invalidateAll();
+            } catch (e) {
+              // Provider might not be available
+            }
+          }
+        });
+  }
+
+  Future<void> _confirmAndDeleteSale() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Sale'),
+        content: Text(
+          'Are you sure you want to delete this sale for ${_sale?.customerName ?? 'this customer'}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await _deleteSale();
+  }
+
+  Future<void> _deleteSale() async {
+    try {
+      final response = await ApiService.deleteSale(widget.saleId);
+
+      if (!mounted) return;
+
+      if (response.success) {
+        // Invalidate cache
+        try {
+          context.read<SaleProvider>().invalidateAll();
+        } catch (e) {
+          // Provider might not be available
+        }
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sale deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate back to sales list
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message ?? 'Failed to delete sale'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _downloadDocument(SaleDocument document) async {
-    final url = SaleService.getSaleDocumentDownloadUrl(widget.saleId, document.id);
+    final url = SaleService.getSaleDocumentDownloadUrl(
+      widget.saleId,
+      document.id,
+    );
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
@@ -328,31 +480,42 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 const SizedBox(height: 8),
 
                 // Predefined document types list (excluding "Other")
-                ...(_predefinedDocTypes.where((type) => type != 'Other (Custom Name)').map((docType) {
-                  final isSelected = _selectedDocumentType == docType;
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    title: Text(
-                      docType,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? const Color(0xFF0071bf) : Colors.black87,
-                      ),
-                    ),
-                    leading: Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: const Color(0xFF0071bf),
-                    ),
-                    onTap: () {
-                      setState(() {
-                        _selectedDocumentType = docType;
-                        _customDocNameController.clear();
-                      });
-                      Navigator.pop(context);
-                    },
-                  );
-                })),
+                ...(_predefinedDocTypes
+                    .where((type) => type != 'Other (Custom Name)')
+                    .map((docType) {
+                      final isSelected = _selectedDocumentType == docType;
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        title: Text(
+                          docType,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? const Color(0xFF0071bf)
+                                : Colors.black87,
+                          ),
+                        ),
+                        leading: Icon(
+                          isSelected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: const Color(0xFF0071bf),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedDocumentType = docType;
+                            _customDocNameController.clear();
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    })),
 
                 const SizedBox(height: 16),
 
@@ -380,7 +543,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    prefixIcon: const Icon(Icons.edit, color: Color(0xFF0071bf)),
+                    prefixIcon: const Icon(
+                      Icons.edit,
+                      color: Color(0xFF0071bf),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 12,
                       horizontal: 16,
@@ -398,7 +564,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                       final customName = localCustomNameController.text.trim();
                       if (customName.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a document name')),
+                          const SnackBar(
+                            content: Text('Please enter a document name'),
+                          ),
                         );
                         return;
                       }
@@ -443,6 +611,22 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         backgroundColor: const Color(0xFF0071bf),
         elevation: 2,
         shadowColor: const Color(0xFF0071bf).withValues(alpha: 0.3),
+        actions: [
+          // Edit button
+          if (_canEditSale())
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.white),
+              onPressed: _editSale,
+              tooltip: 'Edit Sale',
+            ),
+          // Delete button
+          if (_canDeleteSale())
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.white),
+              onPressed: _confirmAndDeleteSale,
+              tooltip: 'Delete Sale',
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
@@ -463,33 +647,33 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               ),
             )
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_error!),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadSaleDetails,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0071bf),
-                        ),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(_error!),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadSaleDetails,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0071bf),
+                    ),
+                    child: const Text('Retry'),
                   ),
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Tab 1: Sale Info
-                    _buildSaleInfoTab(),
-                    // Tab 2: Documents
-                    _buildDocumentsTab(),
-                  ],
-                ),
+                ],
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 1: Sale Info
+                _buildSaleInfoTab(),
+                // Tab 2: Documents
+                _buildDocumentsTab(),
+              ],
+            ),
     );
   }
 
@@ -500,391 +684,660 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
 
     final sale = _sale!;
     final dateFormat = DateFormat('dd MMM yyyy');
+    final productColor = CrmColors.getProductTypeColor(sale.productType);
+    final productName = CrmColors.getProductTypeName(sale.productType);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(CrmDesignSystem.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sale Header
+          // Sale Header with product type color
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(CrmDesignSystem.xl),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF272579), Color(0xFF0071bf)],
+              gradient: LinearGradient(
+                colors: [Colors.black, productColor.withValues(alpha: 0.7)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusLarge),
+              boxShadow: CrmDesignSystem.elevationMedium,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   sale.saleId,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                  style: CrmDesignSystem.headlineMedium.copyWith(
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: CrmDesignSystem.sm),
                 Text(
                   sale.customerName,
-                  style: const TextStyle(
-                    fontSize: 16,
+                  style: CrmDesignSystem.bodyLarge.copyWith(
                     color: Colors.white70,
+                  ),
+                ),
+                SizedBox(height: CrmDesignSystem.md),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: CrmDesignSystem.md,
+                    vertical: CrmDesignSystem.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(
+                      CrmDesignSystem.radiusMedium,
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    productName,
+                    style: CrmDesignSystem.labelMedium.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: CrmDesignSystem.xl),
 
-          // Sale Details Card
+          // Customer Section
+          _buildSectionHeaderWithIcon(
+            'Customer Details',
+            Icons.person,
+            CrmColors.primary,
+          ),
+          SizedBox(height: CrmDesignSystem.md),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(CrmDesignSystem.lg),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusLarge),
+              border: Border.all(
+                color: CrmColors.primary.withValues(alpha: 0.15),
+              ),
+              boxShadow: CrmDesignSystem.elevationSmall,
+            ),
+            child: Column(
+              children: [
+                _buildDetailRowWithIcon(
+                  label: 'Customer Name',
+                  value: sale.customerName,
+                  icon: Icons.person_outline,
+                  iconColor: CrmColors.primary,
+                ),
+                _buildDetailRowWithIcon(
+                  label: 'Mobile Number',
+                  value: sale.mobileNumber,
+                  icon: Icons.phone_outlined,
+                  iconColor: CrmColors.secondary,
                 ),
               ],
             ),
+          ),
+          SizedBox(height: CrmDesignSystem.xl),
+
+          // Product Section
+          _buildSectionHeaderWithIcon(
+            'Product Information',
+            Icons.shopping_bag,
+            CrmColors.primary,
+          ),
+          SizedBox(height: CrmDesignSystem.md),
+          Container(
+            padding: EdgeInsets.all(CrmDesignSystem.lg),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusLarge),
+              border: Border.all(color: productColor.withValues(alpha: 0.2)),
+              boxShadow: CrmDesignSystem.elevationSmall,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Sale ID', sale.saleId),
-                const Divider(height: 24),
-                _buildDetailRow('Product Type', sale.productType.replaceAll('_', ' ').toUpperCase()),
-                const Divider(height: 24),
-                _buildDetailRow('Customer', sale.customerName),
-                const Divider(height: 24),
-                _buildDetailRow('Mobile', sale.mobileNumber),
-                const Divider(height: 24),
-                _buildDetailRow('Company', sale.companyName),
-                const Divider(height: 24),
-                _buildDetailRow('Product Plan', sale.productPlanName),
-                const Divider(height: 24),
-                _buildDetailRow(sale.amountLabel, '₹${sale.displayAmount.toStringAsFixed(2)}'),
-                const Divider(height: 24),
-                if (sale.paymentFrequency != null) ...[
-                  _buildDetailRow('Payment Frequency', _formatFrequency(sale.paymentFrequency!)),
-                  const Divider(height: 24),
-                ],
-                if (sale.investmentType != null) ...[
-                  _buildDetailRow('Investment Type', sale.investmentType == 'sip' ? 'SIP' : 'Lumpsum'),
-                  const Divider(height: 24),
-                ],
-                _buildDetailRow('Sale Date', dateFormat.format(sale.dateOfSale.toLocal())),
-                const Divider(height: 24),
-                _buildDetailRow('Status', sale.status.toUpperCase()),
+                _buildDetailRowWithIcon(
+                  label: 'Product Type',
+                  value: productName,
+                  icon: Icons.category_outlined,
+                  iconColor: productColor,
+                ),
+                _buildDetailRowWithIcon(
+                  label: 'Company',
+                  value: sale.companyName,
+                  icon: Icons.business_outlined,
+                  iconColor: productColor,
+                ),
+                _buildDetailRowWithIcon(
+                  label: 'Product Plan',
+                  value: sale.productPlanName,
+                  icon: Icons.description_outlined,
+                  iconColor: productColor,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: CrmDesignSystem.xl),
+
+          // Financial Section - Highlighted
+          _buildMetricCard(
+            label: sale.amountLabel,
+            value: sale.displayAmount.toStringAsFixed(2),
+            icon: Icons.currency_rupee,
+            color: CrmColors.primary,
+          ),
+          if (sale.paymentFrequency != null) ...[
+            SizedBox(height: CrmDesignSystem.md),
+            Container(
+              padding: EdgeInsets.all(CrmDesignSystem.lg),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(
+                  CrmDesignSystem.radiusLarge,
+                ),
+                boxShadow: CrmDesignSystem.elevationSmall,
+              ),
+              child: _buildDetailRowWithIcon(
+                label: 'Payment Frequency',
+                value: _formatFrequency(sale.paymentFrequency!),
+                icon: Icons.schedule,
+                iconColor: CrmColors.secondary,
+              ),
+            ),
+          ],
+          if (sale.investmentType != null) ...[
+            SizedBox(height: CrmDesignSystem.md),
+            Container(
+              padding: EdgeInsets.all(CrmDesignSystem.lg),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(
+                  CrmDesignSystem.radiusLarge,
+                ),
+                boxShadow: CrmDesignSystem.elevationSmall,
+              ),
+              child: _buildDetailRowWithIcon(
+                label: 'Investment Type',
+                value: sale.investmentType == 'sip' ? 'SIP' : 'Lumpsum',
+                icon: Icons.account_balance_wallet,
+                iconColor: CrmColors.primary,
+              ),
+            ),
+          ],
+          SizedBox(height: CrmDesignSystem.xl),
+
+          // Status & Timeline Section
+          Container(
+            padding: EdgeInsets.all(CrmDesignSystem.lg),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusLarge),
+              boxShadow: CrmDesignSystem.elevationSmall,
+            ),
+            child: Column(
+              children: [
+                _buildDetailRowWithIcon(
+                  label: 'Sale Date',
+                  value: dateFormat.format(sale.dateOfSale.toLocal()),
+                  icon: Icons.calendar_today,
+                  iconColor: CrmColors.primary,
+                ),
+                SizedBox(height: CrmDesignSystem.md),
+                Row(
+                  children: [
+                    Text('Status:', style: CrmDesignSystem.labelMedium),
+                    SizedBox(width: CrmDesignSystem.sm),
+                    _buildSaleStatusBadge(sale.status),
+                  ],
+                ),
                 if (sale.notes != null && sale.notes!.isNotEmpty) ...[
-                  const Divider(height: 24),
-                  _buildDetailRow('Notes', sale.notes!),
+                  SizedBox(height: CrmDesignSystem.md),
+                  Container(
+                    padding: EdgeInsets.all(CrmDesignSystem.md),
+                    decoration: BoxDecoration(
+                      color: CrmColors.surface,
+                      borderRadius: BorderRadius.circular(
+                        CrmDesignSystem.radiusMedium,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.notes,
+                              size: 16,
+                              color: CrmColors.textLight,
+                            ),
+                            SizedBox(width: CrmDesignSystem.sm),
+                            Text('Notes', style: CrmDesignSystem.labelSmall),
+                          ],
+                        ),
+                        SizedBox(height: CrmDesignSystem.sm),
+                        Text(sale.notes!, style: CrmDesignSystem.bodySmall),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: CrmDesignSystem.xl),
 
           // Extended Fields (Insurance only)
-          if (sale.productType == 'life_insurance' || sale.productType == 'general_insurance') ...[
+          if (sale.productType == 'life_insurance' ||
+              sale.productType == 'general_insurance') ...[
             // Policy Details
             if (sale.policyDetails != null) ...[
-              _buildSectionHeader('Policy Details'),
-              const SizedBox(height: 12),
+              _buildSectionHeaderWithIcon(
+                'Policy Details',
+                Icons.description_outlined,
+                CrmColors.lifeInsuranceColor,
+              ),
+              SizedBox(height: CrmDesignSystem.md),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(CrmDesignSystem.lg),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(
+                    CrmDesignSystem.radiusLarge,
+                  ),
+                  border: Border.all(
+                    color: CrmColors.lifeInsuranceColor.withValues(alpha: 0.2),
+                  ),
+                  boxShadow: CrmDesignSystem.elevationSmall,
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (sale.policyDetails!.policyNumber != null)
-                      _buildDetailRow('Policy Number', sale.policyDetails!.policyNumber!),
-                    if (sale.policyDetails!.policyNumber != null && sale.policyDetails!.policyIssuanceDate != null)
-                      const Divider(height: 24),
-                    if (sale.policyDetails!.policyIssuanceDate != null)
-                      _buildDetailRow(
-                        'Policy Issuance Date',
-                        dateFormat.format(sale.policyDetails!.policyIssuanceDate!),
+                      _buildDetailRowWithIcon(
+                        label: 'Policy Number',
+                        value: sale.policyDetails!.policyNumber!,
+                        icon: Icons.confirmation_number,
+                        iconColor: CrmColors.lifeInsuranceColor,
                       ),
+                    if (sale.policyDetails!.policyIssuanceDate != null) ...[
+                      SizedBox(height: CrmDesignSystem.sm),
+                      _buildDetailRowWithIcon(
+                        label: 'Issuance Date',
+                        value: dateFormat.format(
+                          sale.policyDetails!.policyIssuanceDate!,
+                        ),
+                        icon: Icons.event,
+                        iconColor: CrmColors.lifeInsuranceColor,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: CrmDesignSystem.xl),
             ],
 
             // Proposer Details
             if (sale.proposerDetails != null) ...[
-              _buildSectionHeader('Proposer Details'),
-              const SizedBox(height: 12),
+              _buildSectionHeaderWithIcon(
+                'Proposer Details',
+                Icons.person_outline,
+                CrmColors.primary,
+              ),
+              SizedBox(height: CrmDesignSystem.md),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(CrmDesignSystem.lg),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(
+                    CrmDesignSystem.radiusLarge,
+                  ),
+                  border: Border.all(
+                    color: CrmColors.primary.withValues(alpha: 0.15),
+                  ),
+                  boxShadow: CrmDesignSystem.elevationSmall,
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (sale.proposerDetails!.fullName != null) ...[
-                      _buildDetailRow('Name', sale.proposerDetails!.fullName!),
-                      const Divider(height: 24),
-                    ],
+                    if (sale.proposerDetails!.fullName != null)
+                      _buildDetailRowWithIcon(
+                        label: 'Full Name',
+                        value: sale.proposerDetails!.fullName!,
+                        icon: Icons.badge,
+                        iconColor: CrmColors.primary,
+                      ),
                     if (sale.proposerDetails!.gender != null) ...[
-                      _buildDetailRow('Gender', sale.proposerDetails!.gender!),
-                      const Divider(height: 24),
+                      SizedBox(height: CrmDesignSystem.sm),
+                      _buildDetailRowWithIcon(
+                        label: 'Gender',
+                        value: sale.proposerDetails!.gender!,
+                        icon: Icons.wc,
+                        iconColor: CrmColors.secondary,
+                      ),
                     ],
                     if (sale.proposerDetails!.dateOfBirth != null) ...[
-                      _buildDetailRow(
-                        'Date of Birth',
-                        dateFormat.format(sale.proposerDetails!.dateOfBirth!),
+                      SizedBox(height: CrmDesignSystem.sm),
+                      _buildDetailRowWithIcon(
+                        label: 'Date of Birth',
+                        value: dateFormat.format(
+                          sale.proposerDetails!.dateOfBirth!,
+                        ),
+                        icon: Icons.cake,
+                        iconColor: CrmColors.success,
                       ),
-                      const Divider(height: 24),
                     ],
                     if (sale.proposerDetails!.email != null) ...[
-                      _buildDetailRow('Email', sale.proposerDetails!.email!),
-                      const Divider(height: 24),
+                      SizedBox(height: CrmDesignSystem.sm),
+                      _buildDetailRowWithIcon(
+                        label: 'Email',
+                        value: sale.proposerDetails!.email!,
+                        icon: Icons.email_outlined,
+                        iconColor: CrmColors.secondary,
+                      ),
                     ],
-                    if (sale.proposerDetails!.mobileNumber != null)
-                      _buildDetailRow('Mobile', sale.proposerDetails!.mobileNumber!),
+                    if (sale.proposerDetails!.mobileNumber != null) ...[
+                      SizedBox(height: CrmDesignSystem.sm),
+                      _buildDetailRowWithIcon(
+                        label: 'Mobile',
+                        value: sale.proposerDetails!.mobileNumber!,
+                        icon: Icons.phone_outlined,
+                        iconColor: CrmColors.primary,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: CrmDesignSystem.xl),
             ],
 
             // Nominees
             if (sale.nominees.isNotEmpty) ...[
-              _buildSectionHeader('Nominees'),
-              const SizedBox(height: 12),
+              _buildSectionHeaderWithIcon(
+                'Nominees',
+                Icons.people_outline,
+                CrmColors.secondary,
+              ),
+              SizedBox(height: CrmDesignSystem.md),
               ...List.generate(sale.nominees.length, (index) {
                 final nominee = sale.nominees[index];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: CrmDesignSystem.md),
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(CrmDesignSystem.lg),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(
+                        CrmDesignSystem.radiusLarge,
+                      ),
+                      border: Border.all(
+                        color: CrmColors.secondary.withValues(alpha: 0.3),
+                      ),
+                      boxShadow: CrmDesignSystem.elevationSmall,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Nominee ${index + 1}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF272579),
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: CrmColors.secondary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: CrmDesignSystem.titleSmall.copyWith(
+                                    color: CrmColors.secondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: CrmDesignSystem.md),
+                            Text(
+                              'Nominee ${index + 1}',
+                              style: CrmDesignSystem.titleMedium.copyWith(
+                                color: CrmColors.secondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        if (nominee.name != null)
-                          _buildDetailRow('Name', nominee.name!),
-                        if (nominee.name != null && nominee.dateOfBirth != null)
-                          const Divider(height: 16),
-                        if (nominee.dateOfBirth != null)
-                          _buildDetailRow(
+                        if (nominee.name != null) ...[
+                          SizedBox(height: CrmDesignSystem.md),
+                          _buildVerticalDetailRow('Name', nominee.name!),
+                        ],
+                        if (nominee.dateOfBirth != null) ...[
+                          SizedBox(height: CrmDesignSystem.sm),
+                          _buildVerticalDetailRow(
                             'Date of Birth',
                             dateFormat.format(nominee.dateOfBirth!),
                           ),
+                        ],
                       ],
                     ),
                   ),
                 );
               }),
-              const SizedBox(height: 20),
+              SizedBox(height: CrmDesignSystem.xl),
             ],
 
             // Insured Persons
             if (sale.insuredPersons.isNotEmpty) ...[
-              _buildSectionHeader('Insured Persons'),
-              const SizedBox(height: 12),
+              _buildSectionHeaderWithIcon(
+                'Insured Persons',
+                Icons.health_and_safety_outlined,
+                CrmColors.generalInsuranceColor,
+              ),
+              SizedBox(height: CrmDesignSystem.md),
               ...List.generate(sale.insuredPersons.length, (index) {
                 final person = sale.insuredPersons[index];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: CrmDesignSystem.md),
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(CrmDesignSystem.lg),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(
+                        CrmDesignSystem.radiusLarge,
+                      ),
+                      border: Border.all(
+                        color: CrmColors.generalInsuranceColor.withValues(
+                          alpha: 0.3,
+                        ),
+                      ),
+                      boxShadow: CrmDesignSystem.elevationSmall,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Person ${index + 1}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF272579),
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: CrmDesignSystem.md,
+                                vertical: CrmDesignSystem.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                color: CrmColors.generalInsuranceColor
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(
+                                  CrmDesignSystem.radiusMedium,
+                                ),
+                              ),
+                              child: Text(
+                                'Person ${index + 1}',
+                                style: CrmDesignSystem.titleSmall.copyWith(
+                                  color: CrmColors.generalInsuranceColor,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: CrmDesignSystem.md),
                         if (person.fullName != null) ...[
-                          _buildDetailRow('Name', person.fullName!),
-                          const Divider(height: 16),
+                          _buildVerticalDetailRow('Name', person.fullName!),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.gender != null) ...[
-                          _buildDetailRow('Gender', person.gender!),
-                          const Divider(height: 16),
+                          _buildVerticalDetailRow('Gender', person.gender!),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.dateOfBirth != null) ...[
-                          _buildDetailRow(
+                          _buildVerticalDetailRow(
                             'Date of Birth',
                             dateFormat.format(person.dateOfBirth!),
                           ),
-                          const Divider(height: 16),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.height != null) ...[
-                          _buildDetailRow(
+                          _buildVerticalDetailRow(
                             'Height',
                             '${person.height!.value} ${person.height!.unit}',
                           ),
-                          const Divider(height: 16),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.weight != null) ...[
-                          _buildDetailRow(
+                          _buildVerticalDetailRow(
                             'Weight',
                             '${person.weight!.value} ${person.weight!.unit}',
                           ),
-                          const Divider(height: 16),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.preExistingDiseases != null) ...[
-                          _buildDetailRow('Pre-existing Diseases', person.preExistingDiseases!),
-                          const Divider(height: 16),
+                          _buildVerticalDetailRow(
+                            'Pre-existing Diseases',
+                            person.preExistingDiseases!,
+                          ),
+                          SizedBox(height: CrmDesignSystem.sm),
                         ],
                         if (person.medicationDetails != null)
-                          _buildDetailRow('Medication Details', person.medicationDetails!),
+                          _buildVerticalDetailRow(
+                            'Medication Details',
+                            person.medicationDetails!,
+                          ),
                       ],
                     ),
                   ),
                 );
               }),
-              const SizedBox(height: 20),
+              SizedBox(height: CrmDesignSystem.xl),
             ],
           ],
 
           // Extended Fields (Mutual Funds only)
-          if (sale.productType == 'mutual_funds' && sale.mutualFundDetails != null) ...[
-            _buildSectionHeader('Mutual Fund Details'),
-            const SizedBox(height: 12),
+          if (sale.productType == 'mutual_funds' &&
+              sale.mutualFundDetails != null) ...[
+            _buildSectionHeaderWithIcon(
+              'Mutual Fund Details',
+              Icons.account_balance_outlined,
+              CrmColors.primary,
+            ),
+            SizedBox(height: CrmDesignSystem.md),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(CrmDesignSystem.lg),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(
+                  CrmDesignSystem.radiusLarge,
+                ),
+                border: Border.all(
+                  color: CrmColors.mutualFundsColor.withValues(alpha: 0.2),
+                ),
+                boxShadow: CrmDesignSystem.elevationSmall,
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (sale.mutualFundDetails!.folioNumber != null)
-                    _buildDetailRow('Folio Number', sale.mutualFundDetails!.folioNumber!),
+                    _buildDetailRowWithIcon(
+                      label: 'Folio Number',
+                      value: sale.mutualFundDetails!.folioNumber!,
+                      icon: Icons.folder_outlined,
+                      iconColor: CrmColors.mutualFundsColor,
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: CrmDesignSystem.xl),
           ],
           // Nominees (for mutual funds)
-          if (sale.productType == 'mutual_funds' && sale.nominees.isNotEmpty) ...[
-            _buildSectionHeader('Nominees'),
-            const SizedBox(height: 12),
+          if (sale.productType == 'mutual_funds' &&
+              sale.nominees.isNotEmpty) ...[
+            _buildSectionHeaderWithIcon(
+              'Nominees',
+              Icons.people_outline,
+              CrmColors.secondary,
+            ),
+            SizedBox(height: CrmDesignSystem.md),
             ...List.generate(sale.nominees.length, (index) {
               final nominee = sale.nominees[index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.only(bottom: CrmDesignSystem.md),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(CrmDesignSystem.lg),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(
+                      CrmDesignSystem.radiusLarge,
+                    ),
+                    border: Border.all(
+                      color: CrmColors.secondary.withValues(alpha: 0.3),
+                    ),
+                    boxShadow: CrmDesignSystem.elevationSmall,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Nominee ${index + 1}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF272579),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: CrmColors.secondary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: CrmDesignSystem.titleSmall.copyWith(
+                                  color: CrmColors.secondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: CrmDesignSystem.md),
+                          Text(
+                            'Nominee ${index + 1}',
+                            style: CrmDesignSystem.titleMedium.copyWith(
+                              color: CrmColors.secondary,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      if (nominee.name != null)
-                        _buildDetailRow('Name', nominee.name!),
-                      if (nominee.name != null && nominee.dateOfBirth != null)
-                        const Divider(height: 16),
-                      if (nominee.dateOfBirth != null)
-                        _buildDetailRow('Date of Birth', dateFormat.format(nominee.dateOfBirth!.toLocal())),
+                      if (nominee.name != null) ...[
+                        SizedBox(height: CrmDesignSystem.md),
+                        _buildVerticalDetailRow('Name', nominee.name!),
+                      ],
+                      if (nominee.dateOfBirth != null) ...[
+                        SizedBox(height: CrmDesignSystem.sm),
+                        _buildVerticalDetailRow(
+                          'Date of Birth',
+                          dateFormat.format(nominee.dateOfBirth!.toLocal()),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               );
             }),
-            const SizedBox(height: 20),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: Color(0xFF272579),
       ),
     );
   }
@@ -895,18 +1348,11 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.lock,
-              size: 48,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.lock, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'You do not have access to manage documents for this sale',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -963,15 +1409,14 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                       _selectedDocumentType ?? 'Select document type',
                       style: TextStyle(
                         fontSize: 16,
-                        color: _selectedDocumentType != null ? Colors.black87 : Colors.grey[600],
+                        color: _selectedDocumentType != null
+                            ? Colors.black87
+                            : Colors.grey[600],
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(
-                        color: Colors.grey,
-                        width: 1,
-                      ),
+                      side: const BorderSide(color: Colors.grey, width: 1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -985,14 +1430,18 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isUploadingDocument ? null : _pickAndUploadDocument,
+                    onPressed: _isUploadingDocument
+                        ? null
+                        : _pickAndUploadDocument,
                     icon: _isUploadingDocument
                         ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Icon(Icons.add, color: Colors.white),
@@ -1055,7 +1504,9 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 if (_isLoadingDocuments)
                   const Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0071bf)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0071bf),
+                      ),
                     ),
                   )
                 else if (_documents.isEmpty)
@@ -1116,7 +1567,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
-              child: Text(document.fileIcon, style: const TextStyle(fontSize: 20)),
+              child: Text(
+                document.fileIcon,
+                style: const TextStyle(fontSize: 20),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1178,7 +1632,11 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 value: 'download',
                 child: Row(
                   children: [
-                    const Icon(Icons.download, color: Color(0xFF0071bf), size: 20),
+                    const Icon(
+                      Icons.download,
+                      color: Color(0xFF0071bf),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     const Text('Download'),
                   ],
@@ -1223,27 +1681,196 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
     }
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildSectionHeaderWithIcon(String title, IconData icon, Color color) {
+    return Column(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(
+                  CrmDesignSystem.radiusMedium,
+                ),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            SizedBox(width: CrmDesignSystem.md),
+            Text(
+              title,
+              style: CrmDesignSystem.titleMedium.copyWith(color: color),
+            ),
+          ],
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF272579),
+        SizedBox(height: CrmDesignSystem.sm),
+        Container(
+          height: 2,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color.withValues(alpha: 0.3), Colors.transparent],
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDetailRowWithIcon({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: CrmDesignSystem.sm),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          SizedBox(width: CrmDesignSystem.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: CrmDesignSystem.labelSmall.copyWith(
+                    color: CrmColors.textLight,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: CrmDesignSystem.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerticalDetailRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: CrmDesignSystem.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: CrmDesignSystem.labelSmall.copyWith(
+              color: CrmColors.textLight,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: CrmDesignSystem.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(CrmDesignSystem.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
+        ),
+        borderRadius: BorderRadius.circular(CrmDesignSystem.radiusLarge),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: CrmDesignSystem.elevationSmall,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          SizedBox(width: CrmDesignSystem.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: CrmDesignSystem.labelMedium.copyWith(
+                    color: CrmColors.textLight,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: CrmDesignSystem.headlineSmall.copyWith(color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaleStatusBadge(String status) {
+    final statusColor = status == 'active'
+        ? CrmColors.success
+        : status == 'inactive'
+        ? Colors.orange
+        : Colors.red;
+    final statusIcon = status == 'active'
+        ? Icons.check_circle
+        : status == 'inactive'
+        ? Icons.pause_circle
+        : Icons.cancel;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: CrmDesignSystem.md,
+        vertical: CrmDesignSystem.sm,
+      ),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, color: statusColor, size: 18),
+          SizedBox(width: CrmDesignSystem.sm),
+          Text(
+            status.toUpperCase(),
+            style: CrmDesignSystem.labelMedium.copyWith(
+              color: statusColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

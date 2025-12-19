@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/sale.dart';
@@ -7,13 +8,18 @@ import '../../services/api_service.dart';
 import '../../services/access_control_service.dart';
 import '../../widgets/crm/sale_card.dart';
 import '../../widgets/crm/scope_tab_selector.dart';
+import '../../providers/crm/sale_provider.dart';
 import 'add_edit_sale_screen.dart';
 
 class SalesListScreen extends StatefulWidget {
   final String userId;
   final String userRole;
 
-  const SalesListScreen({super.key, required this.userId, required this.userRole});
+  const SalesListScreen({
+    super.key,
+    required this.userId,
+    required this.userRole,
+  });
 
   @override
   State<SalesListScreen> createState() => _SalesListScreenState();
@@ -64,6 +70,12 @@ class _SalesListScreenState extends State<SalesListScreen>
       _currentSkip = 0;
       _sales.clear();
       _hasMoreData = true;
+      // Invalidate cache when tab changes
+      try {
+        context.read<SaleProvider>().invalidateAll();
+      } catch (e) {
+        // Provider might not be available
+      }
       _loadSales();
     }
   }
@@ -100,6 +112,14 @@ class _SalesListScreenState extends State<SalesListScreen>
 
     try {
       final view = _getCurrentView();
+
+      // Update provider cache
+      try {
+        await context.read<SaleProvider>().fetchSales(view: view);
+      } catch (e) {
+        debugPrint('Provider cache update error: $e');
+      }
+
       final response = await ApiService.getSales(
         skip: 0,
         limit: 20,
@@ -212,70 +232,51 @@ class _SalesListScreenState extends State<SalesListScreen>
         )
         .then((refreshNeeded) {
           if (refreshNeeded == true) {
-            _loadSales();
+            // Invalidate cache when a new sale is created
+            final view = _getCurrentView();
+            try {
+              context.read<SaleProvider>().invalidateAll();
+              // Fetch fresh data
+              context.read<SaleProvider>().fetchSales(
+                view: view,
+                forceRefresh: true,
+              );
+            } catch (e) {
+              // Provider might not be available
+              _loadSales();
+            }
           }
         });
   }
 
-  void _deleteSale(Sale sale) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Sale?'),
-        content: Text(
-          'Are you sure you want to delete the sale for ${sale.customerName}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _performDeleteSale(sale.id);
-            },
-            style: TextButton.styleFrom(foregroundColor: CrmColors.errorColor),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _performDeleteSale(String saleId) async {
-    try {
-      final response = await ApiService.deleteSale(saleId);
-      if (response.success) {
-        _loadSales();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sale deleted successfully'),
-              backgroundColor: CrmColors.successColor,
-            ),
-          );
-        }
-      } else {
-        _showError(response.message);
-      }
-    } catch (e) {
-      _showError('Failed to delete sale: $e');
-    }
-  }
 
   void _navigateToSaleDetails(Sale sale) {
-    Navigator.of(context).pushNamed(
-      '/crm/sale-details',
-      arguments: {
-        'saleId': sale.id,
-        'userId': widget.userId,
-        'userRole': widget.userRole,
-      },
-    ).then((_) {
-      // Refresh sales list when returning
-      _loadSales();
-    });
+    Navigator.of(context)
+        .pushNamed(
+          '/crm/sale-details',
+          arguments: {
+            'saleId': sale.id,
+            'userId': widget.userId,
+            'userRole': widget.userRole,
+          },
+        )
+        .then((result) {
+          if (mounted) {
+            final view = _getCurrentView();
+            // Invalidate cache when returning from sale details
+            try {
+              context.read<SaleProvider>().invalidateAll();
+              // Fetch fresh data
+              context.read<SaleProvider>().fetchSales(
+                view: view,
+                forceRefresh: true,
+              );
+            } catch (e) {
+              // Provider might not be available
+              _loadSales();
+            }
+          }
+        });
   }
 
   void _showFilterSheet() {
@@ -452,219 +453,269 @@ class _SalesListScreenState extends State<SalesListScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Sales',
-          style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        elevation: 2,
-        backgroundColor: CrmColors.primary,
-        shadowColor: CrmColors.primary.withValues(alpha: 0.3),
-        bottom: _hasViewTeamPermission
-            ? ScopeTabSelector(
-                controller: _tabController!,
-                userRole: widget.userRole,
-              )
-            : null,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addNewSale,
-        backgroundColor: const Color(0xFF0071bf),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          // Search bar and Filter button on same line
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) {
-                      setState(() => _searchQuery = value);
-                      _loadSales();
-                    },
-                    style: const TextStyle(fontSize: 16),
-                    decoration: InputDecoration(
-                      hintText: 'Search by name or mobile',
-                      hintStyle: const TextStyle(
-                        fontSize: 16,
-                        color: CrmColors.textLight,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: CrmColors.textLight,
-                      ),
-                      suffixIcon:
-                          _searchQuery != null && _searchQuery!.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = null);
-                                _loadSales();
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: CrmColors.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: CrmColors.borderColor,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: CrmColors.borderColor,
+    return Consumer<SaleProvider>(
+      builder: (context, saleProvider, child) {
+        final view = _getCurrentView();
+        final cache = saleProvider.getCache(view);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Sales',
+              style: CrmDesignSystem.headlineSmall.copyWith(
+                color: Colors.white,
+              ),
+            ),
+            centerTitle: true,
+            elevation: 2,
+            backgroundColor: CrmColors.primary,
+            shadowColor: CrmColors.primary.withValues(alpha: 0.3),
+            bottom: _hasViewTeamPermission
+                ? ScopeTabSelector(
+                    controller: _tabController!,
+                    userRole: widget.userRole,
+                  )
+                : null,
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _addNewSale,
+            backgroundColor: const Color(0xFF0071bf),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          body: Column(
+            children: [
+              // Search bar and Filter button on same line
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() => _searchQuery = value);
+                          _loadSales();
+                        },
+                        style: const TextStyle(fontSize: 16),
+                        decoration: InputDecoration(
+                          hintText: 'Search by name or mobile',
+                          hintStyle: const TextStyle(
+                            fontSize: 16,
+                            color: CrmColors.textLight,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: CrmColors.textLight,
+                          ),
+                          suffixIcon:
+                              _searchQuery != null && _searchQuery!.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = null);
+                                    _loadSales();
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: CrmColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: CrmColors.borderColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: CrmColors.borderColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: _showFilterSheet,
-                  color: CrmColors.primary,
-                  tooltip: 'Filters',
-                ),
-              ],
-            ),
-          ),
-
-          // Active filter chips row
-          if (_selectedProductType != null || _selectedDateRange != null)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    if (_selectedProductType != null) ...[
-                      Chip(
-                        label: Text(
-                          CrmColors.getProductTypeName(_selectedProductType!),
-                        ),
-                        onDeleted: () {
-                          setState(() => _selectedProductType = null);
-                          _loadSales();
-                        },
-                        backgroundColor: CrmColors.getProductTypeColor(
-                          _selectedProductType!,
-                        ).withValues(alpha: 0.2),
-                      ),
-                    ],
-                    if (_selectedDateRange != null) ...[
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(
-                          '${DateFormat('dd MMM').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM').format(_selectedDateRange!.end)}',
-                        ),
-                        onDeleted: () {
-                          setState(() => _selectedDateRange = null);
-                          _loadSales();
-                        },
-                        backgroundColor: CrmColors.secondary.withValues(
-                          alpha: 0.2,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.filter_list),
+                      onPressed: _showFilterSheet,
+                      color: CrmColors.primary,
+                      tooltip: 'Filters',
+                    ),
                   ],
                 ),
               ),
-            ),
 
-          const SizedBox(height: 8),
-
-          // Sales list or empty state
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: CrmColors.primary),
-                  )
-                : _sales.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              // Active filter chips row
+              if (_selectedProductType != null || _selectedDateRange != null)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                       children: [
-                        Icon(
-                          Icons.inbox,
-                          size: 64,
-                          color: CrmColors.textLight.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No sales found',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: CrmColors.textLight),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Add your first sale to get started',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: CrmColors.textLight),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _sales.length + (_isLoadingMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _sales.length) {
-                        return Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: CrmColors.primary,
+                        if (_selectedProductType != null) ...[
+                          Chip(
+                            label: Text(
+                              CrmColors.getProductTypeName(
+                                _selectedProductType!,
+                              ),
+                            ),
+                            onDeleted: () {
+                              setState(() => _selectedProductType = null);
+                              _loadSales();
+                            },
+                            backgroundColor: CrmColors.getProductTypeColor(
+                              _selectedProductType!,
+                            ).withValues(alpha: 0.2),
+                          ),
+                        ],
+                        if (_selectedDateRange != null) ...[
+                          const SizedBox(width: 8),
+                          Chip(
+                            label: Text(
+                              '${DateFormat('dd MMM').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM').format(_selectedDateRange!.end)}',
+                            ),
+                            onDeleted: () {
+                              setState(() => _selectedDateRange = null);
+                              _loadSales();
+                            },
+                            backgroundColor: CrmColors.secondary.withValues(
+                              alpha: 0.2,
                             ),
                           ),
-                        );
-                      }
-
-                      final sale = _sales[index];
-                      return SaleCard(
-                        sale: sale,
-                        onDelete: () => _deleteSale(sale),
-                        onEdit: () {
-                          Navigator.of(context)
-                              .push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      AddEditSaleScreen(sale: sale),
-                                ),
-                              )
-                              .then((refreshNeeded) {
-                                if (refreshNeeded == true) {
-                                  _loadSales();
-                                }
-                              });
-                        },
-                        onTap: () => _navigateToSaleDetails(sale),
-                      );
-                    },
+                        ],
+                      ],
+                    ),
                   ),
-          ),
+                ),
 
-          // Total sales count
-          if (_sales.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Showing ${_sales.length} of $_totalSales sales',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: CrmColors.textLight),
+              const SizedBox(height: 8),
+
+              // Sales list or empty state
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Show loading ONLY if no cached data
+                    if (_isLoading && _sales.isEmpty && !cache.hasData)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: CrmColors.primary,
+                        ),
+                      )
+                    // Show error ONLY if no cached data
+                    else if (cache.error != null && !cache.hasData)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(cache.error!),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                _loadSales();
+                                saleProvider.fetchSales(
+                                  view: view,
+                                  forceRefresh: true,
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: CrmColors.primary,
+                              ),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    // Show data (cached or fresh)
+                    else if (_sales.isEmpty && !cache.hasData)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inbox,
+                              size: 64,
+                              color: CrmColors.textLight.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No sales found',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: CrmColors.textLight),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add your first sale to get started',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: CrmColors.textLight),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _sales.length + (_isLoadingMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == _sales.length) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: CrmColors.primary,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final sale = _sales[index];
+                          return SaleCard(
+                            sale: sale,
+                            onTap: () => _navigateToSaleDetails(sale),
+                          );
+                        },
+                      ),
+
+                    // Show refresh indicator at top when cache is refreshing
+                    if (cache.isRefreshing && _sales.isNotEmpty)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            CrmColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-        ],
-      ),
+
+              // Total sales count
+              if (_sales.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Showing ${_sales.length} of $_totalSales sales',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: CrmColors.textLight),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

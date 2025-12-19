@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/customer.dart';
-import '../../services/api_service.dart';
+import '../../providers/crm/customer_provider.dart';
 import '../../widgets/crm/customer_card.dart';
 import '../../widgets/crm/scope_tab_selector.dart';
 
@@ -24,11 +24,6 @@ class CustomerListScreen extends StatefulWidget {
 class _CustomerListScreenState extends State<CustomerListScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  List<Customer> _customers = [];
-  List<Customer> _filteredCustomers = [];
-  bool _isLoading = false;
-  String? _error;
-
   TabController? _tabController;
 
   @override
@@ -38,13 +33,17 @@ class _CustomerListScreenState extends State<CustomerListScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController!.addListener(_onTabChanged);
 
-    _loadCustomers();
+    // Trigger initial fetch from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomerProvider>().fetchCustomers(view: _getCurrentView());
+    });
   }
 
   void _onTabChanged() {
     // Prevent listener from firing multiple times during tab animation
     if (!_tabController!.indexIsChanging) {
-      _loadCustomers();
+      final view = _getCurrentView();
+      context.read<CustomerProvider>().fetchCustomers(view: view);
     }
   }
 
@@ -57,93 +56,8 @@ class _CustomerListScreenState extends State<CustomerListScreen>
     return 'branch';
   }
 
-  Future<void> _loadCustomers() async {
-    // Clear old data immediately to prevent showing stale data
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _customers = [];
-      _filteredCustomers = [];
-    });
 
-    try {
-      final view = _getCurrentView();
-      final response = await ApiService.get('/crm/customers?limit=500&view=$view');
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final customers = (data['data'] as List)
-            .map((c) => Customer.fromJson(c as Map<String, dynamic>))
-            .toList();
-
-        setState(() {
-          _customers = customers;
-          _applyFilter();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = _getErrorMessage(response.statusCode);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = _getErrorMessage(null, error: e);
-        _isLoading = false;
-      });
-    }
-  }
-
-  String _getErrorMessage(int? statusCode, {dynamic error}) {
-    if (error != null) {
-      final errorStr = error.toString().toLowerCase();
-      if (errorStr.contains('socket') || errorStr.contains('connection')) {
-        return 'No internet connection. Please check your network.';
-      }
-      return 'Error loading customers. Please try again.';
-    }
-
-    switch (statusCode) {
-      case 404:
-        return 'Customer service not available';
-      case 401:
-      case 403:
-        return 'Access denied. You don\'t have permission to view customers.';
-      case 500:
-      case 502:
-      case 503:
-        return 'Server error. Please try again later.';
-      default:
-        return 'Failed to load customers. Please try again.';
-    }
-  }
-
-  void _applyFilter() {
-    List<Customer> filtered = _customers;
-
-    // Apply text search
-    final query = _searchController.text.toLowerCase();
-    if (query.isNotEmpty) {
-      filtered = filtered
-          .where((c) =>
-              c.name.toLowerCase().contains(query) ||
-              c.mobileNumber.contains(query) ||
-              c.customerId.toLowerCase().contains(query))
-          .toList();
-    }
-
-    // Sort by recent first
-    filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-    setState(() {
-      _filteredCustomers = filtered;
-    });
-  }
-
-  void _onSearchChanged(String query) {
-    _applyFilter();
-  }
 
   void _openCustomerDetail(Customer customer) {
     Navigator.of(context).pushNamed(
@@ -151,7 +65,11 @@ class _CustomerListScreenState extends State<CustomerListScreen>
       arguments: {'customerId': customer.id},
     ).then((_) {
       // Refresh list when returning
-      _loadCustomers();
+      final view = _getCurrentView();
+      context.read<CustomerProvider>().fetchCustomers(
+        view: view,
+        forceRefresh: true,
+      );
     });
   }
 
@@ -164,72 +82,85 @@ class _CustomerListScreenState extends State<CustomerListScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Customers',
-          style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        backgroundColor: CrmColors.primary,
-        elevation: 2,
-        shadowColor: CrmColors.primary.withValues(alpha: 0.3),
-        bottom: ScopeTabSelector(
-          controller: _tabController!,
-          userRole: widget.userRole,
-        ),
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(CrmDesignSystem.lg),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: CrmDesignSystem.inputDecoration(
-                hintText: 'Search by name, mobile, or ID...',
-                prefixIcon: Icons.search,
-              ),
+    return Consumer<CustomerProvider>(
+      builder: (context, provider, child) {
+        final view = _getCurrentView();
+        final cache = provider.getCache(view);
+        final customers = provider.getCustomers(view, searchQuery: _searchController.text);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Customers',
+              style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
+            ),
+            centerTitle: true,
+            backgroundColor: CrmColors.primary,
+            elevation: 2,
+            shadowColor: CrmColors.primary.withValues(alpha: 0.3),
+            bottom: ScopeTabSelector(
+              controller: _tabController!,
+              userRole: widget.userRole,
             ),
           ),
-
-          // Results count
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: CrmDesignSystem.lg),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${_filteredCustomers.length} customer${_filteredCustomers.length != 1 ? "s" : ""} found',
-                style: CrmDesignSystem.labelSmall,
+          body: Column(
+            children: [
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.all(CrmDesignSystem.lg),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (query) {
+                    // Trigger rebuild to filter results locally
+                    setState(() {});
+                  },
+                  decoration: CrmDesignSystem.inputDecoration(
+                    hintText: 'Search by name, mobile, or ID...',
+                    prefixIcon: Icons.search,
+                  ),
+                ),
               ),
-            ),
-          ),
 
-          const SizedBox(height: CrmDesignSystem.md),
+              // Results count
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: CrmDesignSystem.lg),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${customers.length} customer${customers.length != 1 ? "s" : ""} found',
+                    style: CrmDesignSystem.labelSmall,
+                  ),
+                ),
+              ),
 
-          // Customer list
-          Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(CrmColors.primary),
+              const SizedBox(height: CrmDesignSystem.md),
+
+              // Customer list
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Show loading ONLY if no cached data
+                    if (cache.isLoading && !cache.hasData)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(CrmColors.primary),
+                            ),
+                            const SizedBox(height: CrmDesignSystem.lg),
+                            Text(
+                              'Loading customers...',
+                              style: CrmDesignSystem.bodyMedium
+                                  .copyWith(color: CrmColors.textLight),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: CrmDesignSystem.lg),
-                        Text(
-                          'Loading customers...',
-                          style: CrmDesignSystem.bodyMedium
-                              .copyWith(color: CrmColors.textLight),
-                        ),
-                      ],
-                    ),
-                  )
-                : _error != null
-                    ? Center(
+                      )
+                    // Show error ONLY if no cached data
+                    else if (cache.error != null && !cache.hasData)
+                      Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -253,14 +184,17 @@ class _CustomerListScreenState extends State<CustomerListScreen>
                             ),
                             const SizedBox(height: CrmDesignSystem.sm),
                             Text(
-                              _error!,
+                              cache.error!,
                               style: CrmDesignSystem.bodyMedium
                                   .copyWith(color: CrmColors.textLight),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: CrmDesignSystem.xl),
                             ElevatedButton.icon(
-                              onPressed: _loadCustomers,
+                              onPressed: () => provider.fetchCustomers(
+                                view: view,
+                                forceRefresh: true,
+                              ),
                               icon: const Icon(Icons.refresh),
                               label: const Text('Retry'),
                               style: CrmDesignSystem.primaryButtonStyle,
@@ -268,80 +202,107 @@ class _CustomerListScreenState extends State<CustomerListScreen>
                           ],
                         ),
                       )
-                    : _filteredCustomers.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: CrmColors.secondary
-                                        .withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.person_outline,
-                                    size: 40,
-                                    color: CrmColors.secondary,
-                                  ),
-                                ),
-                                const SizedBox(height: CrmDesignSystem.lg),
-                                Text(
-                                  _searchController.text.isEmpty
-                                      ? 'No customers yet'
-                                      : 'No match found',
-                                  style: CrmDesignSystem.headlineSmall,
-                                ),
-                                const SizedBox(height: CrmDesignSystem.sm),
-                                Text(
-                                  _searchController.text.isEmpty
-                                      ? 'Add your first customer to get started'
-                                      : 'Try adjusting your search',
-                                  style: CrmDesignSystem.bodyMedium
-                                      .copyWith(color: CrmColors.textLight),
-                                ),
-                              ],
+                    // Show empty state
+                    else if (customers.isEmpty)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: CrmColors.secondary
+                                    .withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.person_outline,
+                                size: 40,
+                                color: CrmColors.secondary,
+                              ),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: CrmDesignSystem.lg,
-                              vertical: CrmDesignSystem.sm,
+                            const SizedBox(height: CrmDesignSystem.lg),
+                            Text(
+                              _searchController.text.isEmpty
+                                  ? 'No customers yet'
+                                  : 'No match found',
+                              style: CrmDesignSystem.headlineSmall,
                             ),
-                            itemCount: _filteredCustomers.length,
-                            itemBuilder: (context, index) {
-                              final customer = _filteredCustomers[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: CrmDesignSystem.md,
+                            const SizedBox(height: CrmDesignSystem.sm),
+                            Text(
+                              _searchController.text.isEmpty
+                                  ? 'Add your first customer to get started'
+                                  : 'Try adjusting your search',
+                              style: CrmDesignSystem.bodyMedium
+                                  .copyWith(color: CrmColors.textLight),
+                            ),
+                          ],
+                        ),
+                      )
+                    // Show customer list
+                    else
+                      RefreshIndicator(
+                        onRefresh: () => provider.fetchCustomers(
+                          view: view,
+                          forceRefresh: true,
+                        ),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: CrmDesignSystem.lg,
+                            vertical: CrmDesignSystem.sm,
+                          ),
+                          itemCount: customers.length,
+                          itemBuilder: (context, index) {
+                            final customer = customers[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: CrmDesignSystem.md,
+                              ),
+                              child: AnimatedOpacity(
+                                opacity: 1.0,
+                                duration: CrmDesignSystem.durationFast,
+                                child: CustomerCard(
+                                  customer: customer,
+                                  onTap: () => _openCustomerDetail(customer),
                                 ),
-                                child: AnimatedOpacity(
-                                  opacity: 1.0,
-                                  duration: CrmDesignSystem.durationFast,
-                                  child: CustomerCard(
-                                    customer: customer,
-                                    onTap: () => _openCustomerDetail(customer),
-                                  ),
-                                ),
+                              ),
                             );
                           },
                         ),
+                      ),
+
+                    // Show refresh indicator at top when refreshing in background
+                    if (cache.isRefreshing)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.transparent,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(CrmColors.primary),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: CrmColors.primary,
-        elevation: 4,
-        onPressed: () {
-          Navigator.of(context).pushNamed('/crm/add-customer').then((_) {
-            // Refresh list when returning from add customer
-            _loadCustomers();
-          });
-        },
-        child: const Icon(Icons.add, color: Colors.white,),
-      ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: CrmColors.primary,
+            elevation: 4,
+            onPressed: () {
+              Navigator.of(context).pushNamed('/crm/add-customer').then((_) {
+                // Refresh list when returning from add customer
+                provider.fetchCustomers(view: view, forceRefresh: true);
+              });
+            },
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        );
+      },
     );
   }
 }

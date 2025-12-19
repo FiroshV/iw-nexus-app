@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
+import '../../providers/crm/appointment_provider.dart';
 
 /// My Schedule Tab - Grid view of time slots
 /// Shows availability status for the selected date
@@ -173,9 +175,17 @@ class _MyScheduleTabState extends State<MyScheduleTab>
     Navigator.of(context).pushNamed(
       '/crm/appointment-details',
       arguments: {'appointmentId': appointmentId},
-    ).then((_) {
-      // Refresh schedule after returning
-      _loadSchedule();
+    ).then((result) {
+      if (mounted) {
+        // Invalidate appointment cache when returning
+        try {
+          context.read<AppointmentProvider>().invalidateAll();
+        } catch (e) {
+          // Provider might not be available
+        }
+        // Refresh schedule after returning
+        _loadSchedule();
+      }
     });
   }
 
@@ -183,34 +193,44 @@ class _MyScheduleTabState extends State<MyScheduleTab>
     setState(() {
       _selectedDate = DateTime.now();
     });
-    _loadSchedule();
+    _invalidateCacheAndRefresh();
   }
 
   void _goToTomorrow() {
     setState(() {
       _selectedDate = DateTime.now().add(const Duration(days: 1));
     });
-    _loadSchedule();
+    _invalidateCacheAndRefresh();
   }
 
   void _goToNextWeek() {
     setState(() {
       _selectedDate = DateTime.now().add(const Duration(days: 7));
     });
-    _loadSchedule();
+    _invalidateCacheAndRefresh();
   }
 
   void _previousDay() {
     setState(() {
       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
     });
-    _loadSchedule();
+    _invalidateCacheAndRefresh();
   }
 
   void _nextDay() {
     setState(() {
       _selectedDate = _selectedDate.add(const Duration(days: 1));
     });
+    _invalidateCacheAndRefresh();
+  }
+
+  void _invalidateCacheAndRefresh() {
+    // Invalidate appointment cache since schedule date changed
+    try {
+      context.read<AppointmentProvider>().invalidateAll();
+    } catch (e) {
+      // Provider might not be available
+    }
     _loadSchedule();
   }
 

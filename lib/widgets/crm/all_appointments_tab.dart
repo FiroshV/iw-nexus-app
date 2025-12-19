@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/crm_colors.dart';
 import '../../config/crm_design_system.dart';
 import '../../models/appointment.dart';
-import '../../services/appointment_service.dart';
+import '../../providers/crm/appointment_provider.dart';
 
 /// All Appointments Tab - List view of all appointments
 /// Shows appointment cards with status information
@@ -22,91 +23,83 @@ class AllAppointmentsTab extends StatefulWidget {
 
 class _AllAppointmentsTabState extends State<AllAppointmentsTab>
     with AutomaticKeepAliveClientMixin {
-  // Data
-  List<Appointment> _appointments = [];
-  bool _isLoading = false;
-
   @override
   bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _loadAppointments();
-  }
-
-  Future<void> _loadAppointments() async {
-    // Clear old data immediately to prevent showing stale data
-    setState(() {
-      _isLoading = true;
-      _appointments = [];
+    // Load appointments using provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final view = _getViewLabel().contains('Company-wide') ? 'all' :
+                   _getViewLabel().contains('Branch') ? 'branch' : 'assigned';
+      context.read<AppointmentProvider>().fetchAppointments(view: view);
     });
-
-    try {
-      // Determine view based on user role
-      String view;
-      if (widget.userRole == 'admin' || widget.userRole == 'director') {
-        view = 'all';
-      } else if (widget.userRole == 'manager') {
-        view = 'branch';
-      } else {
-        // This shouldn't happen since tab is hidden for other roles
-        view = 'assigned';
-      }
-
-      final response = await AppointmentService.getAppointments(
-        limit: 100,
-        view: view,
-      );
-
-      if (!mounted) return;
-
-      if (response.success && response.data != null) {
-        setState(() {
-          _appointments = response.data!;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Failed to load appointments')),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load appointments: $e')),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    return Column(
-      children: [
-        // Appointments list
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _appointments.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
-                      onRefresh: _loadAppointments,
+    return Consumer<AppointmentProvider>(
+      builder: (context, provider, child) {
+        final view = widget.userRole == 'admin' || widget.userRole == 'director'
+            ? 'all'
+            : widget.userRole == 'manager'
+                ? 'branch'
+                : 'assigned';
+
+        final cache = provider.getCache(view);
+        final appointments = provider.getAppointments(view);
+
+        return Column(
+          children: [
+            // Appointments list
+            Expanded(
+              child: Stack(
+                children: [
+                  // Show loading ONLY if no cached data
+                  if (cache.isLoading && !cache.hasData)
+                    const Center(child: CircularProgressIndicator())
+
+                  // Show error ONLY if no cached data
+                  else if (cache.error != null && !cache.hasData)
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline,
+                              size: 48, color: Colors.red.shade400),
+                          const SizedBox(height: 16),
+                          Text(cache.error!),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => provider.fetchAppointments(
+                                view: view, forceRefresh: true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: CrmColors.primary,
+                            ),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+
+                  // Show data (cached or fresh)
+                  else if (appointments.isEmpty)
+                    _buildEmptyState()
+                  else
+                    RefreshIndicator(
+                      onRefresh: () =>
+                          provider.fetchAppointments(view: view, forceRefresh: true),
                       child: ListView.builder(
-                        itemCount: _appointments.length + 1,
+                        itemCount: appointments.length + 1,
                         padding: const EdgeInsets.all(CrmDesignSystem.md),
                         itemBuilder: (context, index) {
                           if (index == 0) {
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: CrmDesignSystem.md),
+                              padding:
+                                  const EdgeInsets.only(bottom: CrmDesignSystem.md),
                               child: Text(
                                 _getViewLabel(),
                                 style: CrmDesignSystem.bodySmall.copyWith(
@@ -115,13 +108,31 @@ class _AllAppointmentsTabState extends State<AllAppointmentsTab>
                               ),
                             );
                           }
-                          final apt = _appointments[index - 1];
+                          final apt = appointments[index - 1];
                           return _buildAppointmentCard(apt);
                         },
                       ),
                     ),
-        ),
-      ],
+
+                  // Show refresh indicator at top when refreshing
+                  if (cache.isRefreshing)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        backgroundColor: Colors.transparent,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(CrmColors.primary),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -154,13 +165,35 @@ class _AllAppointmentsTabState extends State<AllAppointmentsTab>
     );
   }
 
-  Widget _buildAppointmentCard(Appointment apt) {
-    final isOverdue = apt.isOverdue;
-    final isDueToday = apt.isDueToday;
-    final isUpcoming = apt.isUpcoming;
-    final isMissed = apt.status == 'scheduled' && isOverdue;
-    final isCompleted = apt.status == 'completed';
-    final isCancelled = apt.status == 'cancelled';
+  Widget _buildAppointmentCard(dynamic apt) {
+    // Handle both Appointment objects and Map data
+    final status = (apt is Appointment ? apt.status : apt['status']) as String?;
+    final activityType = (apt is Appointment ? apt.activityType : apt['activityType']) as String?;
+    final customerName = (apt is Appointment ? apt.customerName : apt['customerName']) as String?;
+    final appointmentId = (apt is Appointment ? (apt.id ?? apt.appointmentId) : (apt['id'] ?? apt['appointmentId'])) as String?;
+
+    // Get the formatted datetime
+    String formattedDateTime = '';
+    if (apt is Appointment) {
+      formattedDateTime = apt.formattedScheduledDatetime;
+    } else {
+      final scheduledDate = apt['scheduledDate'];
+      if (scheduledDate != null) {
+        formattedDateTime = scheduledDate.toString();
+      }
+    }
+
+    // Get activity type display name
+    String activityTypeDisplay = '';
+    if (apt is Appointment) {
+      activityTypeDisplay = apt.activityTypeDisplayName;
+    } else {
+      activityTypeDisplay = apt['activityTypeDisplayName'] ?? 'Appointment';
+    }
+
+    // Determine status
+    final isCompleted = status == 'completed';
+    final isCancelled = status == 'cancelled';
 
     // Determine tag info
     String? tagLabel;
@@ -175,35 +208,23 @@ class _AllAppointmentsTabState extends State<AllAppointmentsTab>
       tagLabel = 'Cancelled';
       tagBgColor = Colors.red.shade100;
       tagTextColor = Colors.red.shade700;
-    } else if (isMissed) {
-      tagLabel = 'Overdue';
-      tagBgColor = Colors.red.shade100;
-      tagTextColor = Colors.red.shade700;
-    } else if (isDueToday) {
-      tagLabel = 'Today';
-      tagBgColor = Colors.orange.shade100;
-      tagTextColor = Colors.orange.shade700;
-    } else if (isUpcoming) {
-      tagLabel = 'Upcoming';
-      tagBgColor = Colors.blue.shade100;
-      tagTextColor = Colors.blue.shade700;
     }
 
     return Card(
       margin: const EdgeInsets.only(bottom: CrmDesignSystem.md),
       elevation: 1,
       child: ListTile(
-        leading: _buildTypeIcon(apt.activityType),
+        leading: _buildTypeIcon(activityType ?? 'other'),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              apt.customerName ?? 'Unknown Customer',
+              customerName ?? 'Unknown Customer',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              apt.activityTypeDisplayName,
+              activityTypeDisplay,
               style: CrmDesignSystem.bodySmall.copyWith(
                 color: Colors.grey.shade600,
               ),
@@ -218,7 +239,7 @@ class _AllAppointmentsTabState extends State<AllAppointmentsTab>
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  apt.formattedScheduledDatetime,
+                  formattedDateTime,
                   style: CrmDesignSystem.bodySmall,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -247,26 +268,35 @@ class _AllAppointmentsTabState extends State<AllAppointmentsTab>
             ],
           ),
         ),
-        trailing: apt.status == 'completed'
+        trailing: isCompleted
             ? Icon(Icons.check_circle, color: CrmColors.success, size: 20)
-            : apt.status == 'cancelled'
+            : isCancelled
                 ? Icon(Icons.cancel, color: Colors.red.shade400, size: 20)
                 : null,
         onTap: () {
-          // CRITICAL FIX: Navigate to appointment details on tap
+          // Navigate to appointment details on tap
+          final view = widget.userRole == 'admin' || widget.userRole == 'director'
+              ? 'all'
+              : widget.userRole == 'manager'
+                  ? 'branch'
+                  : 'assigned';
+
           Navigator.of(context)
               .pushNamed(
                 '/crm/appointment-details',
                 arguments: {
-                  'appointmentId': apt.id ?? apt.appointmentId,
+                  'appointmentId': appointmentId,
                   'userId': widget.userId,
                   'userRole': widget.userRole,
                 },
               )
               .then((result) {
             // Refresh if appointment was modified
-            if (result == true) {
-              _loadAppointments();
+            if (result == true && mounted) {
+              context.read<AppointmentProvider>().fetchAppointments(
+                    view: view,
+                    forceRefresh: true,
+                  );
             }
           });
         },
