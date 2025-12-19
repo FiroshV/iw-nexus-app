@@ -1,5 +1,6 @@
 import 'package:timezone/timezone.dart' as tz;
 import '../utils/timezone_util.dart';
+import 'sale_extended_details.dart';
 
 class Sale {
   final String id;
@@ -27,6 +28,12 @@ class Sale {
   final List<String> relatedAppointments;
   final tz.TZDateTime createdAt;
   final tz.TZDateTime updatedAt;
+  // Extended fields
+  final PolicyDetails? policyDetails;
+  final ProposerDetails? proposerDetails;
+  final List<Nominee> nominees;
+  final List<InsuredPerson> insuredPersons;
+  final MutualFundDetails? mutualFundDetails;
 
   Sale({
     required this.id,
@@ -54,6 +61,11 @@ class Sale {
     this.relatedAppointments = const [],
     required this.createdAt,
     required this.updatedAt,
+    this.policyDetails,
+    this.proposerDetails,
+    this.nominees = const [],
+    this.insuredPersons = const [],
+    this.mutualFundDetails,
   });
 
   // Get display amount based on product type
@@ -108,6 +120,25 @@ class Sale {
           : [],
       createdAt: json['createdAt'] != null ? _parseIST(json['createdAt'] as String) : TimezoneUtil.nowIST(),
       updatedAt: json['updatedAt'] != null ? _parseIST(json['updatedAt'] as String) : TimezoneUtil.nowIST(),
+      policyDetails: json['policyDetails'] != null
+          ? PolicyDetails.fromJson(json['policyDetails'] as Map<String, dynamic>)
+          : null,
+      proposerDetails: json['proposerDetails'] != null
+          ? ProposerDetails.fromJson(json['proposerDetails'] as Map<String, dynamic>)
+          : null,
+      nominees: json['nominees'] != null
+          ? (json['nominees'] as List)
+              .map((n) => Nominee.fromJson(n as Map<String, dynamic>))
+              .toList()
+          : [],
+      insuredPersons: json['insuredPersons'] != null
+          ? (json['insuredPersons'] as List)
+              .map((p) => InsuredPerson.fromJson(p as Map<String, dynamic>))
+              .toList()
+          : [],
+      mutualFundDetails: json['mutualFundDetails'] != null
+          ? MutualFundDetails.fromJson(json['mutualFundDetails'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -146,6 +177,11 @@ class Sale {
       'relatedAppointments': relatedAppointments,
       'createdAt': TimezoneUtil.toApiString(createdAt),
       'updatedAt': TimezoneUtil.toApiString(updatedAt),
+      if (policyDetails != null) 'policyDetails': policyDetails!.toJson(),
+      if (proposerDetails != null) 'proposerDetails': proposerDetails!.toJson(),
+      if (nominees.isNotEmpty) 'nominees': nominees.map((n) => n.toJson()).toList(),
+      if (insuredPersons.isNotEmpty) 'insuredPersons': insuredPersons.map((p) => p.toJson()).toList(),
+      if (mutualFundDetails != null) 'mutualFundDetails': mutualFundDetails!.toJson(),
     };
   }
 
@@ -176,6 +212,11 @@ class Sale {
     List<String>? relatedAppointments,
     tz.TZDateTime? createdAt,
     tz.TZDateTime? updatedAt,
+    PolicyDetails? policyDetails,
+    ProposerDetails? proposerDetails,
+    List<Nominee>? nominees,
+    List<InsuredPerson>? insuredPersons,
+    MutualFundDetails? mutualFundDetails,
   }) {
     return Sale(
       id: id ?? this.id,
@@ -203,6 +244,11 @@ class Sale {
       relatedAppointments: relatedAppointments ?? this.relatedAppointments,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      policyDetails: policyDetails ?? this.policyDetails,
+      proposerDetails: proposerDetails ?? this.proposerDetails,
+      nominees: nominees ?? this.nominees,
+      insuredPersons: insuredPersons ?? this.insuredPersons,
+      mutualFundDetails: mutualFundDetails ?? this.mutualFundDetails,
     );
   }
 

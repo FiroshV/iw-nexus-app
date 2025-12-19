@@ -143,9 +143,7 @@ class ApiConfig {
       await dotenv.load(fileName: ".env");
     } catch (e) {
       // .env file not found or error loading it - continue with defaults
-      if (kDebugMode) {
-        print('Warning: Could not load .env file: $e');
-      }
+      debugPrint('Warning: Could not load .env file: $e');
     }
   }
 

@@ -566,9 +566,13 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildDetailRow('Sale ID', sale.saleId),
+                const Divider(height: 24),
                 _buildDetailRow('Product Type', sale.productType.replaceAll('_', ' ').toUpperCase()),
                 const Divider(height: 24),
                 _buildDetailRow('Customer', sale.customerName),
+                const Divider(height: 24),
+                _buildDetailRow('Mobile', sale.mobileNumber),
                 const Divider(height: 24),
                 _buildDetailRow('Company', sale.companyName),
                 const Divider(height: 24),
@@ -576,13 +580,311 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
                 const Divider(height: 24),
                 _buildDetailRow(sale.amountLabel, '₹${sale.displayAmount.toStringAsFixed(2)}'),
                 const Divider(height: 24),
+                if (sale.paymentFrequency != null) ...[
+                  _buildDetailRow('Payment Frequency', _formatFrequency(sale.paymentFrequency!)),
+                  const Divider(height: 24),
+                ],
+                if (sale.investmentType != null) ...[
+                  _buildDetailRow('Investment Type', sale.investmentType == 'sip' ? 'SIP' : 'Lumpsum'),
+                  const Divider(height: 24),
+                ],
                 _buildDetailRow('Sale Date', dateFormat.format(sale.dateOfSale.toLocal())),
                 const Divider(height: 24),
                 _buildDetailRow('Status', sale.status.toUpperCase()),
+                if (sale.notes != null && sale.notes!.isNotEmpty) ...[
+                  const Divider(height: 24),
+                  _buildDetailRow('Notes', sale.notes!),
+                ],
               ],
             ),
           ),
+          const SizedBox(height: 20),
+
+          // Extended Fields (Insurance only)
+          if (sale.productType == 'life_insurance' || sale.productType == 'general_insurance') ...[
+            // Policy Details
+            if (sale.policyDetails != null) ...[
+              _buildSectionHeader('Policy Details'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (sale.policyDetails!.policyNumber != null)
+                      _buildDetailRow('Policy Number', sale.policyDetails!.policyNumber!),
+                    if (sale.policyDetails!.policyNumber != null && sale.policyDetails!.policyIssuanceDate != null)
+                      const Divider(height: 24),
+                    if (sale.policyDetails!.policyIssuanceDate != null)
+                      _buildDetailRow(
+                        'Policy Issuance Date',
+                        dateFormat.format(sale.policyDetails!.policyIssuanceDate!),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Proposer Details
+            if (sale.proposerDetails != null) ...[
+              _buildSectionHeader('Proposer Details'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (sale.proposerDetails!.fullName != null) ...[
+                      _buildDetailRow('Name', sale.proposerDetails!.fullName!),
+                      const Divider(height: 24),
+                    ],
+                    if (sale.proposerDetails!.gender != null) ...[
+                      _buildDetailRow('Gender', sale.proposerDetails!.gender!),
+                      const Divider(height: 24),
+                    ],
+                    if (sale.proposerDetails!.dateOfBirth != null) ...[
+                      _buildDetailRow(
+                        'Date of Birth',
+                        dateFormat.format(sale.proposerDetails!.dateOfBirth!),
+                      ),
+                      const Divider(height: 24),
+                    ],
+                    if (sale.proposerDetails!.email != null) ...[
+                      _buildDetailRow('Email', sale.proposerDetails!.email!),
+                      const Divider(height: 24),
+                    ],
+                    if (sale.proposerDetails!.mobileNumber != null)
+                      _buildDetailRow('Mobile', sale.proposerDetails!.mobileNumber!),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Nominees
+            if (sale.nominees.isNotEmpty) ...[
+              _buildSectionHeader('Nominees'),
+              const SizedBox(height: 12),
+              ...List.generate(sale.nominees.length, (index) {
+                final nominee = sale.nominees[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Nominee ${index + 1}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF272579),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (nominee.name != null)
+                          _buildDetailRow('Name', nominee.name!),
+                        if (nominee.name != null && nominee.dateOfBirth != null)
+                          const Divider(height: 16),
+                        if (nominee.dateOfBirth != null)
+                          _buildDetailRow(
+                            'Date of Birth',
+                            dateFormat.format(nominee.dateOfBirth!),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+            ],
+
+            // Insured Persons
+            if (sale.insuredPersons.isNotEmpty) ...[
+              _buildSectionHeader('Insured Persons'),
+              const SizedBox(height: 12),
+              ...List.generate(sale.insuredPersons.length, (index) {
+                final person = sale.insuredPersons[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Person ${index + 1}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF272579),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (person.fullName != null) ...[
+                          _buildDetailRow('Name', person.fullName!),
+                          const Divider(height: 16),
+                        ],
+                        if (person.gender != null) ...[
+                          _buildDetailRow('Gender', person.gender!),
+                          const Divider(height: 16),
+                        ],
+                        if (person.dateOfBirth != null) ...[
+                          _buildDetailRow(
+                            'Date of Birth',
+                            dateFormat.format(person.dateOfBirth!),
+                          ),
+                          const Divider(height: 16),
+                        ],
+                        if (person.height != null) ...[
+                          _buildDetailRow(
+                            'Height',
+                            '${person.height!.value} ${person.height!.unit}',
+                          ),
+                          const Divider(height: 16),
+                        ],
+                        if (person.weight != null) ...[
+                          _buildDetailRow(
+                            'Weight',
+                            '${person.weight!.value} ${person.weight!.unit}',
+                          ),
+                          const Divider(height: 16),
+                        ],
+                        if (person.preExistingDiseases != null) ...[
+                          _buildDetailRow('Pre-existing Diseases', person.preExistingDiseases!),
+                          const Divider(height: 16),
+                        ],
+                        if (person.medicationDetails != null)
+                          _buildDetailRow('Medication Details', person.medicationDetails!),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+            ],
+          ],
+
+          // Extended Fields (Mutual Funds only)
+          if (sale.productType == 'mutual_funds' && sale.mutualFundDetails != null) ...[
+            _buildSectionHeader('Mutual Fund Details'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (sale.mutualFundDetails!.folioNumber != null)
+                    _buildDetailRow('Folio Number', sale.mutualFundDetails!.folioNumber!),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          // Nominees (for mutual funds)
+          if (sale.productType == 'mutual_funds' && sale.nominees.isNotEmpty) ...[
+            _buildSectionHeader('Nominees'),
+            const SizedBox(height: 12),
+            ...List.generate(sale.nominees.length, (index) {
+              final nominee = sale.nominees[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nominee ${index + 1}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (nominee.name != null)
+                        _buildDetailRow('Name', nominee.name!),
+                      if (nominee.name != null && nominee.dateOfBirth != null)
+                        const Divider(height: 16),
+                      if (nominee.dateOfBirth != null)
+                        _buildDetailRow('Date of Birth', dateFormat.format(nominee.dateOfBirth!.toLocal())),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 20),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF272579),
       ),
     );
   }
@@ -898,6 +1200,27 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> with TickerProvid
         ],
       ),
     );
+  }
+
+  String _formatFrequency(String frequency) {
+    switch (frequency) {
+      case 'daily':
+        return 'Daily';
+      case 'weekly':
+        return 'Weekly';
+      case 'monthly':
+        return 'Monthly';
+      case 'quarterly':
+        return 'Quarterly';
+      case 'half_yearly':
+        return 'Half-Yearly';
+      case 'yearly':
+        return 'Yearly';
+      case 'single':
+        return 'Single';
+      default:
+        return frequency;
+    }
   }
 
   Widget _buildDetailRow(String label, String value) {

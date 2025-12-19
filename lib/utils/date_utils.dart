@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 /// Utility class for handling date/time formatting.
@@ -21,7 +22,7 @@ class DateTimeUtils {
       final parsed = DateTime.parse(date.toString()).toUtc();
       return parsed.add(_timeOffset);
     } catch (e) {
-      print('ERROR: Could not parse date: $date, error: $e');
+      debugPrint('ERROR: Could not parse date: $date, error: $e');
       return DateTime.now();
     }
   }
@@ -33,7 +34,7 @@ class DateTimeUtils {
       final dateTime = parseFromUTC(date);
       return DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
     } catch (e) {
-      print('ERROR: Could not format activity date: $date, error: $e');
+      debugPrint('ERROR: Could not format activity date: $date, error: $e');
       return 'Invalid date';
     }
   }
@@ -46,7 +47,7 @@ class DateTimeUtils {
       final dateTime = parseFromUTC(date);
       return DateFormat('dd MMM yyyy').format(dateTime);
     } catch (e) {
-      print('ERROR: Could not format short date: $date, error: $e');
+        debugPrint('ERROR: Could not format short date: $date, error: $e');
       return 'Unknown';
     }
   }
@@ -70,7 +71,7 @@ class DateTimeUtils {
         return DateFormat('dd MMM').format(dateTime);
       }
     } catch (e) {
-      print('ERROR: Could not format relative date: $date, error: $e');
+        debugPrint('ERROR: Could not format relative date: $date, error: $e');
       return 'Unknown';
     }
   }
@@ -82,7 +83,7 @@ class DateTimeUtils {
       final dateTime = parseFromUTC(date);
       return DateFormat('hh:mm a').format(dateTime);
     } catch (e) {
-      print('ERROR: Could not format time: $date, error: $e');
+      debugPrint('ERROR: Could not format time: $date, error: $e');
       return 'Unknown';
     }
   }
@@ -92,9 +93,11 @@ class DateTimeUtils {
     try {
       final dt1 = parseFromUTC(date1);
       final dt2 = parseFromUTC(date2);
-      return dt1.year == dt2.year && dt1.month == dt2.month && dt1.day == dt2.day;
+      return dt1.year == dt2.year &&
+          dt1.month == dt2.month &&
+          dt1.day == dt2.day;
     } catch (e) {
-      print('ERROR: Could not compare dates: $e');
+      debugPrint('ERROR: Could not compare dates: $e');
       return false;
     }
   }

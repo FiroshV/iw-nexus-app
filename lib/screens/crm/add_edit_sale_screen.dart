@@ -7,18 +7,17 @@ import '../../config/crm_colors.dart';
 import '../../models/customer.dart';
 import '../../models/sale.dart';
 import '../../models/sale_document.dart';
+import '../../models/sale_extended_details.dart';
 import '../../services/api_service.dart';
 import '../../services/sale_service.dart';
 import '../../widgets/crm/product_type_selector.dart';
+import '../../widgets/crm/extended_sale_fields.dart';
 import '../../utils/timezone_util.dart';
 
 class AddEditSaleScreen extends StatefulWidget {
   final Sale? sale;
 
-  const AddEditSaleScreen({
-    super.key,
-    this.sale,
-  });
+  const AddEditSaleScreen({super.key, this.sale});
 
   @override
   State<AddEditSaleScreen> createState() => _AddEditSaleScreenState();
@@ -52,6 +51,13 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   // Notes
   late TextEditingController _notesController;
 
+  // Mutual Funds - Folio Number
+  late TextEditingController _folioNumberController;
+
+  // Insurance - Policy Details
+  late TextEditingController _policyNumberController;
+  DateTime? _selectedPolicyIssuanceDate;
+
   // Employee selection
   // ignore: unused_field
   List<Employee> _availableEmployees = [];
@@ -64,6 +70,11 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   late List<PendingDocument> _pendingDocuments;
   late List<SaleDocument> _existingDocuments;
   late bool _isLoadingDocuments;
+
+  // Extended fields state
+  ProposerDetails? _proposerDetails;
+  List<Nominee> _nominees = [];
+  List<InsuredPerson> _insuredPersons = [];
 
   // Predefined document types
   final List<String> _predefinedDocTypes = [
@@ -102,6 +113,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     _investmentAmountController = TextEditingController();
     _sipAmountController = TextEditingController();
     _notesController = TextEditingController();
+    _folioNumberController = TextEditingController();
+    _policyNumberController = TextEditingController();
   }
 
   void _populateFormWithSaleData(Sale sale) {
@@ -141,6 +154,19 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           .map((emp) => emp.userId)
           .toList();
     }
+
+    // Populate extended fields
+    _proposerDetails = sale.proposerDetails;
+    _nominees = List.from(sale.nominees);
+    _insuredPersons = List.from(sale.insuredPersons);
+    if (sale.mutualFundDetails?.folioNumber != null) {
+      _folioNumberController.text = sale.mutualFundDetails!.folioNumber!;
+    }
+    // Populate policy details
+    if (sale.policyDetails != null) {
+      _policyNumberController.text = sale.policyDetails!.policyNumber ?? '';
+      _selectedPolicyIssuanceDate = sale.policyDetails!.policyIssuanceDate;
+    }
   }
 
   Future<void> _loadCustomers() async {
@@ -174,19 +200,23 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   Future<void> _loadEmployees() async {
     setState(() => _loadingEmployees = true);
     try {
-      final response = await ApiService.get('/api/users?role=employee,field_staff,telecaller,manager');
+      final response = await ApiService.get(
+        '/api/users?role=employee,field_staff,telecaller,manager',
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final employees = (data['data'] as List)
-            .map((e) => Employee(
-                  id: e['_id'] ?? '',
-                  firstName: e['firstName'] ?? '',
-                  lastName: e['lastName'] ?? '',
-                  email: e['email'],
-                  phone: e['phone'],
-                  role: e['role'],
-                  branch: e['branch'],
-                ))
+            .map(
+              (e) => Employee(
+                id: e['_id'] ?? '',
+                firstName: e['firstName'] ?? '',
+                lastName: e['lastName'] ?? '',
+                email: e['email'],
+                phone: e['phone'],
+                role: e['role'],
+                branch: e['branch'],
+              ),
+            )
             .toList();
         setState(() => _availableEmployees = employees);
       }
@@ -313,26 +343,31 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                 const SizedBox(height: 8),
 
                 // Predefined document types list (excluding "Other")
-                ...(_predefinedDocTypes.where((type) => type != 'Other (Custom Name)').map((docType) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    title: Text(
-                      docType,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    leading: Icon(
-                      Icons.radio_button_unchecked,
-                      color: const Color(0xFF0071bf),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context, docType);
-                    },
-                  );
-                })),
+                ...(_predefinedDocTypes
+                    .where((type) => type != 'Other (Custom Name)')
+                    .map((docType) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        title: Text(
+                          docType,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        leading: Icon(
+                          Icons.radio_button_unchecked,
+                          color: const Color(0xFF0071bf),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context, docType);
+                        },
+                      );
+                    })),
 
                 const SizedBox(height: 16),
 
@@ -360,7 +395,10 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    prefixIcon: const Icon(Icons.edit, color: Color(0xFF0071bf)),
+                    prefixIcon: const Icon(
+                      Icons.edit,
+                      color: Color(0xFF0071bf),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 12,
                       horizontal: 16,
@@ -378,7 +416,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       final customName = localCustomNameController.text.trim();
                       if (customName.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a document name')),
+                          const SnackBar(
+                            content: Text('Please enter a document name'),
+                          ),
                         );
                         return;
                       }
@@ -430,13 +470,15 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
 
     // Always add to pending documents (both create and edit mode)
     setState(() {
-      _pendingDocuments.add(PendingDocument(
-        file: file,
-        documentName: selectedDocType,
-        documentType: _predefinedDocTypes.contains(selectedDocType)
-            ? selectedDocType
-            : 'Other',
-      ));
+      _pendingDocuments.add(
+        PendingDocument(
+          file: file,
+          documentName: selectedDocType,
+          documentType: _predefinedDocTypes.contains(selectedDocType)
+              ? selectedDocType
+              : 'Other',
+        ),
+      );
     });
 
     if (!mounted) return;
@@ -481,7 +523,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                     children: [
                       Text(
                         'Select Customer',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: CrmColors.textDark,
                             ),
@@ -512,14 +555,18 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           filteredCustomers = _customers.where((customer) {
                             final name = customer.name.toLowerCase();
                             final mobile = customer.mobileNumber.toLowerCase();
-                            return name.contains(lowerQuery) || mobile.contains(lowerQuery);
+                            return name.contains(lowerQuery) ||
+                                mobile.contains(lowerQuery);
                           }).toList();
                         }
                       });
                     },
                     decoration: InputDecoration(
                       hintText: 'Search by name or phone...',
-                      prefixIcon: const Icon(Icons.search, color: CrmColors.primary),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: CrmColors.primary,
+                      ),
                       suffixIcon: searchController.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
@@ -552,36 +599,41 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           ),
                         )
                       : filteredCustomers.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No customers found',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: CrmColors.textLight,
-                                    ),
-                              ),
-                            )
-                          : ListView.separated(
-                              controller: scrollController,
-                              itemCount: filteredCustomers.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final customer = filteredCustomers[index];
-                                final isSelected = _selectedCustomer?.id == customer.id;
-                                return ListTile(
-                                  onTap: () {
-                                    setState(() => _selectedCustomer = customer);
-                                    Navigator.pop(context);
-                                  },
-                                  title: Text(customer.name),
-                                  subtitle: Text(customer.mobileNumber),
-                                  trailing: isSelected
-                                      ? const Icon(Icons.check_circle, color: CrmColors.primary)
-                                      : null,
-                                  selected: isSelected,
-                                  selectedTileColor: CrmColors.primary.withValues(alpha: 0.1),
-                                );
+                      ? Center(
+                          child: Text(
+                            'No customers found',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: CrmColors.textLight),
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          itemCount: filteredCustomers.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final customer = filteredCustomers[index];
+                            final isSelected =
+                                _selectedCustomer?.id == customer.id;
+                            return ListTile(
+                              onTap: () {
+                                setState(() => _selectedCustomer = customer);
+                                Navigator.pop(context);
                               },
-                            ),
+                              title: Text(customer.name),
+                              subtitle: Text(customer.mobileNumber),
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check_circle,
+                                      color: CrmColors.primary,
+                                    )
+                                  : null,
+                              selected: isSelected,
+                              selectedTileColor: CrmColors.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             );
@@ -644,7 +696,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? CrmColors.primary : Colors.grey.shade200,
+                        color: isSelected
+                            ? CrmColors.primary
+                            : Colors.grey.shade200,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -656,7 +710,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                             _formatFrequency(frequency),
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: CrmColors.textDark,
                             ),
                           ),
@@ -718,7 +774,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
               // Investment type options
               ...['sip', 'lumpsum'].map((type) {
                 final isSelected = _selectedInvestmentType == type;
-                final label = type == 'sip' ? 'SIP (Systematic Investment)' : 'Lumpsum';
+                final label = type == 'sip'
+                    ? 'SIP (Systematic Investment)'
+                    : 'Lumpsum';
                 return GestureDetector(
                   onTap: () {
                     setState(() {
@@ -738,7 +796,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? CrmColors.primary : Colors.grey.shade200,
+                        color: isSelected
+                            ? CrmColors.primary
+                            : Colors.grey.shade200,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -750,7 +810,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                             label,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: CrmColors.textDark,
                             ),
                           ),
@@ -807,7 +869,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     }
 
     // Validate payment frequency for insurance
-    if ((_selectedProductType == 'life_insurance' || _selectedProductType == 'general_insurance') &&
+    if ((_selectedProductType == 'life_insurance' ||
+            _selectedProductType == 'general_insurance') &&
         _selectedPaymentFrequency == null) {
       _showError('Please select a payment frequency');
       return;
@@ -819,7 +882,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
         _showError('Please select an investment type');
         return;
       }
-      if (_selectedInvestmentType == 'sip' && _selectedPaymentFrequency == null) {
+      if (_selectedInvestmentType == 'sip' &&
+          _selectedPaymentFrequency == null) {
         _showError('Please select a SIP frequency');
         return;
       }
@@ -836,17 +900,39 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           dateOfSale: _selectedDateOfSale,
           companyName: _companyNameController.text.trim(),
           productPlanName: _productPlanNameController.text.trim(),
-          premiumAmount:
-              _premiumAmountController.text.isEmpty ? null : double.tryParse(_premiumAmountController.text),
+          premiumAmount: _premiumAmountController.text.isEmpty
+              ? null
+              : double.tryParse(_premiumAmountController.text),
           investmentAmount: _investmentAmountController.text.isEmpty
               ? null
               : double.tryParse(_investmentAmountController.text),
-          sipAmount:
-              _sipAmountController.text.isEmpty ? null : double.tryParse(_sipAmountController.text),
+          sipAmount: _sipAmountController.text.isEmpty
+              ? null
+              : double.tryParse(_sipAmountController.text),
           paymentFrequency: _selectedPaymentFrequency,
           investmentType: _selectedInvestmentType,
-          notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
           documents: _pendingDocuments.isNotEmpty ? _pendingDocuments : null,
+          policyDetails:
+              (_selectedProductType == 'life_insurance' ||
+                  _selectedProductType == 'general_insurance')
+              ? PolicyDetails(
+                  policyNumber: _policyNumberController.text.isEmpty
+                      ? null
+                      : _policyNumberController.text,
+                  policyIssuanceDate: _selectedPolicyIssuanceDate,
+                )
+              : null,
+          proposerDetails: _proposerDetails,
+          nominees: _nominees,
+          insuredPersons: _insuredPersons,
+          mutualFundDetails:
+              _selectedProductType == 'mutual_funds' &&
+                  _folioNumberController.text.isNotEmpty
+              ? MutualFundDetails(folioNumber: _folioNumberController.text)
+              : null,
         );
 
         if (!mounted) return;
@@ -870,17 +956,39 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
           dateOfSale: _selectedDateOfSale!,
           companyName: _companyNameController.text.trim(),
           productPlanName: _productPlanNameController.text.trim(),
-          premiumAmount:
-              _premiumAmountController.text.isEmpty ? null : double.tryParse(_premiumAmountController.text),
+          premiumAmount: _premiumAmountController.text.isEmpty
+              ? null
+              : double.tryParse(_premiumAmountController.text),
           investmentAmount: _investmentAmountController.text.isEmpty
               ? null
               : double.tryParse(_investmentAmountController.text),
-          sipAmount:
-              _sipAmountController.text.isEmpty ? null : double.tryParse(_sipAmountController.text),
+          sipAmount: _sipAmountController.text.isEmpty
+              ? null
+              : double.tryParse(_sipAmountController.text),
           paymentFrequency: _selectedPaymentFrequency,
           investmentType: _selectedInvestmentType,
-          notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
           documents: _pendingDocuments.isNotEmpty ? _pendingDocuments : null,
+          policyDetails:
+              (_selectedProductType == 'life_insurance' ||
+                  _selectedProductType == 'general_insurance')
+              ? PolicyDetails(
+                  policyNumber: _policyNumberController.text.isEmpty
+                      ? null
+                      : _policyNumberController.text,
+                  policyIssuanceDate: _selectedPolicyIssuanceDate,
+                )
+              : null,
+          proposerDetails: _proposerDetails,
+          nominees: _nominees,
+          insuredPersons: _insuredPersons,
+          mutualFundDetails:
+              _selectedProductType == 'mutual_funds' &&
+                  _folioNumberController.text.isNotEmpty
+              ? MutualFundDetails(folioNumber: _folioNumberController.text)
+              : null,
         );
 
         if (!mounted) return;
@@ -908,10 +1016,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: CrmColors.errorColor,
-      ),
+      SnackBar(content: Text(message), backgroundColor: CrmColors.errorColor),
     );
   }
 
@@ -957,13 +1062,26 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           _premiumAmountController.clear();
                           _investmentAmountController.clear();
                           _sipAmountController.clear();
+                          _folioNumberController.clear();
+                          _policyNumberController.clear();
+                          _selectedPolicyIssuanceDate = null;
                           _selectedPaymentFrequency = null;
                           _selectedInvestmentType = null;
+                          // Reset extended fields
+                          _proposerDetails = null;
+                          _nominees = [];
+                          _insuredPersons = [];
                         });
                       },
                     ),
                     const SizedBox(height: 16),
+                    // Product-Specific Fields
+                    if (_selectedProductType == 'mutual_funds')
+                      _buildMutualFundsFields()
+                    else if (_selectedProductType != null)
+                      _buildInsuranceFields(),
 
+                    const SizedBox(height: 12),
                     // Common Product Fields
                     TextFormField(
                       controller: _companyNameController,
@@ -1007,7 +1125,6 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-
                     // Date of Sale
                     TextFormField(
                       readOnly: true,
@@ -1024,7 +1141,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       controller: TextEditingController(
                         text: _selectedDateOfSale == null
                             ? ''
-                            : DateFormat('dd MMM yyyy').format(_selectedDateOfSale!),
+                            : DateFormat(
+                                'dd MMM yyyy',
+                              ).format(_selectedDateOfSale!),
                       ),
                       validator: (value) {
                         if (_selectedDateOfSale == null) {
@@ -1034,14 +1153,205 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-
-                    // Product-Specific Fields
                     if (_selectedProductType == 'mutual_funds')
-                      _buildMutualFundsFields()
-                    else if (_selectedProductType != null)
-                      _buildInsuranceFields(),
+                      // Investment Type Bottom Sheet
+                      GestureDetector(
+                        onTap: _showInvestmentTypeBottomSheet,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: CrmColors.borderColor),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _selectedInvestmentType != null
+                                    ? (_selectedInvestmentType == 'sip'
+                                          ? 'SIP (Systematic Investment)'
+                                          : 'Lumpsum')
+                                    : 'Select investment type...',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: _selectedInvestmentType != null
+                                      ? CrmColors.textDark
+                                      : CrmColors.textLight,
+                                ),
+                              ),
+                              Icon(Icons.expand_more, color: CrmColors.primary),
+                            ],
+                          ),
+                        ),
+                      ),
 
+                    // Validation for investment type
+                    if (_selectedInvestmentType == null &&
+                        _selectedProductType == 'mutual_funds')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Investment type is required',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
+
+                    if (_selectedInvestmentType == 'sip') ...[
+                      // SIP Frequency Bottom Sheet
+                      GestureDetector(
+                        onTap: () => _showPaymentFrequencyBottomSheet([
+                          'daily',
+                          'monthly',
+                          'quarterly',
+                          'half_yearly',
+                          'yearly',
+                        ]),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: CrmColors.borderColor),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _selectedPaymentFrequency != null
+                                    ? _formatFrequency(
+                                        _selectedPaymentFrequency!,
+                                      )
+                                    : 'Select SIP frequency...',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: _selectedPaymentFrequency != null
+                                      ? CrmColors.textDark
+                                      : CrmColors.textLight,
+                                ),
+                              ),
+                              Icon(Icons.expand_more, color: CrmColors.primary),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Validation for SIP frequency
+                      if (_selectedPaymentFrequency == null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'SIP frequency is required',
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _sipAmountController,
+                        decoration: InputDecoration(
+                          labelText: 'SIP Amount *',
+                          prefixText: '₹ ',
+                          filled: true,
+                          fillColor: CrmColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'SIP amount is required';
+                          }
+                          if (double.tryParse(value!) == null) {
+                            return 'Please enter a valid amount';
+                          }
+                          if (double.parse(value) <= 0) {
+                            return 'Amount must be positive';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ] else if (_selectedInvestmentType == 'lumpsum') ...[
+                      TextFormField(
+                        controller: _investmentAmountController,
+                        decoration: InputDecoration(
+                          labelText: 'Investment Amount *',
+                          prefixText: '₹ ',
+                          filled: true,
+                          fillColor: CrmColors.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Investment amount is required';
+                          }
+                          if (double.tryParse(value!) == null) {
+                            return 'Please enter a valid amount';
+                          }
+                          if (double.parse(value) <= 0) {
+                            return 'Amount must be positive';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+
+                    // Extended Fields - Proposer/Insured/Nominees (Insurance only)
+                    if (_selectedProductType == 'life_insurance' ||
+                        _selectedProductType == 'general_insurance') ...[
+                      ProposerDetailsSection(
+                        initialData: _proposerDetails,
+                        onChanged: (details) {
+                          setState(() => _proposerDetails = details);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      InsuredPersonsSection(
+                        insuredPersons: _insuredPersons,
+                        onChanged: (persons) {
+                          setState(() => _insuredPersons = persons);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      NomineesSection(
+                        nominees: _nominees,
+                        onChanged: (nominees) {
+                          setState(() => _nominees = nominees);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Extended Fields (Mutual Funds only)
+                    if (_selectedProductType == 'mutual_funds') ...[
+                      NomineesSection(
+                        nominees: _nominees,
+                        onChanged: (nominees) {
+                          setState(() => _nominees = nominees);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // Notes
                     TextFormField(
@@ -1081,17 +1391,25 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: _isLoading ? null : _pickDocument,
-                              icon: const Icon(Icons.add, color: Color(0xFF0071bf)),
+                              icon: const Icon(
+                                Icons.add,
+                                color: Color(0xFF0071bf),
+                              ),
                               label: const Text('Add Document'),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                side: const BorderSide(color: Color(0xFF0071bf)),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0xFF0071bf),
+                                ),
                               ),
                             ),
                           ),
 
                           // Existing documents (edit mode only)
-                          if (widget.sale != null && _existingDocuments.isNotEmpty) ...[
+                          if (widget.sale != null &&
+                              _existingDocuments.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             const Divider(),
                             const SizedBox(height: 8),
@@ -1104,12 +1422,17 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            ...List.generate(_existingDocuments.length, (index) {
+                            ...List.generate(_existingDocuments.length, (
+                              index,
+                            ) {
                               final doc = _existingDocuments[index];
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 child: ListTile(
-                                  leading: const Icon(Icons.description, color: Color(0xFF0071bf)),
+                                  leading: const Icon(
+                                    Icons.description,
+                                    color: Color(0xFF0071bf),
+                                  ),
                                   title: Text(
                                     doc.documentName,
                                     style: const TextStyle(
@@ -1125,8 +1448,12 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                                     ),
                                   ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _deleteExistingDocument(doc.id),
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () =>
+                                        _deleteExistingDocument(doc.id),
                                   ),
                                 ),
                               );
@@ -1134,7 +1461,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           ],
 
                           // Pending documents list (create mode only)
-                          if (widget.sale == null && _pendingDocuments.isNotEmpty) ...[
+                          if (widget.sale == null &&
+                              _pendingDocuments.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             const Divider(),
                             const SizedBox(height: 8),
@@ -1153,7 +1481,10 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 child: ListTile(
-                                  leading: const Icon(Icons.description, color: Color(0xFF0071bf)),
+                                  leading: const Icon(
+                                    Icons.description,
+                                    color: Color(0xFF0071bf),
+                                  ),
                                   title: Text(
                                     doc.documentName,
                                     style: const TextStyle(
@@ -1169,8 +1500,12 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                                     ),
                                   ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _removePendingDocument(index),
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () =>
+                                        _removePendingDocument(index),
                                   ),
                                 ),
                               );
@@ -1178,7 +1513,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                           ],
 
                           // Info text (create mode only)
-                          if (widget.sale == null && _pendingDocuments.isNotEmpty) ...[
+                          if (widget.sale == null &&
+                              _pendingDocuments.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
                               'Documents will be uploaded after sale is created',
@@ -1220,13 +1556,16 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                   strokeWidth: 2,
                                 ),
                               )
                             : Text(
-                                widget.sale != null ? 'Update Sale' : 'Create Sale',
+                                widget.sale != null
+                                    ? 'Update Sale'
+                                    : 'Create Sale',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -1250,9 +1589,9 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: CrmColors.textDark,
-          ),
+        fontWeight: FontWeight.w700,
+        color: CrmColors.textDark,
+      ),
     );
   }
 
@@ -1260,10 +1599,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     return GestureDetector(
       onTap: _showCustomerBottomSheet,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(color: CrmColors.borderColor),
           borderRadius: BorderRadius.circular(12),
@@ -1291,6 +1627,54 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   Widget _buildInsuranceFields() {
     return Column(
       children: [
+        // ============= POLICY NUMBER (FIRST FIELD) =============
+        TextFormField(
+          controller: _policyNumberController,
+          decoration: InputDecoration(
+            labelText: 'Policy Number',
+            hintText: 'Enter policy number',
+            filled: true,
+            fillColor: CrmColors.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ============= POLICY ISSUANCE DATE (SECOND FIELD) =============
+        TextFormField(
+          readOnly: true,
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _selectedPolicyIssuanceDate ?? DateTime.now(),
+              firstDate: DateTime(1900),
+              lastDate: DateTime.now(),
+            );
+            if (date != null) {
+              setState(() => _selectedPolicyIssuanceDate = date);
+            }
+          },
+          decoration: InputDecoration(
+            labelText: 'Policy Issuance Date',
+            hintText: 'Select date',
+            filled: true,
+            fillColor: CrmColors.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            suffixIcon: Icon(Icons.calendar_today, color: CrmColors.primary),
+          ),
+          controller: TextEditingController(
+            text: _selectedPolicyIssuanceDate != null
+                ? DateFormat(
+                    'dd MMM yyyy',
+                  ).format(_selectedPolicyIssuanceDate!)
+                : '',
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ============= PREMIUM AMOUNT FIELD =============
         TextFormField(
           controller: _premiumAmountController,
           decoration: InputDecoration(
@@ -1298,9 +1682,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
             prefixText: '₹ ',
             filled: true,
             fillColor: CrmColors.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           validator: (value) {
@@ -1319,14 +1701,16 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
         const SizedBox(height: 12),
         // Payment Frequency Bottom Sheet
         GestureDetector(
-          onTap: () => _showPaymentFrequencyBottomSheet(
-            ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly', 'single'],
-          ),
+          onTap: () => _showPaymentFrequencyBottomSheet([
+            'daily',
+            'monthly',
+            'quarterly',
+            'half_yearly',
+            'yearly',
+            'single',
+          ]),
           child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               border: Border.all(color: CrmColors.borderColor),
               borderRadius: BorderRadius.circular(12),
@@ -1357,10 +1741,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Payment frequency is required',
-              style: TextStyle(
-                color: Colors.red.shade700,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.red.shade700, fontSize: 12),
             ),
           ),
       ],
@@ -1370,153 +1751,18 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
   Widget _buildMutualFundsFields() {
     return Column(
       children: [
-        // Investment Type Bottom Sheet
-        GestureDetector(
-          onTap: _showInvestmentTypeBottomSheet,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: CrmColors.borderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _selectedInvestmentType != null
-                      ? (_selectedInvestmentType == 'sip'
-                          ? 'SIP (Systematic Investment)'
-                          : 'Lumpsum')
-                      : 'Select investment type...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _selectedInvestmentType != null
-                        ? CrmColors.textDark
-                        : CrmColors.textLight,
-                  ),
-                ),
-                Icon(Icons.expand_more, color: CrmColors.primary),
-              ],
-            ),
+        // Folio Number FIRST
+        TextFormField(
+          controller: _folioNumberController,
+          decoration: InputDecoration(
+            labelText: 'Folio Number',
+            hintText: 'Enter folio number',
+            filled: true,
+            fillColor: CrmColors.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
-        // Validation for investment type
-        if (_selectedInvestmentType == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Investment type is required',
-              style: TextStyle(
-                color: Colors.red.shade700,
-                fontSize: 12,
-              ),
-            ),
-          ),
         const SizedBox(height: 12),
-        if (_selectedInvestmentType == 'sip') ...[
-          TextFormField(
-            controller: _sipAmountController,
-            decoration: InputDecoration(
-              labelText: 'SIP Amount *',
-              prefixText: '₹ ',
-              filled: true,
-              fillColor: CrmColors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (value) {
-              if (value?.isEmpty ?? true) {
-                return 'SIP amount is required';
-              }
-              if (double.tryParse(value!) == null) {
-                return 'Please enter a valid amount';
-              }
-              if (double.parse(value) <= 0) {
-                return 'Amount must be positive';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-          // SIP Frequency Bottom Sheet
-          GestureDetector(
-            onTap: () => _showPaymentFrequencyBottomSheet(
-              ['daily', 'monthly', 'quarterly', 'half_yearly', 'yearly'],
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
-              decoration: BoxDecoration(
-                border: Border.all(color: CrmColors.borderColor),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _selectedPaymentFrequency != null
-                        ? _formatFrequency(_selectedPaymentFrequency!)
-                        : 'Select SIP frequency...',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _selectedPaymentFrequency != null
-                          ? CrmColors.textDark
-                          : CrmColors.textLight,
-                    ),
-                  ),
-                  Icon(Icons.expand_more, color: CrmColors.primary),
-                ],
-              ),
-            ),
-          ),
-          // Validation for SIP frequency
-          if (_selectedPaymentFrequency == null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'SIP frequency is required',
-                style: TextStyle(
-                  color: Colors.red.shade700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-        ] else if (_selectedInvestmentType == 'lumpsum') ...[
-          TextFormField(
-            controller: _investmentAmountController,
-            decoration: InputDecoration(
-              labelText: 'Investment Amount *',
-              prefixText: '₹ ',
-              filled: true,
-              fillColor: CrmColors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            validator: (value) {
-              if (value?.isEmpty ?? true) {
-                return 'Investment amount is required';
-              }
-              if (double.tryParse(value!) == null) {
-                return 'Please enter a valid amount';
-              }
-              if (double.parse(value) <= 0) {
-                return 'Amount must be positive';
-              }
-              return null;
-            },
-          ),
-        ],
       ],
     );
   }
@@ -1552,6 +1798,8 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
     _investmentAmountController.dispose();
     _sipAmountController.dispose();
     _notesController.dispose();
+    _folioNumberController.dispose();
+    _policyNumberController.dispose();
     super.dispose();
   }
 }

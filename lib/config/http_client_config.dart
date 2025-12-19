@@ -69,36 +69,30 @@ class _InterceptedClient extends http.BaseClient {
   }
 
   void _logRequest(http.BaseRequest request) {
-    if (kDebugMode) {
-      print('🌐 HTTP Request: ${request.method} ${request.url}');
-      print('📋 Headers: ${_sanitizeHeaders(request.headers)}');
+      debugPrint('🌐 HTTP Request: ${request.method} ${request.url}');
+      debugPrint('📋 Headers: ${_sanitizeHeaders(request.headers)}');
       
       if (request is http.Request && request.body.isNotEmpty) {
         // Don't log sensitive data in production
         if (request.url.path.contains('/auth/')) {
-          print('📦 Body: [AUTH REQUEST - BODY HIDDEN]');
+          debugPrint('📦 Body: [AUTH REQUEST - BODY HIDDEN]');
         } else {
-          print('📦 Body: ${request.body}');
+          debugPrint('📦 Body: ${request.body}');
         }
       }
-    }
   }
 
   void _logResponse(http.BaseRequest request, http.StreamedResponse response) {
-    if (kDebugMode) {
-      print('📨 HTTP Response: ${response.statusCode} for ${request.method} ${request.url}');
-      print('⏱️  Response Time: ${DateTime.now().millisecondsSinceEpoch}ms');
+      debugPrint('📨 HTTP Response: ${response.statusCode} for ${request.method} ${request.url}');
+      debugPrint('⏱️  Response Time: ${DateTime.now().millisecondsSinceEpoch}ms');
       
       // Log response headers (sanitized)
-      print('📋 Response Headers: ${_sanitizeHeaders(response.headers)}');
-    }
+      debugPrint('📋 Response Headers: ${_sanitizeHeaders(response.headers)}');
   }
 
   void _logError(http.BaseRequest request, dynamic error) {
-    if (kDebugMode) {
-      print('❌ HTTP Error for ${request.method} ${request.url}: $error');
+      debugPrint('❌ HTTP Error for ${request.method} ${request.url}: $error');
     }
-  }
 
   Map<String, String> _sanitizeHeaders(Map<String, String> headers) {
     final sanitized = Map<String, String>.from(headers);

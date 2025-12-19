@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../models/sale.dart';
 import '../models/sale_document.dart';
+import '../models/sale_extended_details.dart';
 import 'api_service.dart';
 
 class ApiResponse<T> {
@@ -53,6 +55,12 @@ class SaleService {
     String? investmentType,
     String? notes,
     List<dynamic>? documents, // PendingDocument
+    // Extended fields
+    PolicyDetails? policyDetails,
+    ProposerDetails? proposerDetails,
+    List<Nominee>? nominees,
+    List<InsuredPerson>? insuredPersons,
+    MutualFundDetails? mutualFundDetails,
   }) async {
     try {
       await _setupHeaders();
@@ -70,7 +78,27 @@ class SaleService {
         if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
         if (investmentType != null) 'investmentType': investmentType,
         if (notes != null) 'notes': notes,
+        // Extended fields
+        if (policyDetails != null) 'policyDetails': jsonEncode(policyDetails.toJson()),
+        if (proposerDetails != null) 'proposerDetails': jsonEncode(proposerDetails.toJson()),
+        if (mutualFundDetails != null) 'mutualFundDetails': jsonEncode(mutualFundDetails.toJson()),
       });
+
+      // Add nominees as array fields
+      if (nominees != null && nominees.isNotEmpty) {
+        for (int i = 0; i < nominees.length; i++) {
+          final nomineeJson = jsonEncode(nominees[i].toJson());
+          formData.fields.add(MapEntry('nominees[$i]', nomineeJson));
+        }
+      }
+
+      // Add insured persons as array fields
+      if (insuredPersons != null && insuredPersons.isNotEmpty) {
+        for (int i = 0; i < insuredPersons.length; i++) {
+          final insuredJson = jsonEncode(insuredPersons[i].toJson());
+          formData.fields.add(MapEntry('insuredPersons[$i]', insuredJson));
+        }
+      }
 
       // Add documents if any
       if (documents != null && documents.isNotEmpty) {
@@ -215,6 +243,12 @@ class SaleService {
     String? investmentType,
     String? notes,
     List<dynamic>? documents, // PendingDocument
+    // Extended fields
+    PolicyDetails? policyDetails,
+    ProposerDetails? proposerDetails,
+    List<Nominee>? nominees,
+    List<InsuredPerson>? insuredPersons,
+    MutualFundDetails? mutualFundDetails,
   }) async {
     try {
       await _setupHeaders();
@@ -231,7 +265,27 @@ class SaleService {
         if (paymentFrequency != null) 'paymentFrequency': paymentFrequency,
         if (investmentType != null) 'investmentType': investmentType,
         if (notes != null) 'notes': notes,
+        // Extended fields
+        if (policyDetails != null) 'policyDetails': jsonEncode(policyDetails.toJson()),
+        if (proposerDetails != null) 'proposerDetails': jsonEncode(proposerDetails.toJson()),
+        if (mutualFundDetails != null) 'mutualFundDetails': jsonEncode(mutualFundDetails.toJson()),
       });
+
+      // Add nominees as array fields
+      if (nominees != null && nominees.isNotEmpty) {
+        for (int i = 0; i < nominees.length; i++) {
+          final nomineeJson = jsonEncode(nominees[i].toJson());
+          formData.fields.add(MapEntry('nominees[$i]', nomineeJson));
+        }
+      }
+
+      // Add insured persons as array fields
+      if (insuredPersons != null && insuredPersons.isNotEmpty) {
+        for (int i = 0; i < insuredPersons.length; i++) {
+          final insuredJson = jsonEncode(insuredPersons[i].toJson());
+          formData.fields.add(MapEntry('insuredPersons[$i]', insuredJson));
+        }
+      }
 
       // Add documents if any
       if (documents != null && documents.isNotEmpty) {

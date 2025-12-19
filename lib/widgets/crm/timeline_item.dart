@@ -129,12 +129,12 @@ class _TimelineItemState extends State<TimelineItem> {
     try {
       final date = widget.data['date'];
       if (date == null) {
-        print('WARNING: Timeline item has no date field: ${widget.data}');
+          debugPrint('WARNING: Timeline item has no date field: ${widget.data}');
         return 'Date unknown';
       }
       return DateTimeUtils.formatActivityDate(date);
     } catch (e) {
-      print('ERROR formatting timeline date: $e, data: ${widget.data}');
+        debugPrint('ERROR formatting timeline date: $e, data: ${widget.data}');
       return 'Invalid date';
     }
   }

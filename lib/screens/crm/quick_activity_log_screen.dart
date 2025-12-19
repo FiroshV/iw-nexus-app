@@ -38,7 +38,6 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
   DateTime _activityDate = DateTime.now();
   int? _durationSeconds;
   String? _phoneNumber;
-  String _deviceType = 'android';
 
   // UI state
   List<Customer> _customers = [];
@@ -627,9 +626,9 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(CrmDesignSystem.md),
                       decoration: BoxDecoration(
-                        color: CrmColors.success.withOpacity(0.1),
+                        color: CrmColors.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
-                        border: Border.all(color: CrmColors.success.withOpacity(0.3)),
+                        border: Border.all(color: CrmColors.success.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -656,7 +655,7 @@ class _QuickActivityLogScreenState extends State<QuickActivityLogScreen> {
                                   'Duration: ${_formatDuration(_durationSeconds)}',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: CrmColors.success.withOpacity(0.7),
+                                    color: CrmColors.success.withValues(alpha: 0.7),
                                   ),
                                 ),
                               ],

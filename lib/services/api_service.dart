@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../config/api_endpoints.dart';
 import '../config/http_client_config.dart';
+import '../models/sale_extended_details.dart';
 import '../utils/timezone_util.dart';
 import 'sale_service.dart';
 
@@ -2302,6 +2303,11 @@ class ApiService {
     String? initialVisitId,
     List<String>? assignedEmployeeIds,
     List<dynamic>? documents,
+    PolicyDetails? policyDetails,
+    ProposerDetails? proposerDetails,
+    List<Nominee>? nominees,
+    List<InsuredPerson>? insuredPersons,
+    MutualFundDetails? mutualFundDetails,
   }) async {
     // Delegate to SaleService for multipart/form-data support
     return SaleService.createSale(
@@ -2317,6 +2323,11 @@ class ApiService {
       investmentType: investmentType,
       notes: notes,
       documents: documents,
+      policyDetails: policyDetails,
+      proposerDetails: proposerDetails,
+      nominees: nominees,
+      insuredPersons: insuredPersons,
+      mutualFundDetails: mutualFundDetails,
     );
   }
 
@@ -2374,6 +2385,11 @@ class ApiService {
     String? status,
     List<String>? assignedEmployeeIds,
     List<dynamic>? documents,
+    PolicyDetails? policyDetails,
+    ProposerDetails? proposerDetails,
+    List<Nominee>? nominees,
+    List<InsuredPerson>? insuredPersons,
+    MutualFundDetails? mutualFundDetails,
   }) async {
     // Delegate to SaleService for multipart/form-data support
     return SaleService.updateSale(
@@ -2389,6 +2405,11 @@ class ApiService {
       investmentType: investmentType,
       notes: notes,
       documents: documents,
+      policyDetails: policyDetails,
+      proposerDetails: proposerDetails,
+      nominees: nominees,
+      insuredPersons: insuredPersons,
+      mutualFundDetails: mutualFundDetails,
     );
   }
 

@@ -46,13 +46,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       final timelineResponse = await CustomerService.getCustomerTimeline(widget.customerId);
 
       if (timelineResponse.success && timelineResponse.data != null) {
-        print('Timeline data received for customer ${widget.customerId}');
-        print('Total activities: ${timelineResponse.data!['activities']?.length ?? 0}');
+          debugPrint('Timeline data received for customer ${widget.customerId}');
+          debugPrint('Total activities: ${timelineResponse.data!['activities']?.length ?? 0}');
 
         // Debug log each activity to identify problematic ones
         final activities = timelineResponse.data!['activities'] as List?;
         activities?.asMap().forEach((index, activity) {
-          print('Activity $index: '
+            debugPrint('Activity $index: '
               'type=${activity['type']}, '
               'date=${activity['date']}, '
               'hasNotes=${activity['notes'] != null}, '
@@ -64,7 +64,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         });
       }
     } catch (e) {
-      print('ERROR loading timeline: $e');
+        debugPrint('ERROR loading timeline: $e');
       // Silent fail - timeline is optional
     } finally {
       setState(() {

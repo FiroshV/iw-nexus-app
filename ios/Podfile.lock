@@ -89,6 +89,8 @@ PODS:
   - FirebaseRemoteConfigInterop (11.15.0)
   - FirebaseSharedSwift (11.15.0)
   - Flutter (1.0.0)
+  - flutter_phone_direct_caller (0.0.1):
+    - Flutter
   - flutter_secure_storage (6.0.0):
     - Flutter
   - flutter_timezone (0.0.1):
@@ -150,6 +152,7 @@ DEPENDENCIES:
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
+  - flutter_phone_direct_caller (from `.symlinks/plugins/flutter_phone_direct_caller/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - flutter_timezone (from `.symlinks/plugins/flutter_timezone/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
@@ -195,6 +198,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
+  flutter_phone_direct_caller:
+    :path: ".symlinks/plugins/flutter_phone_direct_caller/ios"
   flutter_secure_storage:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
   flutter_timezone:
@@ -236,6 +241,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 1c6135e8a094cc6368949f5faeeca7ee8948b8aa
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_phone_direct_caller: bd2ffd297f371a8a6c7bfbba0196964ffe3c4358
   flutter_secure_storage: d33dac7ae2ea08509be337e775f6b59f1ff45f12
   flutter_timezone: ffb07bdad3c6276af8dada0f11978d8a1f8a20bb
   geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
