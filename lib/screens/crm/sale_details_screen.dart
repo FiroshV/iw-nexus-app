@@ -7,7 +7,6 @@ import '../../models/sale.dart';
 import '../../models/sale_document.dart';
 import '../../services/sale_service.dart';
 import '../../providers/crm/sale_provider.dart';
-import '../../services/access_control_service.dart';
 import '../../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/crm_design_system.dart';
@@ -272,13 +271,15 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen>
 
     if (_sale == null) return false;
 
+    final sale = _sale!;
+
     // Sale owner has access
-    if (_sale!.userId == widget.userId) {
+    if (sale.userId == widget.userId) {
       return true;
     }
 
     // Assigned employees have access
-    return _sale!.assignedEmployees.any((emp) => emp.userId == widget.userId);
+    return sale.assignedEmployees.any((emp) => emp.userId == widget.userId);
   }
 
   bool _canEditSale() {
@@ -289,8 +290,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen>
 
     if (_sale == null) return false;
 
+    final sale = _sale!;
+
     // Sale creator can edit
-    if (_sale!.userId == widget.userId) {
+    if (sale.userId == widget.userId) {
       return true;
     }
 
@@ -310,8 +313,10 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen>
 
     if (_sale == null) return false;
 
+    final sale = _sale!;
+
     // Sale creator can delete
-    if (_sale!.userId == widget.userId) {
+    if (sale.userId == widget.userId) {
       return true;
     }
 
@@ -352,7 +357,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen>
       builder: (context) => AlertDialog(
         title: const Text('Delete Sale'),
         content: Text(
-          'Are you sure you want to delete this sale for ${_sale?.customerName ?? 'this customer'}?',
+          'Are you sure you want to delete this sale for ${_sale == null ? 'this customer' : _sale!.customerName}?',
         ),
         actions: [
           TextButton(
@@ -400,7 +405,7 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response.message ?? 'Failed to delete sale'),
+            content: Text(response.message),
             backgroundColor: Colors.red,
           ),
         );

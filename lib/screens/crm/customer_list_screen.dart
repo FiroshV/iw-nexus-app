@@ -48,7 +48,8 @@ class _CustomerListScreenState extends State<CustomerListScreen>
   }
 
   String _getCurrentView() {
-    if (_tabController == null || _tabController!.index == 0) return 'assigned';
+    if (_tabController == null) return 'assigned';
+    if (_tabController!.index == 0) return 'assigned';
 
     if (widget.userRole == 'admin' || widget.userRole == 'director') {
       return 'all';
@@ -65,11 +66,13 @@ class _CustomerListScreenState extends State<CustomerListScreen>
       arguments: {'customerId': customer.id},
     ).then((_) {
       // Refresh list when returning
-      final view = _getCurrentView();
-      context.read<CustomerProvider>().fetchCustomers(
-        view: view,
-        forceRefresh: true,
-      );
+      if (mounted) {
+        final view = _getCurrentView();
+        context.read<CustomerProvider>().fetchCustomers(
+          view: view,
+          forceRefresh: true,
+        );
+      }
     });
   }
 
@@ -98,10 +101,10 @@ class _CustomerListScreenState extends State<CustomerListScreen>
             backgroundColor: CrmColors.primary,
             elevation: 2,
             shadowColor: CrmColors.primary.withValues(alpha: 0.3),
-            bottom: ScopeTabSelector(
+            bottom: _tabController != null ? ScopeTabSelector(
               controller: _tabController!,
               userRole: widget.userRole,
-            ),
+            ) : null,
           ),
           body: Column(
             children: [

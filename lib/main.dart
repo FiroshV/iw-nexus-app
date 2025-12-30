@@ -9,6 +9,7 @@ import 'providers/crm/customer_provider.dart';
 import 'providers/crm/activity_provider.dart';
 import 'providers/crm/appointment_provider.dart';
 import 'providers/crm/sale_provider.dart';
+import 'providers/incentive_provider.dart';
 import 'models/sale.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/id_card_widget.dart';
@@ -47,6 +48,7 @@ import 'screens/crm/pipeline_stage_detail_screen.dart';
 import 'screens/crm/overdue_followups_screen.dart';
 import 'screens/crm/call_logs_screen.dart';
 import 'screens/crm/call_detail_screen.dart';
+import 'screens/incentive/incentive_module_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -143,6 +145,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ActivityProvider()),
         ChangeNotifierProvider(create: (_) => AppointmentProvider()),
         ChangeNotifierProvider(create: (_) => SaleProvider()),
+        // Incentive Provider
+        ChangeNotifierProvider(create: (_) => IncentiveProvider()),
       ],
       child: MaterialApp(
         title: 'IW Nexus',
@@ -1400,6 +1404,27 @@ class _DashboardPageState extends State<DashboardPage> {
                           );
                         },
                       ),
+
+                      // Incentives - accessible to users with incentive permissions
+                      if (AccessControlService.hasAccess(
+                        userRole,
+                        'incentive_management',
+                        'view_own_incentive',
+                      )) ...[
+                        _buildDashboardCard(
+                          title: 'Incentives',
+                          subtitle: 'Commission & targets',
+                          icon: Icons.workspace_premium_rounded,
+                          color: const Color(0xFF00b8d9),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const IncentiveModuleScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ],

@@ -231,7 +231,7 @@ class _SalesListScreenState extends State<SalesListScreen>
           MaterialPageRoute(builder: (context) => const AddEditSaleScreen()),
         )
         .then((refreshNeeded) {
-          if (refreshNeeded == true) {
+          if (refreshNeeded == true && mounted) {
             // Invalidate cache when a new sale is created
             final view = _getCurrentView();
             try {
@@ -615,7 +615,7 @@ class _SalesListScreenState extends State<SalesListScreen>
                               color: Colors.red.shade400,
                             ),
                             const SizedBox(height: 16),
-                            Text(cache.error!),
+                            Text(cache.error ?? 'Unknown error'),
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () {

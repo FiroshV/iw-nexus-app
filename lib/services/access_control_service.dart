@@ -124,6 +124,32 @@ class AccessControlService {
       'view_all': ['admin', 'director'],
       'edit_own': ['admin', 'manager', 'director', 'field_staff', 'telecaller', 'external'],
       'delete': ['admin', 'director']
+    },
+
+    // Incentive Management Features
+    'incentive_management': {
+      // Template management
+      'view_templates': ['admin', 'director', 'manager'],
+      'create_template': ['admin', 'director'],
+      'edit_template': ['admin', 'director'],
+      'delete_template': ['admin', 'director'],
+
+      // Employee incentive assignment
+      'assign_incentive': ['admin', 'director'],
+      'view_assignments': ['admin', 'director', 'manager'],
+
+      // Progress and incentives viewing
+      'view_own_incentive': ['admin', 'director', 'manager', 'field_staff', 'telecaller', 'external'],
+      'view_team_incentives': ['admin', 'director', 'manager'],
+      'view_all_incentives': ['admin', 'director'],
+
+      // Promotion approvals
+      'approve_promotion': ['admin', 'director'],
+      'reject_promotion': ['admin', 'director'],
+
+      // Reports
+      'view_incentive_reports': ['admin', 'director', 'manager'],
+      'export_incentive_reports': ['admin', 'director']
     }
   };
 

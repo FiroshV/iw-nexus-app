@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/access_control_service.dart';
+import '../../services/incentive_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/employee_incentive.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/staff_attendance_widget.dart';
 import '../../utils/date_util.dart';
@@ -62,7 +64,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     // Check if current user can view staff attendance
     final currentUser = context.read<AuthProvider>().user;
-    final currentUserRole = currentUser?['role']?.toString();
+    final currentUserRole = currentUser == null ? null : currentUser['role']?.toString();
     final canViewStaffAttendance = AccessControlService.hasAccess(
       currentUserRole,
       'attendance',
@@ -230,6 +232,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  void _showIncentiveBottomSheet(Map<String, dynamic> user) {
+    final String fullName =
+        '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final String userId = user['_id'] ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _UserIncentiveBottomSheet(
+        userId: userId,
+        userName: fullName,
+      ),
+    );
+  }
+
   Widget _buildUserCard(Map<String, dynamic> user) {
     final String fullName =
         '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
@@ -241,10 +259,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final currentUser = context.read<AuthProvider>().user;
 
     debugPrint('🔥🔥🔥 USER CARD: Building card for ${user['firstName']} ${user['lastName']} (${user['role']})');
-    debugPrint('🔥🔥🔥 USER CARD: Current user role: ${currentUser?['role']}');
+    debugPrint('🔥🔥🔥 USER CARD: Current user role: ${currentUser == null ? 'null' : currentUser['role']}');
 
     final canEdit = AccessControlService.canManageUser(currentUser, user, 'edit');
     final canDelete = AccessControlService.canManageUser(currentUser, user, 'delete');
+    final currentUserRole = currentUser == null ? null : currentUser['role']?.toString();
+    final canViewIncentive = AccessControlService.hasAccess(
+      currentUserRole,
+      'incentive_management',
+      'view_assignments',
+    );
 
     debugPrint('🔥🔥🔥 USER CARD: canEdit: $canEdit, canDelete: $canDelete');
 
@@ -275,13 +299,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  gradient: user['avatar'] != null
-                      ? null
-                      : const LinearGradient(
+                  gradient: user['avatar'] == null
+                      ? const LinearGradient(
                           colors: [Color(0xFF272579), Color(0xFF0071bf)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                        ),
+                        )
+                      : null,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: user['avatar'] != null
@@ -414,6 +438,30 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           );
                         }
 
+                        // View Incentive option (for admin/director)
+                        if (canViewIncentive && user['role'] != 'admin') {
+                          menuItems.add(
+                            PopupMenuItem(
+                              value: 'incentive',
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.trending_up_rounded,
+                                    size: 16,
+                                    color: const Color(0xFF00b8d9),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'View Incentive',
+                                    style: TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
                         if (canEdit) {
                           menuItems.add(
                             PopupMenuItem(
@@ -479,6 +527,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   ),
                                 )
                                 .then((_) => _loadUsers(refresh: true));
+                            break;
+                          case 'incentive':
+                            _showIncentiveBottomSheet(user);
                             break;
                           case 'edit':
                             Navigator.of(context)
@@ -1004,13 +1055,13 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    gradient: widget.user['avatar'] != null
-                        ? null
-                        : const LinearGradient(
+                    gradient: widget.user['avatar'] == null
+                        ? const LinearGradient(
                             colors: [Color(0xFF272579), Color(0xFF0071bf)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                          ),
+                          )
+                        : null,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: widget.user['avatar'] != null
@@ -1159,5 +1210,669 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
         ],
       ),
     );
+  }
+}
+
+/// Bottom sheet widget for displaying user incentive details
+class _UserIncentiveBottomSheet extends StatefulWidget {
+  final String userId;
+  final String userName;
+
+  const _UserIncentiveBottomSheet({
+    required this.userId,
+    required this.userName,
+  });
+
+  @override
+  State<_UserIncentiveBottomSheet> createState() =>
+      _UserIncentiveBottomSheetState();
+}
+
+class _UserIncentiveBottomSheetState extends State<_UserIncentiveBottomSheet> {
+  bool _isLoading = true;
+  String? _error;
+  EmployeeIncentive? _incentive;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIncentive();
+  }
+
+  Future<void> _loadIncentive() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await IncentiveService.getEmployeeIncentive(widget.userId);
+
+      if (!mounted) return;
+
+      if (response.success && response.data != null) {
+        setState(() {
+          _incentive = response.data;
+          _isLoading = false;
+        });
+      } else {
+        // Check if this is "no assignment" vs actual error
+        final message = response.message?.toLowerCase() ?? '';
+        final isNoAssignment = message.contains('no incentive') ||
+            message.contains('not found') ||
+            message.contains('no assignment');
+
+        setState(() {
+          if (isNoAssignment) {
+            // Valid state - user has no incentive assigned
+            _incentive = null;
+            _error = null;
+          } else {
+            // Actual error
+            _error = response.message ?? 'Failed to load incentive';
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Error loading incentive: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _getCurrentMonth() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}';
+  }
+
+  MonthlyProgress? _getCurrentMonthProgress() {
+    if (_incentive == null) return null;
+    final incentive = _incentive!;
+    final currentMonth = _getCurrentMonth();
+    try {
+      return incentive.monthlyProgress.firstWhere(
+        (p) => p.month == currentMonth,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00b8d9), Color(0xFF0071bf)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.trending_up_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.userName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Incentive Details',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // Content
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF272579),
+                    ),
+                  )
+                : _error != null
+                    ? _buildErrorState()
+                    : _incentive == null
+                        ? _buildNoIncentiveState()
+                        : _buildIncentiveDetails(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.error_outline_rounded,
+                size: 40,
+                color: Colors.red[400],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unable to load incentive',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error ?? 'Unknown error',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _loadIncentive,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoIncentiveState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF272579).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.assignment_outlined,
+                size: 40,
+                color: const Color(0xFF272579).withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No Incentive Assigned',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This employee has not been assigned an incentive template yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIncentiveDetails() {
+    final template = _incentive!.currentTemplate;
+    final currentMonthProgress = _getCurrentMonthProgress();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Current Bracket Card
+          _buildCard(
+            title: 'Current Bracket',
+            icon: Icons.workspace_premium_rounded,
+            iconColor: const Color(0xFF00b8d9),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        template?.name ?? 'Unknown Template',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (template != null &&
+                    template.description != null &&
+                    template.description!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    template.description!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Commission Rates Card
+          if (template?.commissionRates != null)
+            _buildCard(
+              title: 'Commission Rates',
+              icon: Icons.percent_rounded,
+              iconColor: const Color(0xFF0071bf),
+              child: Column(
+                children: [
+                  _buildCommissionRow(
+                    'Life Insurance',
+                    template!.commissionRates.lifeInsurance,
+                  ),
+                  _buildCommissionRow(
+                    'General Insurance',
+                    template.commissionRates.generalInsurance,
+                  ),
+                  _buildCommissionRow(
+                    'Mutual Funds',
+                    template.commissionRates.mutualFunds,
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 16),
+
+          // Current Month Progress Card
+          _buildCard(
+            title: 'Current Month Progress',
+            icon: Icons.timeline_rounded,
+            iconColor: const Color(0xFF5cfbd8),
+            child: currentMonthProgress != null
+                ? _buildProgressContent(currentMonthProgress)
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'No sales recorded this month',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Next Bracket Preview
+          if (_incentive!.currentTemplate?.nextTemplate != null)
+            _buildCard(
+              title: 'Next Bracket',
+              icon: Icons.arrow_upward_rounded,
+              iconColor: Colors.orange,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.stars_rounded,
+                        size: 18,
+                        color: Colors.orange[400],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _incentive == null || _incentive!.currentTemplate == null || _incentive!.currentTemplate!.nextTemplate == null
+                            ? 'Next Bracket'
+                            : _incentive!.currentTemplate!.nextTemplate!.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Complete targets to unlock higher commission rates!',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF272579).withValues(alpha: 0.08),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 16,
+                    color: iconColor,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: Colors.grey.withValues(alpha: 0.1),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommissionRow(String label, double? rate) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0071bf).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${rate == null ? '0.0' : rate.toStringAsFixed(1)}%',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0071bf),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressContent(MonthlyProgress progress) {
+    final incentive = _incentive;
+    final targetAmount = incentive == null || incentive.currentTemplate == null
+        ? 0.0
+        : incentive.currentTemplate!.overallTarget.amount.toDouble();
+    final achievedAmount = progress.overallSalesAmount;
+    final progressPercent =
+        targetAmount > 0 ? (achievedAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Progress bar
+        if (targetAmount > 0) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${(progressPercent * 100).toStringAsFixed(0)}% Complete',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF272579),
+                ),
+              ),
+              Text(
+                'Rs ${_formatAmount(achievedAmount)} / Rs ${_formatAmount(targetAmount)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progressPercent,
+              minHeight: 10,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress.targetAchieved
+                    ? const Color(0xFF5cfbd8)
+                    : const Color(0xFF0071bf),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Commission earned
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF5cfbd8).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.monetization_on_rounded,
+                    size: 20,
+                    color: const Color(0xFF0071bf),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Total Commission',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF272579),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'Rs ${_formatAmount(progress.totalCommission)}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF272579),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Target achieved badge
+        if (progress.targetAchieved) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF5cfbd8).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFF5cfbd8),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 16,
+                  color: Colors.green[700],
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Target Achieved!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _formatAmount(double amount) {
+    if (amount >= 100000) {
+      return '${(amount / 100000).toStringAsFixed(1)}L';
+    } else if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(1)}K';
+    }
+    return amount.toStringAsFixed(0);
   }
 }

@@ -81,6 +81,14 @@ class ApiEndpoints {
   static const String visitEffectiveness = '$crmReports/visit-effectiveness';
   static const String branchSales = '$crmReports/branch-sales';
 
+  // Incentive Management endpoints
+  static const String incentives = '/incentives';
+  static const String incentiveTemplates = '$incentives/templates';
+  static const String incentiveAssignments = '$incentives/assignments';
+  static const String myIncentive = '$incentives/my-incentive';
+  static const String myIncentiveProgress = '$incentives/my-incentive/progress';
+  static const String pendingPromotions = '$incentives/promotions/pending';
+
   // System endpoints
   static const String healthCheck = health;
 
@@ -256,6 +264,51 @@ class ApiEndpoints {
   static String linkVisitToSaleEndpoint(String visitId, String saleId) => '$crmVisits/$visitId/link-sale/$saleId';
 
   static String unlinkVisitFromSaleEndpoint(String visitId, String saleId) => '$crmVisits/$visitId/unlink-sale/$saleId';
+
+  // Incentive helper methods
+  static String incentiveTemplateByIdEndpoint(String templateId) => '$incentiveTemplates/$templateId';
+
+  static String incentiveAssignmentByUserIdEndpoint(String userId) => '$incentiveAssignments/$userId';
+
+  static String approvePromotionEndpoint(String userId) => '$incentives/promotions/$userId/approve';
+
+  static String rejectPromotionEndpoint(String userId) => '$incentives/promotions/$userId/reject';
+
+  static String calculateIncentiveEndpoint(String userId) => '$incentives/calculate/$userId';
+
+  static String buildIncentiveTemplatesQuery({
+    int skip = 0,
+    int limit = 50,
+    String? search,
+    bool? active,
+  }) {
+    final params = <String>[];
+    params.add('skip=$skip');
+    params.add('limit=$limit');
+
+    if (search != null) params.add('search=${Uri.encodeComponent(search)}');
+    if (active != null) params.add('active=$active');
+
+    return '$incentiveTemplates?${params.join('&')}';
+  }
+
+  static String buildIncentiveAssignmentsQuery({
+    int skip = 0,
+    int limit = 50,
+    String? search,
+    String? templateId,
+    bool? hasPromotion,
+  }) {
+    final params = <String>[];
+    params.add('skip=$skip');
+    params.add('limit=$limit');
+
+    if (search != null) params.add('search=${Uri.encodeComponent(search)}');
+    if (templateId != null) params.add('templateId=${Uri.encodeComponent(templateId)}');
+    if (hasPromotion != null) params.add('hasPromotion=$hasPromotion');
+
+    return '$incentiveAssignments?${params.join('&')}';
+  }
 }
 
 /// HTTP methods constants
