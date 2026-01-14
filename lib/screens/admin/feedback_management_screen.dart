@@ -399,10 +399,6 @@ class _FeedbackManagementScreenState extends State<FeedbackManagementScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           Stack(
             children: [

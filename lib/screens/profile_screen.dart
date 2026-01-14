@@ -2,16 +2,23 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../services/profile_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/user_avatar.dart';
+import '../widgets/document_category_bottom_sheet.dart';
+import '../widgets/common/indian_phone_input.dart';
+import '../constants/document_categories.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showCompletionDialog;
-  
+  final int initialTab;
+
   const ProfileScreen({
     super.key,
     this.showCompletionDialog = false,
+    this.initialTab = 0,
   });
 
   @override
@@ -47,12 +54,18 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
   Map<String, dynamic>? _currentUser;
   List<Map<String, dynamic>> _documents = [];
+  Set<String> _uploadedCategories = {};
+  Map<String, Map<String, dynamic>> _documentsByCategory = {};
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 1),
+    );
     _loadUserProfile();
     _loadDocuments();
 
@@ -109,10 +122,11 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
       _emailController.text = _currentUser!['email'] ?? '';
       _designationController.text = _currentUser!['designation'] ?? '';
       _addressController.text = _currentUser!['address'] ?? '';
-      _homePhoneController.text = _currentUser!['homePhoneNumber'] ?? '';
-      _phoneController.text = _currentUser!['phoneNumber'] ?? '';
+      // Strip +91 prefix for display in IndianPhoneInput
+      _homePhoneController.text = IndianPhoneInput.parseFromApi(_currentUser!['homePhoneNumber']);
+      _phoneController.text = IndianPhoneInput.parseFromApi(_currentUser!['phoneNumber']);
       _selectedBloodGroup = _currentUser!['bloodGroup'];
-      
+
       if (_currentUser!['dateOfBirth'] != null) {
         _selectedDateOfBirth = DateTime.parse(_currentUser!['dateOfBirth']);
       }
@@ -131,8 +145,13 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'address': _addressController.text.trim(),
-        'homePhoneNumber': _homePhoneController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
+        // Format phone numbers with +91 prefix for API
+        'homePhoneNumber': _homePhoneController.text.trim().isEmpty
+            ? ''
+            : IndianPhoneInput.formatForApi(_homePhoneController.text.trim()),
+        'phoneNumber': _phoneController.text.trim().isEmpty
+            ? ''
+            : IndianPhoneInput.formatForApi(_phoneController.text.trim()),
       };
 
       if (_selectedDateOfBirth != null) {
@@ -635,9 +654,30 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         final documentsData = response.data is List
             ? response.data
             : response.data['data'] ?? [];
+        final docsList = List<Map<String, dynamic>>.from(documentsData);
+
+        // Build uploaded categories set and documents by category map
+        final uploadedCats = <String>{};
+        final docsByCat = <String, Map<String, dynamic>>{};
+        for (final doc in docsList) {
+          final category = doc['documentCategory'] as String?;
+          if (category != null) {
+            uploadedCats.add(category);
+            // Store the first document for each category (for viewing)
+            if (!docsByCat.containsKey(category)) {
+              docsByCat[category] = doc;
+            }
+          }
+        }
+
         setState(() {
-          _documents = List<Map<String, dynamic>>.from(documentsData);
+          _documents = docsList;
+          _uploadedCategories = uploadedCats;
+          _documentsByCategory = docsByCat;
         });
+
+        // Clear the ProfileService cache so it picks up new documents
+        ProfileService.clearDocumentCache();
       } else {
         _showErrorSnackBar('Failed to load documents');
       }
@@ -650,7 +690,77 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     });
   }
 
-  Future<void> _pickAndUploadDocument() async {
+  Future<String?> _showDocumentNameDialog() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Document Name',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF272579),
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'Enter document name',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF272579), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isNotEmpty) {
+                Navigator.pop(dialogContext, controller.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF272579),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadDocument({String? preselectedCategory}) async {
+    // Show category selection bottom sheet if no category pre-selected
+    String? category = preselectedCategory;
+    if (category == null) {
+      category = await DocumentCategoryBottomSheet.show(
+        context: context,
+        uploadedCategories: _uploadedCategories,
+      );
+    }
+
+    if (category == null) return; // User cancelled
+
+    // For "other" category, prompt for custom document name
+    String? customDocumentName;
+    if (category == DocumentCategories.other) {
+      customDocumentName = await _showDocumentNameDialog();
+      if (customDocumentName == null) return; // User cancelled
+    }
+
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -662,24 +772,29 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         final file = File(result.files.single.path!);
         final fileName = result.files.single.name;
 
-        await _uploadDocument(file, fileName);
+        await _uploadDocument(file, fileName, category, customName: customDocumentName);
       }
     } catch (e) {
       _showErrorSnackBar('Error selecting document: $e');
     }
   }
 
-  Future<void> _uploadDocument(File file, String originalFileName) async {
+  Future<void> _uploadDocument(File file, String originalFileName, String category, {String? customName}) async {
     setState(() {
       _isUploadingDocument = true;
     });
 
     try {
-      final documentName = _documentNameController.text.trim().isEmpty
-          ? null
-          : _documentNameController.text.trim();
+      final documentName = customName ??
+          (_documentNameController.text.trim().isEmpty
+              ? DocumentCategories.getLabel(category)
+              : _documentNameController.text.trim());
 
-      final response = await ApiService.uploadDocument(file, documentName: documentName);
+      final response = await ApiService.uploadDocument(
+        file,
+        documentCategory: category,
+        documentName: documentName,
+      );
 
       if (response.success) {
         _documentNameController.clear();
@@ -751,6 +866,242 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     }
   }
 
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case DocumentCategories.educationalCertificate:
+        return Icons.school_outlined;
+      case DocumentCategories.experienceCertificate:
+        return Icons.work_outline;
+      case DocumentCategories.salarySlips:
+        return Icons.receipt_long_outlined;
+      case DocumentCategories.identityProof:
+        return Icons.badge_outlined;
+      case DocumentCategories.addressProof:
+        return Icons.home_outlined;
+      case DocumentCategories.bankStatement:
+        return Icons.account_balance_outlined;
+      case DocumentCategories.panCard:
+        return Icons.credit_card_outlined;
+      default:
+        return Icons.description_outlined;
+    }
+  }
+
+  Widget _buildDocumentChecklistItem({
+    required String category,
+    required bool isUploaded,
+    Map<String, dynamic>? document,
+  }) {
+    final label = DocumentCategories.getLabel(category);
+    final description = DocumentCategories.getDescription(category);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: isUploaded ? null : () => _pickAndUploadDocument(preselectedCategory: category),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isUploaded
+                ? const Color(0xFF10B981).withValues(alpha: 0.05)
+                : Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isUploaded
+                  ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                  : Colors.grey[200]!,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Status icon
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isUploaded
+                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                      : const Color(0xFF272579).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isUploaded ? Icons.check_circle : _getCategoryIcon(category),
+                  color: isUploaded
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFF272579),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Category info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isUploaded
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isUploaded
+                          ? (document?['originalFileName'] as String? ?? 'Uploaded')
+                          : description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Action button
+              if (isUploaded && document != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // View/Download button
+                    IconButton(
+                      icon: const Icon(Icons.visibility_outlined, size: 20),
+                      color: const Color(0xFF272579),
+                      onPressed: () async {
+                        final documentId = document['_id'] as String?;
+                        if (documentId != null && documentId.isNotEmpty) {
+                          final messenger = ScaffoldMessenger.of(context);
+
+                          // Fetch signed URL from backend
+                          final response = await ApiService.getDocumentSignedUrl(documentId);
+
+                          if (response.success && response.data != null) {
+                            final uri = Uri.parse(response.data!);
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Could not open document'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(response.message.isNotEmpty ? response.message : 'Failed to get document URL'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      tooltip: 'View Document',
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                    // Delete button
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      color: Colors.red[400],
+                      onPressed: () => _deleteDocument(document['_id']),
+                      tooltip: 'Delete',
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF272579),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Upload',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentListItem(Map<String, dynamic> document) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF272579).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                _getFileIcon(document['originalFileName'] ?? ''),
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  document['documentName'] ?? 'Untitled',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF272579),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  document['originalFileName'] ?? '',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18),
+            color: Colors.red[400],
+            onPressed: () => _deleteDocument(document['_id']),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -773,10 +1124,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
         ),
         actions: [
           if (!_isLoading && _tabController.index == 0)
@@ -966,18 +1313,22 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                             maxLines: 3,
                           ),
 
-                          _buildTextField(
-                            controller: _homePhoneController,
-                            label: 'Home',
-                            icon: Icons.phone_outlined,
-                            keyboardType: TextInputType.phone,
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: IndianPhoneInput(
+                              controller: _homePhoneController,
+                              labelText: 'Home Phone',
+                              isRequired: false,
+                            ),
                           ),
 
-                          _buildTextField(
-                            controller: _phoneController,
-                            label: 'Phone',
-                            icon: Icons.phone_outlined,
-                            keyboardType: TextInputType.phone,
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: IndianPhoneInput(
+                              controller: _phoneController,
+                              labelText: 'Mobile Phone',
+                              isRequired: false,
+                            ),
                           ),
 
                           const SizedBox(height: 8),
@@ -992,334 +1343,187 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 ),
 
                 // Documents Tab
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Upload Section
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        margin: const EdgeInsets.only(bottom: 24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                _isLoadingDocuments
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Color(0xFF272579)),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.cloud_upload,
-                                  color: Color(0xFF272579),
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Upload Document',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF272579),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Document Name Input
+                            // Mandatory Documents Checklist
                             Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              child: TextFormField(
-                                controller: _documentNameController,
-                                decoration: InputDecoration(
-                                  labelText: 'Document Name (Optional)',
-                                  hintText: 'Leave empty for auto-generated name',
-                                  prefixIcon: const Icon(
-                                    Icons.edit,
-                                    color: Color(0xFF0071bf),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              margin: const EdgeInsets.only(bottom: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  labelStyle: const TextStyle(
-                                    color: Color(0xFF272579),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF272579).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(
+                                          Icons.checklist,
+                                          color: Color(0xFF272579),
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Required Documents',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF272579),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${_uploadedCategories.where((c) => DocumentCategories.mandatoryCategories.contains(c)).length}/${DocumentCategories.mandatoryCategories.length} completed',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
-                                      width: 1,
+                                  const SizedBox(height: 16),
+                                  // Progress bar
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: _uploadedCategories.where((c) => DocumentCategories.mandatoryCategories.contains(c)).length /
+                                          DocumentCategories.mandatoryCategories.length,
+                                      backgroundColor: Colors.grey[200],
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        _uploadedCategories.where((c) => DocumentCategories.mandatoryCategories.contains(c)).length ==
+                                                DocumentCategories.mandatoryCategories.length
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFF272579),
+                                      ),
+                                      minHeight: 6,
                                     ),
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF0071bf),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.all(16),
-                                ),
+                                  const SizedBox(height: 20),
+                                  // Category checklist
+                                  ...DocumentCategories.mandatoryCategories.map((category) {
+                                    final isUploaded = _uploadedCategories.contains(category);
+                                    final doc = _documentsByCategory[category];
+                                    return _buildDocumentChecklistItem(
+                                      category: category,
+                                      isUploaded: isUploaded,
+                                      document: doc,
+                                    );
+                                  }),
+                                ],
                               ),
                             ),
 
-                            // Upload Button
-                            SizedBox(
+                            // Upload Additional Documents Button
+                            Container(
                               width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: _isUploadingDocument ? null : _pickAndUploadDocument,
+                              margin: const EdgeInsets.only(bottom: 20),
+                              child: OutlinedButton.icon(
+                                onPressed: _isUploadingDocument
+                                    ? null
+                                    : () => _pickAndUploadDocument(
+                                          preselectedCategory: DocumentCategories.other,
+                                        ),
                                 icon: _isUploadingDocument
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
+                                        child: CircularProgressIndicator(strokeWidth: 2),
                                       )
                                     : const Icon(Icons.add),
-                                label: Text(_isUploadingDocument ? 'Uploading...' : 'Select Document'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF272579),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                label: Text(
+                                  _isUploadingDocument ? 'Uploading...' : 'Upload Other Documents',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF272579),
+                                  side: const BorderSide(color: Color(0xFF272579)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  elevation: 2,
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 16),
-                            Text(
-                              'Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT (Max 10MB)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Documents List Section
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.folder,
-                                  color: Color(0xFF272579),
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'My Documents',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF272579),
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${_documents.length} documents',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            if (_isLoadingDocuments)
-                              const Center(
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF272579),
-                                ),
-                              )
-                            else if (_documents.isEmpty)
+                            // Other Documents Section
+                            if (_documents.where((d) => d['documentCategory'] == DocumentCategories.other).isNotEmpty)
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(32),
+                                padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey[300]!,
-                                    style: BorderStyle.solid,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.description_outlined,
-                                      size: 48,
-                                      color: Colors.grey[400],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No documents uploaded yet',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Upload your first document using the button above',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[500],
-                                      ),
-                                      textAlign: TextAlign.center,
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.08),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
-                              )
-                            else
-                              ...(_documents.map((document) => Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[50],
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey[200]!,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF272579).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          _getFileIcon(document['originalFileName'] ?? ''),
-                                          style: const TextStyle(fontSize: 20),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.folder_outlined,
+                                          color: Color(0xFF272579),
+                                          size: 22,
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            document['documentName'] ?? 'Untitled',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF272579),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            document['originalFileName'] ?? '',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Uploaded on ${DateTime.parse(document['uploadedAt'] ?? '').toLocal().toString().split(' ')[0]}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey[500],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      onSelected: (value) {
-                                        if (value == 'delete') {
-                                          _deleteDocument(document['_id']);
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        const PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.delete, color: Colors.red, size: 20),
-                                              SizedBox(width: 8),
-                                              Text('Delete', style: TextStyle(color: Colors.red)),
-                                            ],
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Other Documents',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF272579),
                                           ),
                                         ),
                                       ],
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: const Icon(
-                                          Icons.more_vert,
-                                          size: 18,
-                                          color: Color(0xFF272579),
-                                        ),
-                                      ),
                                     ),
+                                    const SizedBox(height: 16),
+                                    ..._documents
+                                        .where((d) => d['documentCategory'] == DocumentCategories.other)
+                                        .map((document) => _buildDocumentListItem(document)),
                                   ],
                                 ),
-                              )).toList()),
+                              ),
+
+                            const SizedBox(height: 20),
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
               ],
             ),
     );

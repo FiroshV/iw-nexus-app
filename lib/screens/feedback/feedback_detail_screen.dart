@@ -568,10 +568,6 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           if (_isAdmin && _feedback != null)
             IconButton(

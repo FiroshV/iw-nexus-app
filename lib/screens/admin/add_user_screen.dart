@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../utils/date_util.dart';
+import '../../widgets/common/indian_phone_input.dart';
 
 class AddUserScreen extends StatefulWidget {
   const AddUserScreen({super.key});
@@ -178,7 +179,9 @@ class _AddUserScreenState extends State<AddUserScreen> {
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
-        phoneNumber: _phoneController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isEmpty
+            ? ''
+            : IndianPhoneInput.formatForApi(_phoneController.text.trim()),
         role: selectedRole!,
         designation: _designationController.text.trim(),
         employmentType: selectedEmploymentType!,
@@ -304,14 +307,10 @@ class _AddUserScreenState extends State<AddUserScreen> {
           validator: UserValidation.validateEmail,
           hintText: 'user@company.com',
         ),
-        _buildTextField(
+        IndianPhoneInput(
           controller: _phoneController,
-          label: 'Phone Number',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
+          labelText: 'Phone Number',
           isRequired: true,
-          validator: UserValidation.validatePhone,
-          hintText: '+91 XXXXX XXXXX',
         ),
       ],
     );

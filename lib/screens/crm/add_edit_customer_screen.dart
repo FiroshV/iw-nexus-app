@@ -4,6 +4,7 @@ import '../../config/crm_colors.dart';
 import '../../models/customer.dart';
 import '../../services/customer_service.dart';
 import '../../providers/crm/customer_provider.dart';
+import '../../widgets/common/indian_phone_input.dart';
 
 class AddEditCustomerScreen extends StatefulWidget {
   final Customer? customer;
@@ -32,7 +33,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.customer?.name ?? '');
-    _mobileController = TextEditingController(text: widget.customer?.mobileNumber ?? '');
+    // Strip +91 prefix for display in IndianPhoneInput
+    _mobileController = TextEditingController(
+      text: IndianPhoneInput.parseFromApi(widget.customer?.mobileNumber),
+    );
     _emailController = TextEditingController(text: widget.customer?.email ?? '');
     _addressController = TextEditingController(text: widget.customer?.address ?? '');
     _notesController = TextEditingController(text: widget.customer?.notes ?? '');
@@ -48,7 +52,8 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
     try {
       final customerData = {
         'name': _nameController.text.trim(),
-        'mobileNumber': _mobileController.text.trim(),
+        // Format phone with +91 prefix for API
+        'mobileNumber': IndianPhoneInput.formatForApi(_mobileController.text.trim()),
         'email': _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         'address': _addressController.text.trim().isNotEmpty ? _addressController.text.trim() : null,
         'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
@@ -141,30 +146,10 @@ class _AddEditCustomerScreenState extends State<AddEditCustomerScreen> {
               const SizedBox(height: 12),
 
               // Mobile Number
-              TextFormField(
+              IndianPhoneInput(
                 controller: _mobileController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'Mobile Number *',
-                  filled: true,
-                  fillColor: CrmColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  hintText: 'e.g., +91 98765 43210',
-                ),
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Mobile number is required';
-                  }
-                  // Basic Indian phone number validation
-                  final phoneRegex = RegExp(r'^(?:\+91|0)?[6-9]\d{9}$');
-                  if (!phoneRegex.hasMatch(value!.replaceAll(RegExp(r'\s'), ''))) {
-                    return 'Please enter a valid Indian mobile number';
-                  }
-                  return null;
-                },
+                labelText: 'Mobile Number',
+                isRequired: true,
               ),
               const SizedBox(height: 12),
 

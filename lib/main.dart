@@ -52,6 +52,7 @@ import 'screens/incentive/incentive_module_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
+import 'utils/navigation_guards.dart';
 import 'services/remote_config_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -152,6 +153,7 @@ class MyApp extends StatelessWidget {
         title: 'IW Nexus',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
+          platform: TargetPlatform.iOS,
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF272579)),
           useMaterial3: true,
           primaryColor: const Color(0xFF0071bf),
@@ -1244,6 +1246,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     childAspectRatio: 0.9,
                     children: [
                       // Attendance card - hidden for external employees
+                      // Requires profile completion for non-admin/director roles
                       if (userRole != 'external')
                         _buildDashboardCard(
                           title: 'Attendance',
@@ -1251,11 +1254,12 @@ class _DashboardPageState extends State<DashboardPage> {
                           icon: Icons.schedule,
                           color: const Color(0xFF5cfbd8),
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const EnhancedAttendanceScreen(),
-                              ),
+                            final authProvider = context.read<AuthProvider>();
+                            NavigationGuards.navigateWithProfileCheck(
+                              context: context,
+                              userData: authProvider.user,
+                              destination: const EnhancedAttendanceScreen(),
+                              featureName: 'Attendance',
                             );
                           },
                         ),

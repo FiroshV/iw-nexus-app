@@ -992,7 +992,7 @@ class ApiService {
   /// Delete profile photo
   static Future<ApiResponse<Map<String, dynamic>>> deleteProfilePhoto() async {
     return await _makeRequest<Map<String, dynamic>>(
-      '/api/users/profile/photo',
+      '/users/profile/photo',
       HttpMethods.delete,
     );
   }
@@ -1744,9 +1744,18 @@ class ApiService {
     );
   }
 
-  /// Upload a document with optional naming
+  /// Get documents for a specific user (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> getUserDocumentsByUserId(String userId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/user/$userId',
+      HttpMethods.get,
+    );
+  }
+
+  /// Upload a document with category (required) and optional naming
   static Future<ApiResponse<Map<String, dynamic>>> uploadDocument(
     File documentFile, {
+    required String documentCategory,
     String? documentName,
   }) async {
     try {
@@ -1763,10 +1772,11 @@ class ApiService {
           documentFile.path,
           filename: documentFile.path.split('/').last,
         ),
+        'documentCategory': documentCategory,
         if (documentName != null && documentName.isNotEmpty) 'documentName': documentName,
       });
 
-      debugPrint('Uploading document to $baseUrl/users/documents');
+      debugPrint('Uploading document to $baseUrl/users/documents with category: $documentCategory');
 
       // Make the request
       final response = await dio.post(
@@ -1850,9 +1860,52 @@ class ApiService {
     );
   }
 
-  /// Get document download URL
-  static String getDocumentDownloadUrl(String documentId) {
-    return '$baseUrl/users/documents/$documentId';
+  /// Get pre-signed document download URL
+  static Future<ApiResponse<String>> getDocumentSignedUrl(String documentId) async {
+    final response = await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/$documentId',
+      HttpMethods.get,
+    );
+
+    if (response.success && response.data != null) {
+      final downloadUrl = response.data!['downloadUrl'] as String?;
+      if (downloadUrl != null) {
+        return ApiResponse(success: true, message: '', data: downloadUrl);
+      }
+    }
+    return ApiResponse(success: false, message: response.message);
+  }
+
+  /// Get document completion status for current user
+  static Future<ApiResponse<Map<String, dynamic>>> getDocumentCompletionStatus() async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/completion-status',
+      HttpMethods.get,
+    );
+  }
+
+  /// Get documents grouped by category for current user
+  static Future<ApiResponse<List<dynamic>>> getDocumentsByCategory() async {
+    return await _makeRequest<List<dynamic>>(
+      '/users/documents/by-category',
+      HttpMethods.get,
+    );
+  }
+
+  /// Get document completion status for a specific user (Admin/Director only)
+  static Future<ApiResponse<Map<String, dynamic>>> getUserDocumentCompletionStatus(String userId) async {
+    return await _makeRequest<Map<String, dynamic>>(
+      '/users/documents/user/$userId/completion-status',
+      HttpMethods.get,
+    );
+  }
+
+  /// Get documents grouped by category for a specific user (Admin/Director only)
+  static Future<ApiResponse<List<dynamic>>> getUserDocumentsByCategory(String userId) async {
+    return await _makeRequest<List<dynamic>>(
+      '/users/documents/user/$userId/by-category',
+      HttpMethods.get,
+    );
   }
 
   // ============================================================================

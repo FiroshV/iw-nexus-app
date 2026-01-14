@@ -409,10 +409,6 @@ class _FeedbackListScreenState extends State<FeedbackListScreen> with SingleTick
             fontWeight: FontWeight.w600,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         bottom: _isAdmin && _tabController != null
             ? TabBar(
                 controller: _tabController,

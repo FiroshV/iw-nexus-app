@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'providers/auth_provider.dart';
 import 'otp_verification_page.dart';
+import 'widgets/common/indian_phone_input.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -36,29 +36,25 @@ class _LoginPageState extends State<LoginPage> {
     if (value == null || value.isEmpty) {
       return _isEmailMode ? 'Please enter your email' : 'Please enter your phone number';
     }
-    
+
     if (_isEmailMode) {
       // Email validation
       final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
       if (!emailRegex.hasMatch(value)) {
         return 'Please enter a valid email address';
       }
-    } else {
-      // Phone number validation (10 digits for Indian numbers)
-      final phoneRegex = RegExp(r'^[0-9]{10}$');
-      if (!phoneRegex.hasMatch(value)) {
-        return 'Please enter a valid 10-digit phone number';
-      }
     }
-    
+    // Phone validation is handled by IndianPhoneInput widget
+
     return null;
   }
 
-  String _getFormattedPhoneNumber() {
+  String _getFormattedIdentifier() {
     if (_isEmailMode) {
       return _loginController.text;
     }
-    return '+91${_loginController.text}';
+    // Format phone number with +91 prefix
+    return IndianPhoneInput.formatForApi(_loginController.text);
   }
 
 
@@ -72,7 +68,7 @@ class _LoginPageState extends State<LoginPage> {
       
       try {
         final response = await authProvider.sendOtp(
-          identifier: _isEmailMode ? _loginController.text : _getFormattedPhoneNumber(),
+          identifier: _getFormattedIdentifier(),
           method: _isEmailMode ? 'email' : 'phone',
         );
 
@@ -88,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
               builder: (context) => OTPVerificationPage(
                 signInId: response.data?['signInId'] ?? '',
                 loginMethod: _isEmailMode ? 'email' : 'phone',
-                loginValue: response.data?['identifier'] ?? (_isEmailMode ? _loginController.text : _getFormattedPhoneNumber()),
+                loginValue: response.data?['identifier'] ?? _getFormattedIdentifier(),
                 provider: response.data?['provider'],
               ),
             ),
@@ -220,35 +216,31 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Login Input Field
-                    TextFormField(
-                      controller: _loginController,
-                      keyboardType: _isEmailMode 
-                        ? TextInputType.emailAddress 
-                        : TextInputType.phone,
-                      inputFormatters: _isEmailMode 
-                        ? null 
-                        : [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: _isEmailMode ? 'Email Address' : 'Mobile Number',
-                        hintText: '',
-                        prefixIcon: Icon(_isEmailMode ? Icons.email : Icons.phone),
-                        prefixText: _isEmailMode ? null : '+91 ',
-                        prefixStyle: const TextStyle(
-                          color: Color(0xFF272579),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
+                    // Login Input Field - conditionally show email or phone input
+                    if (_isEmailMode)
+                      TextFormField(
+                        controller: _loginController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: 'Email Address',
+                          hintText: '',
+                          prefixIcon: const Icon(Icons.email),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF272579)),
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF272579)),
-                        ),
+                        validator: _validateLogin,
+                      )
+                    else
+                      IndianPhoneInput(
+                        controller: _loginController,
+                        labelText: 'Mobile Number',
+                        isRequired: true,
                       ),
-                      validator: _validateLogin,
-                    ),
                     const SizedBox(height: 32),
 
                     // Send OTP Button

@@ -67,8 +67,11 @@ class _UnifiedApprovalScreenState extends State<UnifiedApprovalScreen> with Tick
   @override
   void dispose() {
     _tabController.dispose();
-    ApprovalScreenCoordinator.refreshDashboard();
-    ApprovalScreenCoordinator.resumeDashboardRefresh();
+    // Defer refresh to after the current frame to avoid setState during widget tree lock
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ApprovalScreenCoordinator.refreshDashboard();
+      ApprovalScreenCoordinator.resumeDashboardRefresh();
+    });
     super.dispose();
   }
 

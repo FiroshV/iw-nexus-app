@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/sale_extended_details.dart';
+import '../common/indian_phone_input.dart';
 
 // ============= Proposer Details Section =============
 class ProposerDetailsSection extends StatefulWidget {
@@ -35,7 +36,7 @@ class _ProposerDetailsSectionState extends State<ProposerDetailsSection> {
       text: widget.initialData?.email ?? '',
     );
     _mobileController = TextEditingController(
-      text: widget.initialData?.mobileNumber ?? '',
+      text: IndianPhoneInput.parseFromApi(widget.initialData?.mobileNumber),
     );
     _selectedGender = widget.initialData?.gender;
     _selectedDOB = widget.initialData?.dateOfBirth;
@@ -58,7 +59,7 @@ class _ProposerDetailsSectionState extends State<ProposerDetailsSection> {
         email: _emailController.text.isEmpty ? null : _emailController.text,
         mobileNumber: _mobileController.text.isEmpty
             ? null
-            : _mobileController.text,
+            : IndianPhoneInput.formatForApi(_mobileController.text),
         gender: _selectedGender,
         dateOfBirth: _selectedDOB,
       ),
@@ -149,19 +150,10 @@ class _ProposerDetailsSectionState extends State<ProposerDetailsSection> {
                 onChanged: (_) => _updateData(),
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              IndianPhoneInput(
                 controller: _mobileController,
-                decoration: InputDecoration(
-                  labelText: 'Mobile Number',
-                  hintText: 'Enter mobile number',
-                  filled: true,
-                  fillColor: const Color(0xFFFBF8FF),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFECF0F1)),
-                  ),
-                ),
-                keyboardType: TextInputType.phone,
+                labelText: 'Mobile Number',
+                isRequired: false,
                 onChanged: (_) => _updateData(),
               ),
             ],

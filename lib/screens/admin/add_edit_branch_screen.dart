@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../models/branch_model.dart';
+import '../../widgets/common/indian_phone_input.dart';
 
 class AddEditBranchScreen extends StatefulWidget {
   final Branch? branch;
@@ -62,11 +63,12 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
       final branch = widget.branch!;
       _branchNameController.text = branch.branchName;
       _addressController.text = branch.branchAddress;
-      _phoneController.text = branch.contactInfo.phone ?? '';
+      // Strip +91 prefix for display in IndianPhoneInput
+      _phoneController.text = IndianPhoneInput.parseFromApi(branch.contactInfo.phone);
       _emailController.text = branch.contactInfo.email ?? '';
       selectedManagerId = branch.branchManager?.id;
       selectedEstablishedDate = branch.establishedDate;
-    } 
+    }
   }
 
   Future<void> _loadAvailableManagers() async {
@@ -170,10 +172,11 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
     try {
       final branchData = {
         'branchName': _branchNameController.text.trim(),
-        'branchAddress':  _addressController.text.trim(),
+        'branchAddress': _addressController.text.trim(),
         'contactInfo': {
+          // Format phone with +91 prefix for API
           'phone': _phoneController.text.trim().isNotEmpty
-              ? _phoneController.text.trim()
+              ? IndianPhoneInput.formatForApi(_phoneController.text.trim())
               : null,
           'email': _emailController.text.trim().isNotEmpty
               ? _emailController.text.trim()
@@ -422,13 +425,10 @@ class _AddEditBranchScreenState extends State<AddEditBranchScreen> {
       title: 'Contact Information',
       icon: Icons.contact_phone_outlined,
       children: [
-        _buildTextField(
+        IndianPhoneInput(
           controller: _phoneController,
-          label: 'Phone Number',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
-          validator: BranchValidation.validatePhone,
-          hintText: '+91 XXXXX XXXXX',
+          labelText: 'Phone Number',
+          isRequired: false,
         ),
         _buildTextField(
           controller: _emailController,

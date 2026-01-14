@@ -164,10 +164,6 @@ class _SubmitFeedbackScreenState extends State<SubmitFeedbackScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: Form(
         key: _formKey,

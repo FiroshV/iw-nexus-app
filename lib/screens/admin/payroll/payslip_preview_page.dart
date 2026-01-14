@@ -323,10 +323,6 @@ class _PayslipPreviewPageState extends State<PayslipPreviewPage> {
           'Payslip Preview',
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: _isLoading
           ? const Center(

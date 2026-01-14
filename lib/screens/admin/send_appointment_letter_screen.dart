@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/common/indian_phone_input.dart';
 
 class SendAppointmentLetterScreen extends StatefulWidget {
   const SendAppointmentLetterScreen({super.key});
@@ -392,7 +393,9 @@ class _SendAppointmentLetterScreenState
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
           email: _emailController.text.trim(),
-          phoneNumber: _phoneNumberController.text.trim(),
+          phoneNumber: _phoneNumberController.text.trim().isEmpty
+              ? ''
+              : IndianPhoneInput.formatForApi(_phoneNumberController.text.trim()),
           address: _addressController.text.trim(),
           designation: _designationController.text.trim(),
           dateOfJoining: _dateOfJoiningController.text.trim(),
@@ -562,17 +565,10 @@ class _SendAppointmentLetterScreenState
             },
           ),
           const SizedBox(height: 14),
-          _buildModernTextField(
+          IndianPhoneInput(
             controller: _phoneNumberController,
-            label: 'Phone Number',
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value?.isEmpty ?? true) {
-                return 'Phone number is required';
-              }
-              return null;
-            },
+            labelText: 'Phone Number',
+            isRequired: true,
           ),
           const SizedBox(height: 14),
           _buildBranchDropdown(),

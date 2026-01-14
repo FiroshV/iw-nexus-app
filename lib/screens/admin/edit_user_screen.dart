@@ -5,6 +5,7 @@ import '../../services/access_control_service.dart';
 import '../../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../../utils/date_util.dart';
+import '../../widgets/common/indian_phone_input.dart';
 
 class EditUserScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -66,7 +67,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
     _firstNameController.text = widget.user['firstName'] ?? '';
     _lastNameController.text = widget.user['lastName'] ?? '';
     _emailController.text = widget.user['email'] ?? '';
-    _phoneController.text = widget.user['phoneNumber'] ?? '';
+    // Strip +91 prefix for display in IndianPhoneInput
+    _phoneController.text = IndianPhoneInput.parseFromApi(widget.user['phoneNumber']);
     _designationController.text = widget.user['designation'] ?? '';
 
     // Statutory Information
@@ -223,7 +225,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
       final updateData = {
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
+        // Format phone with +91 prefix for API
+        'phoneNumber': _phoneController.text.trim().isEmpty
+            ? ''
+            : IndianPhoneInput.formatForApi(_phoneController.text.trim()),
         'role': selectedRole!,
         'designation': _designationController.text.trim(),
         'employmentType': selectedEmploymentType!,
@@ -365,14 +370,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
           validator: UserValidation.validateEmail,
           hintText: 'user@company.com',
         ),
-        _buildTextField(
+        IndianPhoneInput(
           controller: _phoneController,
-          label: 'Phone Number',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
+          labelText: 'Phone Number',
           isRequired: true,
-          validator: UserValidation.validatePhone,
-          hintText: '+91 XXXXX XXXXX',
         ),
       ],
     );

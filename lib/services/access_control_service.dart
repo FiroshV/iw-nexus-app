@@ -150,6 +150,15 @@ class AccessControlService {
       // Reports
       'view_incentive_reports': ['admin', 'director', 'manager'],
       'export_incentive_reports': ['admin', 'director']
+    },
+
+    // Document Management Features
+    'document_management': {
+      'view_own': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
+      'view_user': ['admin', 'director'],
+      'upload': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
+      'delete_own': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
+      'delete_any': ['admin', 'director']
     }
   };
 

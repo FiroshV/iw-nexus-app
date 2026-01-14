@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/employee_incentive.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/staff_attendance_widget.dart';
+import '../../widgets/staff_documents_widget.dart';
 import '../../utils/date_util.dart';
 import 'add_user_screen.dart';
 import 'edit_user_screen.dart';
@@ -75,6 +76,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       'view_team',
     );
 
+    // Check if current user can view user documents (admin/director only)
+    final canViewUserDocuments = AccessControlService.hasAccess(
+      currentUserRole,
+      'document_management',
+      'view_user',
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -89,6 +97,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         role: role,
         userId: userId,
         canViewStaffAttendance: canViewStaffAttendance,
+        canViewUserDocuments: canViewUserDocuments,
       ),
     );
   }
@@ -902,6 +911,7 @@ class _UserDetailsBottomSheet extends StatefulWidget {
   final String role;
   final String userId;
   final bool canViewStaffAttendance;
+  final bool canViewUserDocuments;
 
   const _UserDetailsBottomSheet({
     required this.user,
@@ -913,6 +923,7 @@ class _UserDetailsBottomSheet extends StatefulWidget {
     required this.role,
     required this.userId,
     required this.canViewStaffAttendance,
+    required this.canViewUserDocuments,
   });
 
   @override
@@ -922,13 +933,20 @@ class _UserDetailsBottomSheet extends StatefulWidget {
 class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late int _tabCount;
+  late bool _showTabs;
 
   @override
   void initState() {
     super.initState();
-    // Create tab controller with 2 tabs if user can view attendance, otherwise 1 tab
+    // Calculate tab count: Details (always) + Attendance (optional) + Documents (optional)
+    _tabCount = 1; // Details tab is always shown
+    if (widget.canViewStaffAttendance) _tabCount++;
+    if (widget.canViewUserDocuments) _tabCount++;
+    _showTabs = _tabCount > 1;
+
     _tabController = TabController(
-      length: widget.canViewStaffAttendance ? 2 : 1,
+      length: _tabCount,
       vsync: this,
     );
   }
@@ -1158,8 +1176,8 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
             ),
           ),
 
-          // Tab bar (only show if user can view attendance)
-          if (widget.canViewStaffAttendance)
+          // Tab bar (only show if more than 1 tab)
+          if (_showTabs)
             Container(
               decoration: BoxDecoration(
                 border: Border(
@@ -1179,30 +1197,43 @@ class _UserDetailsBottomSheetState extends State<_UserDetailsBottomSheet>
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
-                tabs: const [
-                  Tab(
+                tabs: [
+                  const Tab(
                     icon: Icon(Icons.info_outline, size: 18),
                     text: 'Details',
                   ),
-                  Tab(
-                    icon: Icon(Icons.calendar_today, size: 18),
-                    text: 'Attendance',
-                  ),
+                  if (widget.canViewStaffAttendance)
+                    const Tab(
+                      icon: Icon(Icons.calendar_today, size: 18),
+                      text: 'Attendance',
+                    ),
+                  if (widget.canViewUserDocuments)
+                    const Tab(
+                      icon: Icon(Icons.folder_outlined, size: 18),
+                      text: 'Documents',
+                    ),
                 ],
               ),
             ),
 
           // Content
           Expanded(
-            child: widget.canViewStaffAttendance
+            child: _showTabs
                 ? TabBarView(
                     controller: _tabController,
                     children: [
                       _buildDetailsTab(),
-                      StaffAttendanceWidget(
-                        userId: widget.userId,
-                        userName: widget.fullName,
-                      ),
+                      if (widget.canViewStaffAttendance)
+                        StaffAttendanceWidget(
+                          userId: widget.userId,
+                          userName: widget.fullName,
+                        ),
+                      if (widget.canViewUserDocuments)
+                        StaffDocumentsWidget(
+                          userId: widget.userId,
+                          userName: widget.fullName,
+                          employeeId: widget.employeeId,
+                        ),
                     ],
                   )
                 : _buildDetailsTab(),
