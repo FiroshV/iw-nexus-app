@@ -47,7 +47,8 @@ class AccessControlService {
       'attendance_reports': ['admin', 'manager', 'director'],
       'payroll_reports': ['admin', 'director'],
       'team_reports': ['admin', 'manager', 'director'],
-      'export_reports': ['admin', 'director', 'manager']
+      'export_reports': ['admin', 'director', 'manager'],
+      'leaderboard_reports': ['admin', 'manager', 'director']
     },
 
     // Settings Features

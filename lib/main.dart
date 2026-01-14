@@ -10,6 +10,7 @@ import 'providers/crm/activity_provider.dart';
 import 'providers/crm/appointment_provider.dart';
 import 'providers/crm/sale_provider.dart';
 import 'providers/incentive_provider.dart';
+import 'providers/gamification_provider.dart';
 import 'models/sale.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/id_card_widget.dart';
@@ -49,6 +50,8 @@ import 'screens/crm/overdue_followups_screen.dart';
 import 'screens/crm/call_logs_screen.dart';
 import 'screens/crm/call_detail_screen.dart';
 import 'screens/incentive/incentive_module_screen.dart';
+import 'screens/gamification/gamification_dashboard_screen.dart';
+import 'screens/gamification/leaderboard_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -147,6 +150,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SaleProvider()),
         // Incentive Provider
         ChangeNotifierProvider(create: (_) => IncentiveProvider()),
+        // Gamification Provider
+        ChangeNotifierProvider(create: (_) => GamificationProvider()),
       ],
       child: MaterialApp(
         title: 'IW Nexus',
@@ -353,6 +358,19 @@ class MyApp extends StatelessWidget {
             userId: args?['userId'] ?? '',
             userRole: args?['userRole'] ?? '',
           ),
+          settings: settings,
+        );
+
+      // Gamification Routes
+      case '/gamification/dashboard':
+        return MaterialPageRoute(
+          builder: (_) => const GamificationDashboardScreen(),
+          settings: settings,
+        );
+
+      case '/gamification/leaderboard':
+        return MaterialPageRoute(
+          builder: (_) => const LeaderboardScreen(),
           settings: settings,
         );
 

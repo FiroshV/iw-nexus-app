@@ -89,6 +89,30 @@ class ApiEndpoints {
   static const String myIncentiveProgress = '$incentives/my-incentive/progress';
   static const String pendingPromotions = '$incentives/promotions/pending';
 
+  // Gamification endpoints
+  static const String gamification = '/gamification';
+  static const String gamificationProfile = '$gamification/my-profile';
+  static const String gamificationPreferences = '$gamification/my-profile/preferences';
+  static const String gamificationStats = '$gamification/my-stats';
+  static const String gamificationPoints = '$gamification/my-points';
+  static const String gamificationStreak = '$gamification/my-streak';
+  static const String gamificationSummary = '$gamification/summary';
+  static const String gamificationLeaderboard = '$gamification/leaderboard';
+  static const String gamificationMyRank = '$gamification/my-rank';
+  static const String gamificationAdmin = '$gamification/admin';
+  static const String gamificationAdminOverview = '$gamificationAdmin/overview';
+  static const String gamificationAdminConfig = '$gamificationAdmin/config';
+  static const String gamificationAdminExport = '$gamificationAdmin/export';
+
+  // Badge endpoints
+  static const String badges = '/badges';
+  static const String myBadges = '$badges/my-badges';
+  static const String badgesSummary = '$badges/summary';
+
+  // Challenge endpoints
+  static const String challenges = '/challenges';
+  static const String myChallenges = '$challenges/my-challenges';
+
   // System endpoints
   static const String healthCheck = health;
 
@@ -308,6 +332,98 @@ class ApiEndpoints {
     if (hasPromotion != null) params.add('hasPromotion=$hasPromotion');
 
     return '$incentiveAssignments?${params.join('&')}';
+  }
+
+  // Gamification helper methods
+  static String gamificationProfileByUserId(String userId) => '$gamification/profile/$userId';
+
+  static String buildLeaderboardQuery({
+    String timeframe = 'monthly',
+    String? productType,
+    String? branchId,
+    String metric = 'points',
+    int limit = 50,
+  }) {
+    final params = <String>[];
+    params.add('timeframe=$timeframe');
+    params.add('metric=$metric');
+    params.add('limit=$limit');
+
+    if (productType != null) params.add('productType=${Uri.encodeComponent(productType)}');
+    if (branchId != null) params.add('branchId=${Uri.encodeComponent(branchId)}');
+
+    return '$gamificationLeaderboard?${params.join('&')}';
+  }
+
+  static String buildPointsHistoryQuery({
+    int page = 1,
+    int limit = 20,
+    String? type,
+    String? month,
+  }) {
+    final params = <String>[];
+    params.add('page=$page');
+    params.add('limit=$limit');
+
+    if (type != null) params.add('type=${Uri.encodeComponent(type)}');
+    if (month != null) params.add('month=${Uri.encodeComponent(month)}');
+
+    return '$gamificationPoints?${params.join('&')}';
+  }
+
+  // Badge helper methods
+  static String badgeByIdEndpoint(String badgeId) => '$badges/$badgeId';
+  static String userBadgeSeenEndpoint(String badgeId) => '$myBadges/$badgeId/seen';
+  static String userBadgePinEndpoint(String badgeId) => '$myBadges/$badgeId/pin';
+  static String userBadgesByUserId(String userId) => '$badges/user/$userId';
+
+  static String buildBadgesQuery({
+    String? category,
+    String? rarity,
+    bool? active,
+  }) {
+    final params = <String>[];
+
+    if (category != null) params.add('category=${Uri.encodeComponent(category)}');
+    if (rarity != null) params.add('rarity=${Uri.encodeComponent(rarity)}');
+    if (active != null) params.add('active=$active');
+
+    return params.isEmpty ? badges : '$badges?${params.join('&')}';
+  }
+
+  // Challenge helper methods
+  static String challengeByIdEndpoint(String challengeId) => '$challenges/$challengeId';
+  static String challengeJoinEndpoint(String challengeId) => '$challenges/$challengeId/join';
+  static String challengeLeaderboardEndpoint(String challengeId) => '$challenges/$challengeId/leaderboard';
+
+  static String buildChallengesQuery({
+    int page = 1,
+    int limit = 20,
+    String? status,
+    String? type,
+  }) {
+    final params = <String>[];
+    params.add('page=$page');
+    params.add('limit=$limit');
+
+    if (status != null) params.add('status=${Uri.encodeComponent(status)}');
+    if (type != null) params.add('type=${Uri.encodeComponent(type)}');
+
+    return '$challenges?${params.join('&')}';
+  }
+
+  static String buildAdminExportQuery({
+    String reportType = 'leaderboard',
+    String timeframe = 'monthly',
+    String? branchId,
+  }) {
+    final params = <String>[];
+    params.add('reportType=$reportType');
+    params.add('timeframe=$timeframe');
+
+    if (branchId != null) params.add('branchId=${Uri.encodeComponent(branchId)}');
+
+    return '$gamificationAdminExport?${params.join('&')}';
   }
 }
 

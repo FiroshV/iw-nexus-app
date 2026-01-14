@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/access_control_service.dart';
+import '../providers/gamification_provider.dart';
+import '../widgets/gamification/leaderboard_filter_bar.dart';
+import '../widgets/gamification/podium_widget.dart';
+import '../widgets/gamification/my_rank_card.dart';
+import '../widgets/gamification/leaderboard_item.dart';
+import '../widgets/gamification/leaderboard_empty_state.dart';
+import '../config/crm_design_system.dart';
 
 class ReportsScreen extends StatefulWidget {
   final String? userRole;
+  final String? userId;
 
   const ReportsScreen({
     super.key,
     required this.userRole,
+    this.userId,
   });
 
   @override
@@ -26,6 +36,9 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   String _selectedPeriod = 'month';
   DateTime _selectedDate = DateTime.now();
+
+  // Leaderboard state
+  String _selectedMetric = 'sales_count';
 
   // Helper method to format DateTime to date-only string
   String _formatDateOnly(DateTime date) {
@@ -51,7 +64,21 @@ class _ReportsScreenState extends State<ReportsScreen>
       tabCount++; // Branch comparison tab for admin/director
     }
 
+    if (AccessControlService.hasAccess(widget.userRole, 'reports', 'leaderboard_reports')) {
+      tabCount++; // Leaderboards tab
+    }
+
     _tabController = TabController(length: tabCount, vsync: this);
+
+    // Listen to tab changes to load leaderboard data
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        final leaderboardsTabIndex = _getLeaderboardsTabIndex();
+        if (leaderboardsTabIndex != null && _tabController.index == leaderboardsTabIndex) {
+          _loadLeaderboardData();
+        }
+      }
+    });
   }
 
   @override
@@ -1230,6 +1257,15 @@ class _ReportsScreenState extends State<ReportsScreen>
       );
     }
 
+    if (AccessControlService.hasAccess(widget.userRole, 'reports', 'leaderboard_reports')) {
+      tabs.add(
+        const Tab(
+          icon: Icon(Icons.leaderboard, size: 20),
+          text: 'Leaderboards',
+        ),
+      );
+    }
+
     List<Widget> tabViews = [
       _buildSummaryTab(),
     ];
@@ -1240,6 +1276,10 @@ class _ReportsScreenState extends State<ReportsScreen>
 
     if (AccessControlService.hasAccess(widget.userRole, 'attendance', 'view_all')) {
       tabViews.add(_buildBranchComparisonTab());
+    }
+
+    if (AccessControlService.hasAccess(widget.userRole, 'reports', 'leaderboard_reports')) {
+      tabViews.add(_buildLeaderboardsTab());
     }
 
     return Scaffold(
@@ -1321,5 +1361,151 @@ class _ReportsScreenState extends State<ReportsScreen>
         children: tabViews,
       ),
     );
+  }
+
+  // Leaderboard tab builder
+  Widget _buildLeaderboardsTab() {
+    return Consumer<GamificationProvider>(
+      builder: (context, gamificationProvider, child) {
+        if (gamificationProvider.isLeaderboardLoading &&
+            gamificationProvider.leaderboard.isEmpty) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0071bf)),
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => gamificationProvider.refreshAll(),
+          color: const Color(0xFF0071bf),
+          child: gamificationProvider.leaderboard.isEmpty
+              ? const SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: LeaderboardEmptyState(),
+                )
+              : CustomScrollView(
+                  slivers: [
+                    // Filter bar
+                    SliverToBoxAdapter(
+                      child: LeaderboardFilterBar(
+                        selectedMetric: _selectedMetric,
+                        onMetricChanged: (metric) {
+                          setState(() => _selectedMetric = metric);
+                          gamificationProvider.setLeaderboardFilters(metric: metric);
+                        },
+                        userRole: widget.userRole,
+                      ),
+                    ),
+
+                    // Podium (top 3)
+                    if (gamificationProvider.leaderboard.length >= 3)
+                      SliverToBoxAdapter(
+                        child: PodiumWidget(
+                          first: gamificationProvider.leaderboard[0],
+                          second: gamificationProvider.leaderboard[1],
+                          third: gamificationProvider.leaderboard[2],
+                          metric: _selectedMetric,
+                        ),
+                      ),
+
+                    // My rank card (if user not in top 10)
+                    if (_shouldShowMyRankCard(gamificationProvider))
+                      SliverToBoxAdapter(
+                        child: MyRankCard(
+                          rank: _getMyRankForMetric(gamificationProvider),
+                          total: _getTotalParticipants(gamificationProvider),
+                          profile: gamificationProvider.quickProfile,
+                          metric: _selectedMetric,
+                        ),
+                      ),
+
+                    // Full leaderboard list
+                    SliverPadding(
+                      padding: EdgeInsets.all(CrmDesignSystem.lg),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final entry = gamificationProvider.leaderboard[index];
+                            return LeaderboardItemWidget(
+                              entry: entry,
+                              isCurrentUser: widget.userId != null && entry.user.id == widget.userId,
+                            );
+                          },
+                          childCount: gamificationProvider.leaderboard.length,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  // Leaderboard helper methods
+  void _loadLeaderboardData() {
+    final provider = context.read<GamificationProvider>();
+    provider.setLeaderboardFilters(metric: _selectedMetric);
+  }
+
+  int? _getLeaderboardsTabIndex() {
+    if (!AccessControlService.hasAccess(widget.userRole, 'reports', 'leaderboard_reports')) {
+      return null;
+    }
+
+    int index = 1; // After Overview
+
+    if (AccessControlService.hasAccess(widget.userRole, 'reports', 'attendance_reports')) {
+      index++;
+    }
+
+    if (AccessControlService.hasAccess(widget.userRole, 'attendance', 'view_all')) {
+      index++;
+    }
+
+    return index;
+  }
+
+  bool _shouldShowMyRankCard(GamificationProvider provider) {
+    if (provider.leaderboard.isEmpty || widget.userId == null) {
+      return false;
+    }
+
+    // Check if user is in top 10
+    final userInTop10 = provider.leaderboard.take(10).any(
+      (entry) => entry.user.id == widget.userId,
+    );
+
+    // Show card if user is not in top 10
+    return !userInTop10;
+  }
+
+  int? _getMyRankForMetric(GamificationProvider provider) {
+    final rankings = provider.myRankings;
+    if (rankings == null) return null;
+
+    switch (_selectedMetric) {
+      case 'sales_count':
+        return rankings.salesCount.rank;
+      case 'sales_amount':
+        return rankings.salesAmount.rank;
+      case 'activities_count':
+        return rankings.activities.rank;
+      case 'calls_count':
+        // Note: calls_count ranking not available in current Rankings model
+        // Would need to be added to backend if needed
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  int _getTotalParticipants(GamificationProvider provider) {
+    final rankings = provider.myRankings;
+    if (rankings == null) return 0;
+
+    // Use any ranking to get total participants (they should all be the same)
+    return rankings.salesCount.totalParticipants;
   }
 }
