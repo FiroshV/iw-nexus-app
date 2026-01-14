@@ -745,12 +745,10 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   Future<void> _pickAndUploadDocument({String? preselectedCategory}) async {
     // Show category selection bottom sheet if no category pre-selected
     String? category = preselectedCategory;
-    if (category == null) {
-      category = await DocumentCategoryBottomSheet.show(
+    category ??= await DocumentCategoryBottomSheet.show(
         context: context,
         uploadedCategories: _uploadedCategories,
       );
-    }
 
     if (category == null) return; // User cancelled
 
