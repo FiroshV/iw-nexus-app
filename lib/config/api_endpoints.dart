@@ -89,6 +89,9 @@ class ApiEndpoints {
   static const String myIncentiveProgress = '$incentives/my-incentive/progress';
   static const String pendingPromotions = '$incentives/promotions/pending';
 
+  // Product Management endpoints
+  static const String products = '/products';
+
   // System endpoints
   static const String healthCheck = health;
 

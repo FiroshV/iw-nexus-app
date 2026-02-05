@@ -223,7 +223,40 @@ class _MyIncentiveScreenState extends State<MyIncentiveScreen> {
                   ],
                 ),
               ),
+              // Validity Status Badge
+              _buildValidityBadge(incentive),
             ],
+          ),
+          // Validity Period Info
+          SizedBox(height: CrmDesignSystem.md),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: CrmDesignSystem.md,
+              vertical: CrmDesignSystem.sm,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(CrmDesignSystem.radiusMedium),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.date_range_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+                SizedBox(width: CrmDesignSystem.sm),
+                Expanded(
+                  child: Text(
+                    incentive.validityPeriodString,
+                    style: CrmDesignSystem.labelSmall.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           if (isEligibleForPromotion) ...[
             SizedBox(height: CrmDesignSystem.md),
@@ -250,6 +283,51 @@ class _MyIncentiveScreenState extends State<MyIncentiveScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValidityBadge(EmployeeIncentive incentive) {
+    IconData icon;
+    String label;
+    Color bgColor;
+
+    if (incentive.validityStatus == 'expired') {
+      icon = Icons.access_time_rounded;
+      label = 'Expired';
+      bgColor = CrmColors.errorColor.withValues(alpha: 0.3);
+    } else if (incentive.validityStatus == 'future') {
+      icon = Icons.schedule_rounded;
+      label = 'Upcoming';
+      bgColor = CrmColors.secondary.withValues(alpha: 0.3);
+    } else {
+      icon = Icons.check_circle_outline_rounded;
+      label = 'Active';
+      bgColor = CrmColors.success.withValues(alpha: 0.3);
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: CrmDesignSystem.sm,
+        vertical: CrmDesignSystem.xs,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(CrmDesignSystem.radiusSmall),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          SizedBox(width: CrmDesignSystem.xs),
+          Text(
+            label,
+            style: CrmDesignSystem.labelSmall.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );

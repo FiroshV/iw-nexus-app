@@ -375,16 +375,28 @@ class IncentiveService {
   static Future<ApiResponse<EmployeeIncentive>> assignIncentive({
     required String userId,
     required String templateId,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     try {
       await _setupHeaders();
 
+      final data = {
+        'userId': userId,
+        'templateId': templateId,
+      };
+
+      // Add optional dates
+      if (startDate != null) {
+        data['startDate'] = startDate.toIso8601String();
+      }
+      if (endDate != null) {
+        data['endDate'] = endDate.toIso8601String();
+      }
+
       final response = await _dio.post(
         ApiEndpoints.incentiveAssignments,
-        data: {
-          'userId': userId,
-          'templateId': templateId,
-        },
+        data: data,
       );
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
@@ -402,6 +414,56 @@ class IncentiveService {
       );
     } catch (e) {
       String errorMessage = 'Error assigning incentive';
+      if (e is DioException && e.response?.data != null) {
+        errorMessage = e.response?.data['message'] ?? errorMessage;
+      }
+      return ApiResponse(
+        success: false,
+        message: errorMessage,
+        error: e,
+      );
+    }
+  }
+
+  /// Update employee incentive assignment dates
+  static Future<ApiResponse<EmployeeIncentive>> updateAssignmentDates({
+    required String userId,
+    String? templateId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      await _setupHeaders();
+
+      final data = <String, dynamic>{};
+      if (templateId != null) {
+        data['templateId'] = templateId;
+      }
+      if (startDate != null) {
+        data['startDate'] = startDate.toIso8601String();
+      }
+      // Handle endDate explicitly (can be null to clear it)
+      data['endDate'] = endDate?.toIso8601String();
+
+      final response = await _dio.put(
+        '${ApiEndpoints.incentiveAssignments}/$userId',
+        data: data,
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: response.data['message'] ?? 'Assignment updated successfully',
+          data: EmployeeIncentive.fromJson(response.data['data']),
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: response.data['message'] ?? 'Failed to update assignment',
+      );
+    } catch (e) {
+      String errorMessage = 'Error updating assignment';
       if (e is DioException && e.response?.data != null) {
         errorMessage = e.response?.data['message'] ?? errorMessage;
       }

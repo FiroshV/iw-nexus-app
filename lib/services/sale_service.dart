@@ -45,6 +45,7 @@ class SaleService {
   static Future<ApiResponse<Sale>> createSale({
     required String customerId,
     required String productType,
+    String? productId, // Reference to Product for commission calculation
     required DateTime dateOfSale,
     required String companyName,
     required String productPlanName,
@@ -69,6 +70,7 @@ class SaleService {
       final formData = FormData.fromMap({
         'customerId': customerId,
         'productType': productType,
+        if (productId != null) 'productId': productId,
         'dateOfSale': dateOfSale.toIso8601String(),
         'companyName': companyName,
         'productPlanName': productPlanName,

@@ -370,6 +370,12 @@ class EmployeeIncentive {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Validity period fields
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final bool isCurrentlyActive;
+  final String validityStatus; // 'active', 'future', 'expired', 'inactive'
+
   // Additional data from API
   final MonthlyProgress? currentMonthProgress;
   final IncentiveTemplate? nextTemplate;
@@ -389,9 +395,26 @@ class EmployeeIncentive {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.startDate,
+    this.endDate,
+    this.isCurrentlyActive = true,
+    this.validityStatus = 'active',
     this.currentMonthProgress,
     this.nextTemplate,
   });
+
+  /// Get validity period as a display string
+  String get validityPeriodString {
+    if (startDate == null) return 'Not set';
+    final startStr = '${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}';
+    final endStr = endDate != null
+        ? '${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}'
+        : 'Present';
+    return '$startStr - $endStr';
+  }
+
+  /// Check if the validity period is ongoing (no end date)
+  bool get isOngoing => endDate == null;
 
   // =====================
   // SAFE PARSING HELPERS
@@ -557,6 +580,12 @@ class EmployeeIncentive {
       final createdAt = _safeParseDateTime(json['createdAt'], 'createdAt') ?? DateTime.now();
       final updatedAt = _safeParseDateTime(json['updatedAt'], 'updatedAt') ?? DateTime.now();
 
+      // Parse validity period dates
+      final startDate = _safeParseDateTime(json['startDate'], 'startDate');
+      final endDate = _safeParseDateTime(json['endDate'], 'endDate');
+      final isCurrentlyActive = json['isCurrentlyActive'] ?? true;
+      final validityStatus = json['validityStatus']?.toString() ?? 'active';
+
       debugPrint('✅ EmployeeIncentive.fromJson: Parse successful');
 
       return EmployeeIncentive(
@@ -574,6 +603,10 @@ class EmployeeIncentive {
         isActive: json['isActive'] ?? true,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        startDate: startDate,
+        endDate: endDate,
+        isCurrentlyActive: isCurrentlyActive,
+        validityStatus: validityStatus,
         currentMonthProgress: currentMonthProgress,
         nextTemplate: nextTemplate,
       );
@@ -617,6 +650,10 @@ class EmployeeIncentive {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool? isCurrentlyActive,
+    String? validityStatus,
     MonthlyProgress? currentMonthProgress,
     IncentiveTemplate? nextTemplate,
   }) {
@@ -635,6 +672,10 @@ class EmployeeIncentive {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      isCurrentlyActive: isCurrentlyActive ?? this.isCurrentlyActive,
+      validityStatus: validityStatus ?? this.validityStatus,
       currentMonthProgress: currentMonthProgress ?? this.currentMonthProgress,
       nextTemplate: nextTemplate ?? this.nextTemplate,
     );

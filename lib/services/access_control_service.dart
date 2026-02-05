@@ -159,6 +159,14 @@ class AccessControlService {
       'upload': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
       'delete_own': ['admin', 'director', 'manager', 'field_staff', 'telecaller'],
       'delete_any': ['admin', 'director']
+    },
+
+    // Product Management Features
+    'product_management': {
+      'view_products': ['admin', 'director', 'manager', 'field_staff', 'telecaller', 'external'],
+      'create_product': ['admin', 'director'],
+      'edit_product': ['admin', 'director'],
+      'delete_product': ['admin', 'director']
     }
   };
 

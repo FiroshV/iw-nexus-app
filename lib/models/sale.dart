@@ -10,6 +10,8 @@ class Sale {
   final String customerName;
   final String mobileNumber;
   final String productType; // life_insurance, general_insurance, mutual_funds
+  final String? productId; // Reference to Product for commission calculation
+  final String? productName; // Product name from linked product
   final tz.TZDateTime dateOfSale;
   final String companyName; // Insurer or Fund House
   final String productPlanName;
@@ -43,6 +45,8 @@ class Sale {
     required this.customerName,
     required this.mobileNumber,
     required this.productType,
+    this.productId,
+    this.productName,
     required this.dateOfSale,
     required this.companyName,
     required this.productPlanName,
@@ -94,6 +98,8 @@ class Sale {
       customerName: json['customerId'] is Map ? json['customerId']['name'] ?? '' : json['customerName'] ?? '',
       mobileNumber: json['customerId'] is Map ? json['customerId']['mobileNumber'] ?? '' : json['mobileNumber'] ?? '',
       productType: json['productType'] ?? '',
+      productId: json['productId'] is Map ? json['productId']['_id'] : json['productId'],
+      productName: json['productId'] is Map ? json['productId']['name'] : null,
       dateOfSale: json['dateOfSale'] != null ? _parseIST(json['dateOfSale'] as String) : TimezoneUtil.nowIST(),
       companyName: json['companyName'] ?? '',
       productPlanName: json['productPlanName'] ?? '',
@@ -159,6 +165,7 @@ class Sale {
       'customerName': customerName,
       'mobileNumber': mobileNumber,
       'productType': productType,
+      if (productId != null) 'productId': productId,
       'dateOfSale': TimezoneUtil.toApiString(dateOfSale),
       'companyName': companyName,
       'productPlanName': productPlanName,
@@ -194,6 +201,8 @@ class Sale {
     String? customerName,
     String? mobileNumber,
     String? productType,
+    String? productId,
+    String? productName,
     tz.TZDateTime? dateOfSale,
     String? companyName,
     String? productPlanName,
@@ -226,6 +235,8 @@ class Sale {
       customerName: customerName ?? this.customerName,
       mobileNumber: mobileNumber ?? this.mobileNumber,
       productType: productType ?? this.productType,
+      productId: productId ?? this.productId,
+      productName: productName ?? this.productName,
       dateOfSale: dateOfSale ?? this.dateOfSale,
       companyName: companyName ?? this.companyName,
       productPlanName: productPlanName ?? this.productPlanName,

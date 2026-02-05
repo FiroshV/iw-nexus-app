@@ -10,6 +10,7 @@ import 'providers/crm/activity_provider.dart';
 import 'providers/crm/appointment_provider.dart';
 import 'providers/crm/sale_provider.dart';
 import 'providers/incentive_provider.dart';
+import 'providers/product_provider.dart';
 import 'models/sale.dart';
 import 'widgets/loading_widget.dart';
 import 'widgets/id_card_widget.dart';
@@ -148,6 +149,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SaleProvider()),
         // Incentive Provider
         ChangeNotifierProvider(create: (_) => IncentiveProvider()),
+        // Product Provider
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
       ],
       child: MaterialApp(
         title: 'IW Nexus',

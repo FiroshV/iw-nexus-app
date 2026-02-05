@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/incentive_provider.dart';
 import '../../../models/employee_incentive.dart';
@@ -351,6 +352,68 @@ class _IncentiveAssignmentsScreenState
     final template = assignment.currentTemplate;
     final currentMonthProgress = _getCurrentMonthProgress(assignment);
     final hasPendingPromotion = assignment.pendingPromotion.status == 'pending';
+    final dateFormat = DateFormat('dd MMM yyyy');
+
+    // Determine validity badge
+    Widget? validityBadge;
+    if (assignment.validityStatus == 'expired') {
+      validityBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.access_time_rounded, size: 12, color: Colors.red[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Expired',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.red[700]),
+            ),
+          ],
+        ),
+      );
+    } else if (assignment.validityStatus == 'future' && assignment.startDate != null) {
+      validityBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule_rounded, size: 12, color: Colors.blue[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Starts ${dateFormat.format(assignment.startDate!)}',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blue[700]),
+            ),
+          ],
+        ),
+      );
+    } else if (assignment.isCurrentlyActive) {
+      validityBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF5cfbd8).withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 12, color: Colors.teal[700]),
+            const SizedBox(width: 4),
+            Text(
+              'Active',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.teal[700]),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -367,8 +430,10 @@ class _IncentiveAssignmentsScreenState
         border: Border.all(
           color: hasPendingPromotion
               ? Colors.orange.withValues(alpha: 0.5)
-              : const Color(0xFF272579).withValues(alpha: 0.06),
-          width: hasPendingPromotion ? 2 : 1,
+              : assignment.validityStatus == 'expired'
+                  ? Colors.red.withValues(alpha: 0.3)
+                  : const Color(0xFF272579).withValues(alpha: 0.06),
+          width: hasPendingPromotion || assignment.validityStatus == 'expired' ? 2 : 1,
         ),
       ),
       child: Column(
@@ -442,36 +507,45 @@ class _IncentiveAssignmentsScreenState
                     ],
                   ),
                 ),
-                if (hasPendingPromotion)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.arrow_upward_rounded,
-                          size: 12,
-                          color: Colors.orange[700],
+                // Badges row
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (hasPendingPromotion)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Pending',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange[700],
-                          ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ],
-                    ),
-                  ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 12,
+                              color: Colors.orange[700],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Pending',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (hasPendingPromotion && validityBadge != null)
+                      const SizedBox(height: 4),
+                    if (validityBadge != null) validityBadge,
+                  ],
+                ),
                 IconButton(
                   icon: Icon(
                     Icons.more_vert_rounded,
@@ -526,6 +600,43 @@ class _IncentiveAssignmentsScreenState
                       ),
                     ),
                   ],
+                ),
+
+                // Validity Period Row
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFf8f9fa),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.date_range_rounded,
+                        size: 14,
+                        color: Colors.grey[500],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Validity: ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          assignment.validityPeriodString,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 16),
@@ -935,6 +1046,38 @@ class _IncentiveAssignmentsScreenState
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
+                  color: const Color(0xFF272579).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.date_range_rounded,
+                  color: Color(0xFF272579),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Edit Validity Period',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF272579),
+                ),
+              ),
+              subtitle: Text(
+                'Change start and end dates',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditValidityDialog(assignment);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -975,6 +1118,9 @@ class _IncentiveAssignmentsScreenState
     String? selectedTemplateId;
     String? selectedUserName;
     String? selectedTemplateName;
+    DateTime startDate = DateTime.now();
+    DateTime? endDate;
+    bool isOngoing = true;
     List<Map<String, dynamic>> users = [];
     bool isLoadingUsers = true;
 
@@ -1001,6 +1147,7 @@ class _IncentiveAssignmentsScreenState
     if (!mounted) return;
 
     final provider = context.read<IncentiveProvider>();
+    final dateFormat = DateFormat('dd MMM yyyy');
 
     showModalBottomSheet(
       context: context,
@@ -1014,211 +1161,412 @@ class _IncentiveAssignmentsScreenState
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle bar
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Assign Incentive',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF272579),
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Employee Selection
-                Text(
-                  'Select Employee',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
                   ),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    _showEmployeeSelectionBottomSheet(
-                      users: users,
-                      isLoading: isLoadingUsers,
-                      selectedUserId: selectedUserId,
-                      onSelect: (id, name) {
-                        setModalState(() {
-                          selectedUserId = id;
-                          selectedUserName = name;
-                        });
-                      },
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF272579).withValues(alpha: 0.2),
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Assign Incentive',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedUserName ?? 'Choose employee',
-                            style: TextStyle(
-                              color: selectedUserName != null
-                                  ? const Color(0xFF272579)
-                                  : Colors.grey[500],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_drop_down_rounded,
-                          color: Colors.grey[600],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Template Selection
-                Text(
-                  'Select Template',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    _showTemplateSelectionBottomSheet(
-                      templates: provider.templates,
-                      selectedTemplateId: selectedTemplateId,
-                      onSelect: (id, name) {
-                        setModalState(() {
-                          selectedTemplateId = id;
-                          selectedTemplateName = name;
-                        });
-                      },
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFF272579).withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedTemplateName ?? 'Choose template',
-                            style: TextStyle(
-                              color: selectedTemplateName != null
-                                  ? const Color(0xFF272579)
-                                  : Colors.grey[500],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_drop_down_rounded,
-                          color: Colors.grey[600],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
+                      IconButton(
+                        icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(
-                              color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Employee Selection
+                  Text(
+                    'Select Employee',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      _showEmployeeSelectionBottomSheet(
+                        users: users,
+                        isLoading: isLoadingUsers,
+                        selectedUserId: selectedUserId,
+                        onSelect: (id, name) {
+                          setModalState(() {
+                            selectedUserId = id;
+                            selectedUserName = name;
+                          });
+                        },
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF272579).withValues(alpha: 0.2),
                         ),
                       ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedUserName ?? 'Choose employee',
+                              style: TextStyle(
+                                color: selectedUserName != null
+                                    ? const Color(0xFF272579)
+                                    : Colors.grey[500],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down_rounded,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed:
-                            selectedUserId != null && selectedTemplateId != null
-                                ? () async {
-                                    Navigator.pop(context);
-                                    await _assignIncentive(
-                                        selectedUserId!, selectedTemplateId!);
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Template Selection
+                  Text(
+                    'Select Template',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      _showTemplateSelectionBottomSheet(
+                        templates: provider.templates,
+                        selectedTemplateId: selectedTemplateId,
+                        onSelect: (id, name) {
+                          setModalState(() {
+                            selectedTemplateId = id;
+                            selectedTemplateName = name;
+                          });
+                        },
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF272579).withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              selectedTemplateName ?? 'Choose template',
+                              style: TextStyle(
+                                color: selectedTemplateName != null
+                                    ? const Color(0xFF272579)
+                                    : Colors.grey[500],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down_rounded,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Validity Period Section
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF272579).withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF272579).withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.date_range_rounded,
+                              size: 18,
+                              color: const Color(0xFF272579).withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Validity Period',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Start Date
+                        Text(
+                          'Start Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: startDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.light(
+                                      primary: Color(0xFF272579),
+                                      onPrimary: Colors.white,
+                                      surface: Colors.white,
+                                      onSurface: Colors.black,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                startDate = picked;
+                                // If end date is before start date, adjust it
+                                if (endDate != null && endDate!.isBefore(startDate)) {
+                                  endDate = startDate.add(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 8),
+                                Text(
+                                  dateFormat.format(startDate),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF272579),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Ongoing toggle
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: isOngoing,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  isOngoing = value ?? true;
+                                  if (!isOngoing && endDate == null) {
+                                    endDate = startDate.add(const Duration(days: 365));
                                   }
-                                : null,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: const Color(0xFF272579),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey[300],
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                                });
+                              },
+                              activeColor: const Color(0xFF272579),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            Text(
+                              'Ongoing (no end date)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'Assign',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
+
+                        // End Date (only show if not ongoing)
+                        if (!isOngoing) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'End Date',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: endDate ?? startDate.add(const Duration(days: 30)),
+                                firstDate: startDate,
+                                lastDate: DateTime(2100),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.light(
+                                        primary: Color(0xFF272579),
+                                        onPrimary: Colors.white,
+                                        surface: Colors.white,
+                                        onSurface: Colors.black,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setModalState(() => endDate = picked);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    endDate != null ? dateFormat.format(endDate!) : 'Select end date',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: endDate != null ? const Color(0xFF272579) : Colors.grey[500],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(
+                                color: Colors.grey[300]!),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed:
+                              selectedUserId != null && selectedTemplateId != null
+                                  ? () async {
+                                      Navigator.pop(context);
+                                      await _assignIncentive(
+                                        selectedUserId!,
+                                        selectedTemplateId!,
+                                        startDate: startDate,
+                                        endDate: isOngoing ? null : endDate,
+                                      );
+                                    }
+                                  : null,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: const Color(0xFF272579),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey[300],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Assign',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         ),
@@ -1504,11 +1852,18 @@ class _IncentiveAssignmentsScreenState
     );
   }
 
-  Future<void> _assignIncentive(String userId, String templateId) async {
+  Future<void> _assignIncentive(
+    String userId,
+    String templateId, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     try {
       final response = await IncentiveService.assignIncentive(
         userId: userId,
         templateId: templateId,
+        startDate: startDate,
+        endDate: endDate,
       );
 
       if (!mounted) return;
@@ -1711,6 +2066,349 @@ class _IncentiveAssignmentsScreenState
         },
       ),
     );
+  }
+
+  void _showEditValidityDialog(EmployeeIncentive assignment) {
+    DateTime startDate = assignment.startDate ?? DateTime.now();
+    DateTime? endDate = assignment.endDate;
+    bool isOngoing = endDate == null;
+    final dateFormat = DateFormat('dd MMM yyyy');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Edit Validity Period',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF272579),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              assignment.user?.fullName ?? 'Unknown User',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Validity Period Section
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF272579).withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF272579).withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Start Date
+                        Text(
+                          'Start Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: startDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.light(
+                                      primary: Color(0xFF272579),
+                                      onPrimary: Colors.white,
+                                      surface: Colors.white,
+                                      onSurface: Colors.black,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                startDate = picked;
+                                if (endDate != null && endDate!.isBefore(startDate)) {
+                                  endDate = startDate.add(const Duration(days: 30));
+                                }
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[600]),
+                                const SizedBox(width: 8),
+                                Text(
+                                  dateFormat.format(startDate),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF272579),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Ongoing toggle
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: isOngoing,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  isOngoing = value ?? true;
+                                  if (!isOngoing && endDate == null) {
+                                    endDate = startDate.add(const Duration(days: 365));
+                                  }
+                                });
+                              },
+                              activeColor: const Color(0xFF272579),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            Text(
+                              'Ongoing (no end date)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // End Date (only show if not ongoing)
+                        if (!isOngoing) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'End Date',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: endDate ?? startDate.add(const Duration(days: 30)),
+                                firstDate: startDate,
+                                lastDate: DateTime(2100),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.light(
+                                        primary: Color(0xFF272579),
+                                        onPrimary: Colors.white,
+                                        surface: Colors.white,
+                                        onSurface: Colors.black,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setModalState(() => endDate = picked);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    endDate != null ? dateFormat.format(endDate!) : 'Select end date',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: endDate != null ? const Color(0xFF272579) : Colors.grey[500],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(color: Colors.grey[300]!),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _updateAssignmentDates(
+                              assignment.userId,
+                              startDate,
+                              isOngoing ? null : endDate,
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: const Color(0xFF272579),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Save Changes',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateAssignmentDates(
+    String userId,
+    DateTime startDate,
+    DateTime? endDate,
+  ) async {
+    try {
+      final response = await IncentiveService.updateAssignmentDates(
+        userId: userId,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (!mounted) return;
+
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Validity period updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _refreshAssignments();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message ?? 'Failed to update validity period'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _recalculateIncentive(EmployeeIncentive assignment) async {
