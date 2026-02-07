@@ -82,6 +82,7 @@ class _ConveyanceScreenState extends State<ConveyanceScreen> with TickerProvider
             )
           : MyClaimsTab(key: _myClaimsTabKey, userRole: widget.userRole),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const SubmitConveyanceScreen()),

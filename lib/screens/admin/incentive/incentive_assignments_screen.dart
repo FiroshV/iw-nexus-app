@@ -282,6 +282,7 @@ class _IncentiveAssignmentsScreenState
           ],
         ),
         child: FloatingActionButton.extended(
+          heroTag: null,
           onPressed: _showAssignDialog,
           backgroundColor: Colors.transparent,
           elevation: 0,

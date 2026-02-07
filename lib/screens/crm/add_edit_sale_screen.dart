@@ -1041,6 +1041,7 @@ class _AddEditSaleScreenState extends State<AddEditSaleScreen> {
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

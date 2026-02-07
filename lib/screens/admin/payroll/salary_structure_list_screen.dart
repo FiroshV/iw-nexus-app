@@ -145,6 +145,7 @@ class _SalaryStructureListScreenState extends State<SalaryStructureListScreen> {
                       ],
                     ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => _navigateToForm(),
         backgroundColor: const Color(0xFF0071bf),
         icon: const Icon(Icons.add),

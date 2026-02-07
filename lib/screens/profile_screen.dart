@@ -6,19 +6,24 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/loading_widget.dart';
-import '../widgets/user_avatar.dart';
 import '../widgets/document_category_bottom_sheet.dart';
 import '../widgets/common/indian_phone_input.dart';
 import '../constants/document_categories.dart';
+import '../widgets/id_card_widget.dart';
+import 'id_card_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showCompletionDialog;
   final int initialTab;
+  final bool embedded;
+  final TabController? tabController;
 
   const ProfileScreen({
     super.key,
     this.showCompletionDialog = false,
     this.initialTab = 0,
+    this.embedded = false,
+    this.tabController,
   });
 
   @override
@@ -61,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
+    _tabController = widget.tabController ?? TabController(
       length: 2,
       vsync: this,
       initialIndex: widget.initialTab.clamp(0, 1),
@@ -79,7 +84,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
   @override
   void dispose() {
-    _tabController.dispose();
+    if (widget.tabController == null) {
+      _tabController.dispose();
+    }
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -1100,63 +1107,44 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF272579), Color(0xFF0071bf)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        actions: [
-          if (!_isLoading && _tabController.index == 0)
-            TextButton(
-              onPressed: _updateProfile,
-              child: const Text(
-                'Save',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
+  Widget _buildCompactIdCard() {
+    if (_isLoading || _currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: IDCardWidget(
+        userData: _currentUser,
+        showFullCard: true,
+        compact: true,
+        onShare: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => IDCardScreen(
+                userData: _currentUser,
+                action: IDCardAction.share,
               ),
             ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: const Color(0xFF5cfbd8),
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.person),
-              text: 'Personal Info',
+          );
+        },
+        onShareVisitingCard: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => IDCardScreen(
+                userData: _currentUser,
+                action: IDCardAction.shareVisitingCard,
+              ),
             ),
-            Tab(
-              icon: Icon(Icons.folder),
-              text: 'Documents',
-            ),
-          ],
-        ),
+          );
+        },
       ),
-      backgroundColor: const Color(0xFFf8f9fa),
-      body: _isLoading
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabBody = _isLoading
           ? const LoadingWidget(message: 'Loading profile...')
           : TabBarView(
               controller: _tabController,
@@ -1166,57 +1154,28 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                   padding: const EdgeInsets.all(20),
                   child: Form(
                     key: _formKey,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    // Profile Header
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF272579), Color(0xFF0071bf)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    // ID Card (scrolls with content)
+                    _buildCompactIdCard(),
+
+                    // Change photo button
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _isUploadingPhoto ? null : _showImagePickerDialog,
+                        icon: _isUploadingPhoto
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.camera_alt, size: 16),
+                        label: Text(_isUploadingPhoto ? 'Uploading...' : 'Change Photo'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0071bf),
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          UserAvatarWithUpload(
-                            avatarUrl: _currentUser?['avatar'],
-                            firstName: _currentUser?['firstName'],
-                            lastName: _currentUser?['lastName'],
-                            radius: 40,
-                            isLoading: _isUploadingPhoto,
-                            onTap: _showImagePickerDialog,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '${_currentUser?['firstName'] ?? ''} ${_currentUser?['lastName'] ?? ''}'.trim(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _currentUser?['designation'] ?? 'Employee',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
 
@@ -1252,6 +1211,23 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF272579),
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: _updateProfile,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    color: Color(0xFF0071bf),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1523,7 +1499,61 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                         ),
                       ),
               ],
+            );
+
+    if (widget.embedded) {
+      return tabBody;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF272579), Color(0xFF0071bf)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+          ),
+        ),
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          if (!_isLoading && _tabController.index == 0)
+            TextButton(
+              onPressed: _updateProfile,
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: const Color(0xFF5cfbd8),
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(icon: Icon(Icons.person), text: 'Personal Info'),
+            Tab(icon: Icon(Icons.folder), text: 'Documents'),
+          ],
+        ),
+      ),
+      backgroundColor: const Color(0xFFf8f9fa),
+      body: tabBody,
     );
   }
 }

@@ -5,11 +5,13 @@ import '../../config/crm_design_system.dart';
 class CrmModuleScreen extends StatefulWidget {
   final String userId;
   final String userRole;
+  final bool embedded;
 
   const CrmModuleScreen({
     super.key,
     required this.userId,
     required this.userRole,
+    this.embedded = false,
   });
 
   @override
@@ -25,18 +27,7 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
   @override
   Widget build(BuildContext context) {
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'CRM Dashboard',
-          style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        elevation: 2,
-        backgroundColor: CrmColors.primary,
-        shadowColor: CrmColors.primary.withValues(alpha: 0.3),
-      ),
-      body: SingleChildScrollView(
+    final body = SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -125,11 +116,44 @@ class _CrmModuleScreenState extends State<CrmModuleScreen> {
             ),
           ],
         ),
+    );
+
+    if (widget.embedded) {
+      return Stack(
+        children: [
+          body,
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: null,
+              backgroundColor: CrmColors.primary,
+              elevation: 4,
+              child: const Icon(Icons.add, color: Colors.white),
+              onPressed: () => _showQuickAddMenu(context),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'CRM Dashboard',
+          style: CrmDesignSystem.headlineSmall.copyWith(color: Colors.white),
+        ),
+        centerTitle: true,
+        elevation: 2,
+        backgroundColor: CrmColors.primary,
+        shadowColor: CrmColors.primary.withValues(alpha: 0.3),
       ),
+      body: body,
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         backgroundColor: CrmColors.primary,
         elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white,),
+        child: const Icon(Icons.add, color: Colors.white),
         onPressed: () => _showQuickAddMenu(context),
       ),
     );

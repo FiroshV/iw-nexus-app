@@ -11,6 +11,7 @@ class IDCardWidget extends StatefulWidget {
   final VoidCallback? onShareVisitingCard;
   final bool showFullCard;
   final bool showWelcomeCard;
+  final bool compact;
   final CardType cardType;
 
   const IDCardWidget({
@@ -20,6 +21,7 @@ class IDCardWidget extends StatefulWidget {
     this.onShareVisitingCard,
     this.showFullCard = false,
     this.showWelcomeCard = false,
+    this.compact = false,
     this.cardType = CardType.idCard,
   });
 
@@ -279,16 +281,17 @@ class _IDCardWidgetState extends State<IDCardWidget>
   }
 
   Widget _buildFullIdCard() {
+    final c = widget.compact;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(c ? 16 : 24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF272579), Color(0xFF0071bf)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(c ? 16 : 20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -300,52 +303,53 @@ class _IDCardWidgetState extends State<IDCardWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Company Logo and Text
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+          // Company Logo and Text (hidden in compact mode)
+          if (!c) ...[
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: SvgPicture.asset(
+                    'assets/company_logo.svg',
+                    width: 24,
+                    height: 24,
+                  ),
                 ),
-                child: SvgPicture.asset(
-                  'assets/company_logo.svg',
-                  width: 24,
-                  height: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Move with',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Move with',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Strategy',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      Text(
+                        'Strategy',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 20),
-          
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+
           // User Photo
           Center(
             child: Container(
@@ -353,7 +357,7 @@ class _IDCardWidgetState extends State<IDCardWidget>
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.8),
-                  width: 3,
+                  width: c ? 2 : 3,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -367,78 +371,79 @@ class _IDCardWidgetState extends State<IDCardWidget>
                 avatarUrl: widget.userData?['avatar'],
                 firstName: widget.userData?['firstName'],
                 lastName: widget.userData?['lastName'],
-                radius: 40,
+                radius: c ? 28 : 40,
                 backgroundColor: const Color(0xFF5cfbd8),
-                textStyle: const TextStyle(
-                  color: Color(0xFF272579),
-                  fontSize: 28,
+                textStyle: TextStyle(
+                  color: const Color(0xFF272579),
+                  fontSize: c ? 20 : 28,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ),
-          
-          const SizedBox(height: 16),
-          
+
+          SizedBox(height: c ? 8 : 16),
+
           // User Name
           Center(
             child: Text(
               _getUserDisplayName(),
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: c ? 16 : 20,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
           ),
-          
-          const SizedBox(height: 4),
-          
+
+          SizedBox(height: c ? 2 : 4),
+
           // Designation
           if (widget.userData != null) ...[
             Center(
               child: Text(
                 widget.userData!['designation']?.toString() ?? '',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 14,
+                  fontSize: c ? 12 : 14,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
           ],
-          
-          const SizedBox(height: 20),
-          
-          // Company Footer
-          const Center(
-            child: Column(
-              children: [
-                Text(
-                  'idalWEALTH',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
+
+          // Company Footer (hidden in compact mode)
+          if (!c) ...[
+            const SizedBox(height: 20),
+            const Center(
+              child: Column(
+                children: [
+                  Text(
+                    'idalWEALTH',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                Text(
-                  'Advisory Private Limited',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                  Text(
+                    'Advisory Private Limited',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
+          ],
+
           // Tap hint
-          const SizedBox(height: 16),
+          SizedBox(height: c ? 8 : 16),
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -446,11 +451,11 @@ class _IDCardWidgetState extends State<IDCardWidget>
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'Tap to view actions',
                 style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 10,
+                  fontSize: c ? 9 : 10,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -589,16 +594,17 @@ class _IDCardWidgetState extends State<IDCardWidget>
   }
 
   Widget _buildFullBackCard() {
+    final c = widget.compact;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(c ? 16 : 24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF0071bf), Color(0xFF272579)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(c ? 16 : 20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -608,71 +614,44 @@ class _IDCardWidgetState extends State<IDCardWidget>
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ID Card Actions Header
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.credit_card,
-                  color: Color(0xFF272579),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ID Card',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Share your ID',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // Header
+          Text(
+            'Card Sharing',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: c ? 16 : 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          
-          const SizedBox(height: 40),
-          
-          // Share Button
+          Text(
+            'Share your employee cards',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: c ? 12 : 14,
+            ),
+          ),
+
+          SizedBox(height: c ? 14 : 20),
+
+          // Share ID Card Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: widget.onShare,
-              icon: const Icon(Icons.share, color: Colors.white),
-              label: const Text(
+              icon: Icon(Icons.credit_card, size: c ? 16 : 18),
+              label: Text(
                 'Share ID Card',
                 style: TextStyle(
-                  color: Colors.white,
+                  fontSize: c ? 13 : 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5cfbd8),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                foregroundColor: const Color(0xFF272579),
+                padding: EdgeInsets.symmetric(vertical: c ? 10 : 14, horizontal: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -680,9 +659,36 @@ class _IDCardWidgetState extends State<IDCardWidget>
               ),
             ),
           ),
-          
-          const SizedBox(height: 40),
-          
+
+          SizedBox(height: c ? 8 : 12),
+
+          // Share Visiting Card Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onShareVisitingCard,
+              icon: Icon(Icons.business_center, size: c ? 16 : 18),
+              label: Text(
+                'Share Visiting Card',
+                style: TextStyle(
+                  fontSize: c ? 13 : 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0071bf),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: c ? 10 : 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+
+          SizedBox(height: c ? 10 : 16),
+
           // Back to front hint
           Center(
             child: Container(
@@ -691,11 +697,11 @@ class _IDCardWidgetState extends State<IDCardWidget>
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'Tap to go back',
                 style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 10,
+                  fontSize: c ? 9 : 10,
                   fontWeight: FontWeight.w500,
                 ),
               ),

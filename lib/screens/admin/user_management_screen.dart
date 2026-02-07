@@ -870,6 +870,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ],
         ),
         child: FloatingActionButton.extended(
+          heroTag: null,
           onPressed: () {
             Navigator.of(context)
                 .push(

@@ -130,6 +130,7 @@ class _SalaryTemplatesScreenState extends State<SalaryTemplatesScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         backgroundColor: const Color(0xFF0071bf),
         onPressed: () async {
           final result = await Navigator.push<bool>(

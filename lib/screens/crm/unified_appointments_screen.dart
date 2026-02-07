@@ -97,6 +97,7 @@ class _UnifiedAppointmentsScreenState extends State<UnifiedAppointmentsScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         backgroundColor: CrmColors.primary,
         elevation: 4,
         child: const Icon(Icons.add, color: Colors.white),

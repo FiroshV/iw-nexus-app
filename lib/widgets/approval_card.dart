@@ -315,10 +315,13 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
     // Show the approval card when there are pending approvals
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
         child: InkWell(
           onTap: () {
             Navigator.of(context).push(
@@ -329,9 +332,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
               ),
             );
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
@@ -358,6 +361,8 @@ class _ApprovalCardState extends State<ApprovalCard> {
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF272579),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -371,6 +376,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
                   ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Auto-refresh indicator
                     if (_isAutoRefreshing)

@@ -574,6 +574,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
           }
 
           return FloatingActionButton(
+            heroTag: null,
             onPressed: () async {
               final result = await Navigator.push(
                 context,

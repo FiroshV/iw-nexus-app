@@ -262,6 +262,7 @@ class _ActivityListScreenState extends State<ActivityListScreen>
             ],
           ),
           floatingActionButton: FloatingActionButton(
+            heroTag: null,
             backgroundColor: CrmColors.primary,
             onPressed: () {
               Navigator.of(context).pushNamed(

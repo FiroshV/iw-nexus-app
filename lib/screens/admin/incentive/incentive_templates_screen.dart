@@ -132,6 +132,7 @@ class _IncentiveTemplatesScreenState extends State<IncentiveTemplatesScreen> {
           ],
         ),
         child: FloatingActionButton.extended(
+          heroTag: null,
           onPressed: () {
             Navigator.of(context)
                 .push(

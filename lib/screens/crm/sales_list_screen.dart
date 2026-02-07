@@ -478,6 +478,7 @@ class _SalesListScreenState extends State<SalesListScreen>
                 : null,
           ),
           floatingActionButton: FloatingActionButton(
+            heroTag: null,
             onPressed: _addNewSale,
             backgroundColor: const Color(0xFF0071bf),
             child: const Icon(Icons.add, color: Colors.white),

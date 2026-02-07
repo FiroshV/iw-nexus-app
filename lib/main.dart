@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -12,8 +13,8 @@ import 'providers/crm/sale_provider.dart';
 import 'providers/incentive_provider.dart';
 import 'models/sale.dart';
 import 'widgets/loading_widget.dart';
-import 'widgets/id_card_widget.dart';
 import 'widgets/user_avatar.dart';
+import 'widgets/dashboard_attendance_strip.dart';
 import 'login_page.dart';
 import 'services/api_service.dart';
 import 'services/access_control_service.dart';
@@ -27,10 +28,8 @@ import 'screens/profile_screen.dart';
 import 'screens/feedback/feedback_list_screen.dart';
 import 'screens/work_principles_screen.dart';
 import 'widgets/approval_card.dart';
-import 'screens/id_card_screen.dart';
-import 'screens/admin/payroll/payroll_management_screen.dart';
-import 'screens/conveyance/conveyance_screen.dart';
 import 'screens/crm/crm_module_screen.dart';
+import 'screens/me_screen.dart';
 import 'screens/crm/customer_list_screen.dart';
 import 'screens/crm/customer_detail_screen.dart';
 import 'screens/crm/appointment_details_screen.dart';
@@ -49,7 +48,6 @@ import 'screens/crm/pipeline_stage_detail_screen.dart';
 import 'screens/crm/overdue_followups_screen.dart';
 import 'screens/crm/call_logs_screen.dart';
 import 'screens/crm/call_detail_screen.dart';
-import 'screens/incentive/incentive_module_screen.dart';
 import 'config/api_config.dart';
 import 'utils/timezone_util.dart';
 import 'utils/timezone_test.dart';
@@ -469,16 +467,27 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with TickerProviderStateMixin {
   Map<String, dynamic>? currentUser;
   bool isLoading = true;
   VersionCheckResult? _updateInfo;
   bool _isUpdateBannerDismissed = false;
+  int _currentTabIndex = 0;
+  final ScrollController _homeScrollController = ScrollController();
+  late final TabController _profileTabController;
 
   @override
   void initState() {
     super.initState();
+    _profileTabController = TabController(length: 2, vsync: this);
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _homeScrollController.dispose();
+    _profileTabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -712,25 +721,48 @@ class _DashboardPageState extends State<DashboardPage> {
     return fullName.isNotEmpty ? fullName : 'User';
   }
 
-  void _handleIdCardShare(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            IDCardScreen(userData: currentUser, action: IDCardAction.share),
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  String _getFormattedDate() {
+    return DateFormat('EEEE, d MMM yyyy').format(DateTime.now());
+  }
+
+  Widget _buildGreetingSection() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${_getGreeting()}, ${currentUser?['firstName'] ?? 'User'}',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF272579),
+              letterSpacing: -0.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _getFormattedDate(),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void _handleVisitingCardShare(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => IDCardScreen(
-          userData: currentUser,
-          action: IDCardAction.shareVisitingCard,
-        ),
-      ),
-    );
-  }
 
   void _showProfileMenu(BuildContext context) {
     showModalBottomSheet(
@@ -960,30 +992,20 @@ class _DashboardPageState extends State<DashboardPage> {
     required VoidCallback onTap,
     Color? color,
   }) {
+    final cardColor = color ?? const Color(0xFF0071bf);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.white, const Color(0xFFfbf8ff)],
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: const Color(0xFF272579).withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF272579).withValues(alpha: 0.08),
+          color: Colors.grey.shade200,
           width: 1,
         ),
       ),
@@ -991,31 +1013,22 @@ class _DashboardPageState extends State<DashboardPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.max,
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: (color ?? const Color(0xFF0071bf)).withValues(
-                      alpha: 0.12,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: (color ?? const Color(0xFF0071bf)).withValues(
-                        alpha: 0.2,
-                      ),
-                      width: 1,
-                    ),
+                    color: cardColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    size: 28,
-                    color: color ?? const Color(0xFF0071bf),
+                    size: 24,
+                    color: cardColor,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1023,14 +1036,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF272579),
-                      letterSpacing: -0.2,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1a1a2e),
                       height: 1.2,
                     ),
                     textAlign: TextAlign.center,
-                    overflow: TextOverflow.fade,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1039,17 +1052,190 @@ class _DashboardPageState extends State<DashboardPage> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w400,
                     ),
                     textAlign: TextAlign.center,
-                    overflow: TextOverflow.fade,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  String get _appBarTitle {
+    switch (_currentTabIndex) {
+      case 1: return 'CRM';
+      case 2: return 'Me';
+      case 3: return 'Profile';
+      default: return 'IW Nexus';
+    }
+  }
+
+  Widget _buildHomeBody() {
+    return RefreshIndicator(
+      onRefresh: _loadUserData,
+      color: const Color(0xFF272579),
+      child: SingleChildScrollView(
+        controller: _homeScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Update banner
+            if (_buildUpdateBanner() != null) _buildUpdateBanner()!,
+
+            // Greeting section
+            _buildGreetingSection(),
+
+            // Attendance status strip (inline clock-in)
+            if (userRole != 'external')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: DashboardAttendanceStrip(
+                  onNavigateToAttendance: () {
+                    if (ProfileService.isRoleExempt(userRole)) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const EnhancedAttendanceScreen(),
+                        ),
+                      );
+                    } else {
+                      final authProvider =
+                          context.read<AuthProvider>();
+                      NavigationGuards.navigateWithProfileCheck(
+                        context: context,
+                        userData: authProvider.user,
+                        destination:
+                            const EnhancedAttendanceScreen(),
+                        featureName: 'Attendance',
+                      );
+                    }
+                  },
+                ),
+              ),
+
+            // Approval cards for managers/admins
+            ApprovalCard(userRole: userRole),
+
+            // Unified navigation grid
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final aspectRatio = constraints.maxWidth < 360 ? 1.05 : 1.25;
+                return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: aspectRatio,
+              children: [
+                // User Management
+                if (AccessControlService.hasAccess(
+                  userRole,
+                  'user_management',
+                  'view',
+                ))
+                  _buildDashboardCard(
+                    title: 'Employees',
+                    subtitle: 'Manage team members',
+                    icon: Icons.people_outline,
+                    color: const Color(0xFF00b8d9),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const UserManagementScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                // Branch Management
+                if (AccessControlService.hasAccess(
+                  userRole,
+                  'branch_management',
+                  'view',
+                ))
+                  _buildDashboardCard(
+                    title: 'Branches',
+                    subtitle: 'Manage locations',
+                    icon: Icons.business,
+                    color: const Color(0xFF0071bf),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const BranchManagementScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                // Reports
+                if (AccessControlService.hasAccess(
+                  userRole,
+                  'reports',
+                  'attendance_reports',
+                ))
+                  _buildDashboardCard(
+                    title: 'Reports',
+                    subtitle: 'Analytics & insights',
+                    icon: Icons.bar_chart_rounded,
+                    color: const Color(0xFF5cfbd8),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Reports feature coming soon!'),
+                        ),
+                      );
+                    },
+                  ),
+
+                // Appointment Letters
+                if (AccessControlService.hasAccess(
+                  userRole,
+                  'appointment_letter',
+                  'send',
+                ))
+                  _buildDashboardCard(
+                    title: 'Appointment Letter',
+                    subtitle: 'Send to employee',
+                    icon: Icons.mail_outline,
+                    color: const Color(0xFF00b8d9),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SendAppointmentLetterScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                // Feedback - always available
+                _buildDashboardCard(
+                  title: 'Feedback',
+                  subtitle: 'Share your thoughts',
+                  icon: Icons.feedback_outlined,
+                  color: const Color(0xFF0071bf),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const FeedbackListScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1061,6 +1247,19 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
+        bottom: _currentTabIndex == 3
+            ? TabBar(
+                controller: _profileTabController,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: const Color(0xFF5cfbd8),
+                indicatorWeight: 3,
+                tabs: const [
+                  Tab(icon: Icon(Icons.person), text: 'Personal Info'),
+                  Tab(icon: Icon(Icons.folder), text: 'Documents'),
+                ],
+              )
+            : null,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -1078,7 +1277,6 @@ class _DashboardPageState extends State<DashboardPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
-                // borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.2),
                   width: 1,
@@ -1091,42 +1289,25 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'IW Nexus',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  Text(
-                    'Dashboard',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            Text(
+              _appBarTitle,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
               ),
             ),
+            const Spacer(),
           ],
         ),
         actions: [
-          // Profile info and logout
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (currentUser != null) ...[
-                  // User avatar and info
                   GestureDetector(
                     onTap: () => _showProfileMenu(context),
                     child: Container(
@@ -1157,12 +1338,6 @@ class _DashboardPageState extends State<DashboardPage> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [],
-                          ),
                           const SizedBox(width: 4),
                           const Icon(
                             Icons.keyboard_arrow_down,
@@ -1174,7 +1349,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                 ] else ...[
-                  // Simple logout when user data not loaded
                   IconButton(
                     icon: Container(
                       padding: const EdgeInsets.all(8),
@@ -1204,248 +1378,67 @@ class _DashboardPageState extends State<DashboardPage> {
       backgroundColor: const Color(0xFFf8f9fa),
       body: isLoading
           ? const LoadingWidget(message: 'Loading dashboard...')
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Update banner (only shows on dashboard)
-                  if (_buildUpdateBanner() != null) _buildUpdateBanner()!,
-
-                  // Welcome section with flip functionality
-                  IDCardWidget(
-                    userData: currentUser,
-                    onShare: () => _handleIdCardShare(context),
-                    onShareVisitingCard: () =>
-                        _handleVisitingCardShare(context),
-                    showWelcomeCard: true,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Approval cards for managers/admins
-                  ApprovalCard(userRole: userRole),
-
-                  // Quick actions
-                  Text(
-                    'Quick Actions',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF272579),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Dashboard cards grid
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.9,
-                    children: [
-                      // Attendance card - hidden for external employees
-                      // Requires profile completion for non-admin/director roles
-                      if (userRole != 'external')
-                        _buildDashboardCard(
-                          title: 'Attendance',
-                          subtitle: 'Check in/out',
-                          icon: Icons.schedule,
-                          color: const Color(0xFF5cfbd8),
-                          onTap: () {
-                            if (ProfileService.isRoleExempt(userRole)) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const EnhancedAttendanceScreen(),
-                                ),
-                              );
-                            } else {
-                              final authProvider =
-                                  context.read<AuthProvider>();
-                              NavigationGuards.navigateWithProfileCheck(
-                                context: context,
-                                userData: authProvider.user,
-                                destination:
-                                    const EnhancedAttendanceScreen(),
-                                featureName: 'Attendance',
-                              );
-                            }
-                          },
-                        ),
-
-                      // User Management - accessible to admin, hr, manager, director
-                      if (AccessControlService.hasAccess(
-                        userRole,
-                        'user_management',
-                        'view',
-                      )) ...[
-                        _buildDashboardCard(
-                          title: 'Employees',
-                          subtitle: 'Manage team members',
-                          icon: Icons.people_outline,
-                          color: const Color(0xFF00b8d9),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const UserManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      // Branch Management - accessible to admin, manager, director
-                      if (AccessControlService.hasAccess(
-                        userRole,
-                        'branch_management',
-                        'view',
-                      )) ...[
-                        _buildDashboardCard(
-                          title: 'Branches',
-                          subtitle: 'Manage office locations',
-                          icon: Icons.business,
-                          color: const Color(0xFF0071bf),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const BranchManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      // Reports - accessible to admin, hr, manager, director
-                      if (AccessControlService.hasAccess(
-                        userRole,
-                        'reports',
-                        'attendance_reports',
-                      )) ...[
-                        _buildDashboardCard(
-                          title: 'Reports',
-                          subtitle: 'Analytics & insights',
-                          icon: Icons.bar_chart_rounded,
-                          color: const Color(0xFF5cfbd8),
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Reports feature coming soon!'),
-                              ),
-                            );
-                            // Navigator.of(context).push(
-                            //   MaterialPageRoute(
-                            //     builder: (context) => ReportsScreen(userRole: userRole),
-                            //   ),
-                            // );
-                          },
-                        ),
-                      ],
-
-                      // Payslip - accessible to all employees
-                      if (AccessControlService.hasAccess(userRole, 'payroll', 'view_own')) ...[
-                        _buildDashboardCard(
-                          title: 'Payslip',
-                          subtitle: 'View and manage payslips',
-                          icon: Icons.receipt_long,
-                          color: const Color(0xFF00b8d9),
-                          onTap: () {
-                            // Determine initial tab: admin/director open to Employees tab (tab 1),
-                            // regular employees open to View Payslip tab (tab 0)
-                            final initialTab = (userRole == 'admin' || userRole == 'director') ? 1 : 0;
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => PayrollManagementScreen(initialTab: initialTab),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                      // Appointment Letters - accessible to admin, director
-                      if (AccessControlService.hasAccess(
-                        userRole,
-                        'appointment_letter',
-                        'send',
-                      )) ...[
-                        _buildDashboardCard(
-                          title: 'Appointment Letter',
-                          subtitle: 'Send to employee',
-                          icon: Icons.mail_outline,
-                          color: const Color(0xFF00b8d9),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const SendAppointmentLetterScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                      // Conveyance - accessible to all users
-                      if (AccessControlService.hasAccess(userRole, 'conveyance_management', 'view_own')) ...[
-                        _buildDashboardCard(
-                          title: 'Conveyance',
-                          subtitle: 'Submit & track claims',
-                          icon: Icons.commute,
-                          color: const Color(0xFF00b8d9),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => ConveyanceScreen(userRole: userRole),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      // CRM - Sales, Visits & Follow-ups - accessible to all users
-                      _buildDashboardCard(
-                        title: 'CRM Module',
-                        subtitle: 'Manage sales, visits & follow-ups',
-                        icon: Icons.trending_up,
-                        color: const Color(0xFF5cfbd8),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => CrmModuleScreen(
-                                userId: currentUser?['_id'] ?? '',
-                                userRole: userRole,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      // Incentives - accessible to users with incentive permissions
-                      if (AccessControlService.hasAccess(
-                        userRole,
-                        'incentive_management',
-                        'view_own_incentive',
-                      )) ...[
-                        _buildDashboardCard(
-                          title: 'Incentives',
-                          subtitle: 'Commission & targets',
-                          icon: Icons.workspace_premium_rounded,
-                          color: const Color(0xFF00b8d9),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const IncentiveModuleScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
+          : IndexedStack(
+              index: _currentTabIndex,
+              children: [
+                // Home tab
+                _buildHomeBody(),
+                // CRM tab
+                CrmModuleScreen(
+                  embedded: true,
+                  userId: currentUser?['_id'] ?? '',
+                  userRole: userRole,
+                ),
+                // Me tab
+                MeScreen(userRole: userRole),
+                // Profile tab
+                ProfileScreen(embedded: true, tabController: _profileTabController),
+              ],
             ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentTabIndex,
+        onTap: (index) {
+          HapticFeedback.lightImpact();
+          if (index == _currentTabIndex) {
+            // Scroll to top on re-tap
+            if (index == 0 && _homeScrollController.hasClients) {
+              _homeScrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          } else {
+            setState(() => _currentTabIndex = index);
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF0071bf),
+        unselectedItemColor: const Color(0xFF7F8C8D),
+        backgroundColor: Colors.white,
+        elevation: 8,
+        selectedFontSize: 12,
+        unselectedFontSize: 11,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up_rounded),
+            label: 'CRM',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_pin_rounded),
+            label: 'Me',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 }
+

@@ -441,6 +441,7 @@ class _FeedbackListScreenState extends State<FeedbackListScreen> with SingleTick
             )
           : _buildMyFeedbackTab(),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _navigateToSubmit,
         backgroundColor: const Color(0xFF0071bf),
         icon: const Icon(Icons.add, color: Colors.white),
