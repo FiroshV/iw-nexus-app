@@ -47,6 +47,8 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
   String _currentUserId = '';
   // ignore: unused_field
   String _currentUserRole = '';
+  String _selectedViewEmployeeName = '';
+  bool _hasInitializedUser = false;
 
   @override
   void initState() {
@@ -55,7 +57,30 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     _selectedViewMonth = now.month;
     _selectedViewYear = now.year;
     _loadEmployees();
-    _loadPayslips();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasInitializedUser) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      _currentUserId = authProvider.user?['_id'] as String? ?? '';
+      _currentUserRole = authProvider.user?['role'] as String? ?? '';
+      _hasInitializedUser = true;
+
+      // Only pre-select self for non-admin/director users (they only see their own payslips)
+      // Admin/director users see the employee selector and should start with all payslips
+      final isPayrollManager = _currentUserRole == 'admin' || _currentUserRole == 'director';
+      if (!isPayrollManager) {
+        _selectedViewEmployeeId = _currentUserId;
+        final firstName = authProvider.user?['firstName'] ?? '';
+        final lastName = authProvider.user?['lastName'] ?? '';
+        _selectedViewEmployeeName = '$firstName $lastName'.trim();
+      }
+
+      // Load payslips with the correct employee filter
+      _loadPayslips();
+    }
   }
 
   Future<void> _loadPayslips({String? employeeIdFilter}) async {
@@ -391,9 +416,18 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     );
   }
 
+  /// Safely parse a value to int, handling int, double, num, and String types
+  int? _parseIntSafe(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
   String _getMonthYearLabel(Map<String, dynamic> payslip) {
-    final month = (payslip['month'] as int?) ?? DateTime.now().month;
-    final year = (payslip['year'] as int?) ?? DateTime.now().year;
+    final month = _parseIntSafe(payslip['month']) ?? _selectedViewMonth;
+    final year = _parseIntSafe(payslip['year']) ?? _selectedViewYear;
     return '${PayrollApiService.getMonthName(month)} $year';
   }
 
@@ -402,11 +436,16 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     // Handle both int and double types from API
     final netSalaryValue = payslip['netSalary'];
     final netSalary = (netSalaryValue is int ? netSalaryValue.toDouble() : netSalaryValue as double?) ?? 0.0;
-    final status = payslip['status'] as String? ?? 'generated';
+    final status = (payslip['paymentStatus'] as String?) ?? (payslip['status'] as String?) ?? 'pending';
     final daysPresentValue = payslip['daysPresent'];
     final daysPresent = (daysPresentValue is int ? daysPresentValue.toDouble() : daysPresentValue as double?) ?? 0.0;
     final workingDaysValue = payslip['workingDaysInMonth'];
     final workingDays = workingDaysValue is int ? workingDaysValue : int.tryParse(workingDaysValue.toString()) ?? 0;
+    // Extract employee name from populated employeeId object
+    final empData = payslip['employeeId'];
+    final employeeName = empData is Map
+        ? '${empData['firstName'] ?? ''} ${empData['lastName'] ?? ''}'.trim()
+        : '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -456,6 +495,17 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
                             color: Color(0xFF272579),
                           ),
                         ),
+                        if (employeeName.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            employeeName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -641,183 +691,432 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     );
   }
 
+  /// Build employee list for payslip selection (current user at top, then others)
+  List<Map<String, dynamic>> _buildAllEmpList(AuthProvider authProvider) {
+    final currentUserRole = authProvider.user?['role'] as String?;
+    return [
+      if (currentUserRole != 'admin')
+        {
+          '_id': _currentUserId,
+          'firstName': authProvider.user?['firstName'] ?? '',
+          'lastName': authProvider.user?['lastName'] ?? '',
+          'isCurrentUser': true,
+        },
+      ..._employees.where((e) => e['_id'] != _currentUserId),
+    ];
+  }
+
+  void _showEmployeeBottomSheet(AuthProvider authProvider) {
+    final allEmployees = _buildAllEmpList(authProvider);
+    List<Map<String, dynamic>> filteredEmployees = List.from(allEmployees);
+    final searchController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Employee',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF272579),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                // Search field
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: (query) {
+                      setModalState(() {
+                        if (query.isEmpty) {
+                          filteredEmployees = List.from(allEmployees);
+                        } else {
+                          final lowerQuery = query.toLowerCase();
+                          filteredEmployees = allEmployees.where((emp) {
+                            final name =
+                                '${emp['firstName']} ${emp['lastName']}'
+                                    .toLowerCase();
+                            return name.contains(lowerQuery);
+                          }).toList();
+                        }
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search by name...',
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF0071bf),
+                      ),
+                      suffixIcon: searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                searchController.clear();
+                                setModalState(() {
+                                  filteredEmployees = List.from(allEmployees);
+                                });
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFfbf8ff),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                // Employee list
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    itemCount: filteredEmployees.length + 1, // +1 for "All Employees"
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      // First item: "All Employees" option
+                      if (index == 0) {
+                        final isSelected = _selectedViewEmployeeId.isEmpty;
+                        return ListTile(
+                          onTap: () {
+                            setState(() {
+                              _selectedViewEmployeeId = '';
+                              _selectedViewEmployeeName = '';
+                            });
+                            Navigator.pop(context);
+                            _loadPayslips();
+                          },
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0071bf)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.people,
+                              color: Color(0xFF0071bf),
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            'All Employees',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Color(0xFF0071bf),
+                                )
+                              : null,
+                          selected: isSelected,
+                          selectedTileColor:
+                              const Color(0xFF0071bf).withValues(alpha: 0.1),
+                        );
+                      }
+
+                      final emp = filteredEmployees[index - 1];
+                      final empId = emp['_id'] as String;
+                      final displayName =
+                          '${emp['firstName']} ${emp['lastName']}';
+                      final isCurrent = empId == _currentUserId;
+                      final isSelected = _selectedViewEmployeeId == empId;
+
+                      return ListTile(
+                        onTap: () {
+                          setState(() {
+                            _selectedViewEmployeeId = empId;
+                            _selectedViewEmployeeName = displayName;
+                          });
+                          Navigator.pop(context);
+                          _loadPayslips();
+                        },
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0071bf)
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Center(
+                            child: Text(
+                              (emp['firstName'] as String? ?? '')
+                                  .isNotEmpty
+                                  ? (emp['firstName'] as String)
+                                      .substring(0, 1)
+                                      .toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: Color(0xFF0071bf),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          isCurrent ? '$displayName (You)' : displayName,
+                          style: TextStyle(
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.normal,
+                            color: isSelected
+                                ? const Color(0xFF0071bf)
+                                : Colors.grey[800],
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Color(0xFF0071bf),
+                              )
+                            : null,
+                        selected: isSelected,
+                        selectedTileColor:
+                            const Color(0xFF0071bf).withValues(alpha: 0.1),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showMonthBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Select Month',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF272579),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                final month = index + 1;
+                final isSelected = _selectedViewMonth == month;
+                return ListTile(
+                  onTap: () {
+                    setState(() => _selectedViewMonth = month);
+                    Navigator.pop(context);
+                    _loadPayslips();
+                  },
+                  title: Text(
+                    PayrollApiService.getMonthName(month),
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? const Color(0xFF0071bf)
+                          : Colors.grey[800],
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF0071bf),
+                        )
+                      : null,
+                  selected: isSelected,
+                  selectedTileColor:
+                      const Color(0xFF0071bf).withValues(alpha: 0.1),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showYearBottomSheet() {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(5, (index) => currentYear - 2 + index);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Select Year',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF272579),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...years.map((year) {
+            final isSelected = _selectedViewYear == year;
+            return ListTile(
+              onTap: () {
+                setState(() => _selectedViewYear = year);
+                Navigator.pop(context);
+                _loadPayslips();
+              },
+              title: Text(
+                year.toString(),
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected
+                      ? const Color(0xFF0071bf)
+                      : Colors.grey[800],
+                ),
+              ),
+              trailing: isSelected
+                  ? const Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF0071bf),
+                    )
+                  : null,
+              selected: isSelected,
+              selectedTileColor:
+                  const Color(0xFF0071bf).withValues(alpha: 0.1),
+            );
+          }),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
   Widget _buildViewPayslipTab({
     required AuthProvider authProvider,
     required bool canManagePayroll,
   }) {
-    // Initialize current user data on first call
-    if (_currentUserId.isEmpty) {
-      _currentUserId = authProvider.user?['_id'] as String? ?? '';
-      _currentUserRole = authProvider.user?['role'] as String? ?? '';
-      _selectedViewEmployeeId = _currentUserId;
+    // Compute latest payslip label from actual data
+    String latestPayslipLabel = '';
+    if (_payslips.isNotEmpty) {
+      int latestYear = 0;
+      int latestMonth = 0;
+      for (final p in _payslips) {
+        final pYear = _parseIntSafe(p['year']) ?? 0;
+        final pMonth = _parseIntSafe(p['month']) ?? 0;
+        if (pYear > latestYear || (pYear == latestYear && pMonth > latestMonth)) {
+          latestYear = pYear;
+          latestMonth = pMonth;
+        }
+      }
+      if (latestMonth > 0 && latestYear > 0) {
+        latestPayslipLabel =
+            '${PayrollApiService.getMonthShortName(latestMonth)} $latestYear';
+      }
     }
-
-    final previousMonth = PayrollApiService.getPreviousMonth();
-    final latestPayslipLabel =
-        '${PayrollApiService.getMonthShortName(previousMonth['month']!)} ${previousMonth['year']}';
 
     // Build employee selector widget (only for admin/director)
     final employeeSelector = canManagePayroll
-        ? Autocomplete<String>(
-            optionsBuilder: (TextEditingValue textEditingValue) {
-              if (textEditingValue.text.isEmpty) {
-                // Show all employees when empty
-                final List<Map<String, dynamic>> allEmpList = [
-                  {
-                    '_id': _currentUserId,
-                    'firstName': authProvider.user?['firstName'] ?? '',
-                    'lastName': authProvider.user?['lastName'] ?? '',
-                    'isCurrentUser': true,
-                  },
-                  ..._employees.where((e) => e['_id'] != _currentUserId),
-                ];
-                return allEmpList.map((e) {
-                  return e['_id'] as String;
-                });
-              }
-              // Filter employees by search text
-              final query = textEditingValue.text.toLowerCase();
-              final List<Map<String, dynamic>> allEmpList = [
-                {
-                  '_id': _currentUserId,
-                  'firstName': authProvider.user?['firstName'] ?? '',
-                  'lastName': authProvider.user?['lastName'] ?? '',
-                  'isCurrentUser': true,
-                },
-                ..._employees.where((e) => e['_id'] != _currentUserId),
-              ];
-              return allEmpList
-                  .where((emp) {
-                    final name = '${emp['firstName']} ${emp['lastName']}'.toLowerCase();
-                    return name.contains(query);
-                  })
-                  .map((e) => e['_id'] as String);
-            },
-            onSelected: (String selectedId) {
-              setState(() => _selectedViewEmployeeId = selectedId);
-              _loadPayslips();
-            },
-            fieldViewBuilder: (BuildContext context,
-                TextEditingController textEditingController,
-                FocusNode focusNode,
-                VoidCallback onFieldSubmitted) {
-              // Update field text when selection changes
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (_selectedViewEmployeeId.isNotEmpty) {
-                  final selectedEmp = [
-                    {
-                      '_id': _currentUserId,
-                      'firstName': authProvider.user?['firstName'] ?? '',
-                      'lastName': authProvider.user?['lastName'] ?? '',
-                    },
-                    ..._employees,
-                  ].firstWhere((e) => e['_id'] == _selectedViewEmployeeId);
-                  final displayName =
-                      '${selectedEmp['firstName']} ${selectedEmp['lastName']}';
-                  if (textEditingController.text != displayName) {
-                    textEditingController.text = displayName;
-                  }
-                }
-              });
-              return TextField(
-                controller: textEditingController,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  labelText: 'Select Employee',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFe0e0e0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF0071bf),
-                      width: 2,
+        ? GestureDetector(
+            onTap: () => _showEmployeeBottomSheet(authProvider),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFe0e0e0)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedViewEmployeeName.isNotEmpty
+                          ? _selectedViewEmployeeName
+                          : 'All Employees',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _selectedViewEmployeeName.isNotEmpty
+                            ? Colors.grey[800]
+                            : Colors.grey[600],
+                      ),
                     ),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  suffixIcon: const Icon(Icons.search, color: Color(0xFF0071bf)),
-                ),
-              );
-            },
-            optionsViewBuilder: (BuildContext context,
-                AutocompleteOnSelected<String> onSelected,
-                Iterable<String> options) {
-              return Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 300,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      shrinkWrap: true,
-                      itemCount: options.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final empId = options.elementAt(index);
-                        final emp = [
-                          {
-                            '_id': _currentUserId,
-                            'firstName': authProvider.user?['firstName'] ?? '',
-                            'lastName': authProvider.user?['lastName'] ?? '',
-                            'isCurrentUser': true,
-                          },
-                          ..._employees,
-                        ].firstWhere((e) => e['_id'] == empId);
-                        final isSelected = _selectedViewEmployeeId == empId;
-                        final displayName =
-                            '${emp['firstName']} ${emp['lastName']}';
-                        final isCurrent = emp['_id'] == _currentUserId;
-
-                        return InkWell(
-                          onTap: () => onSelected(empId),
-                          child: Container(
-                            color: isSelected
-                                ? const Color(0xFF0071bf).withValues(alpha: 0.1)
-                                : null,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    isCurrent ? '$displayName (You)' : displayName,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isSelected
-                                          ? const Color(0xFF0071bf)
-                                          : Colors.grey[800],
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check,
-                                    color: Color(0xFF0071bf),
-                                    size: 20,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
+                  const Icon(Icons.search, color: Color(0xFF0071bf)),
+                ],
+              ),
+            ),
           )
         : const SizedBox.shrink();
 
@@ -825,59 +1124,88 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen>
     final periodSelector = Row(
       children: [
         Expanded(
-          child: DropdownButtonFormField<int>(
-            initialValue: _selectedViewMonth,
-            decoration: InputDecoration(
-              labelText: 'Month',
-              border: OutlineInputBorder(
+          child: GestureDetector(
+            onTap: _showMonthBottomSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFe0e0e0)),
                 borderRadius: BorderRadius.circular(8),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Month',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          PayrollApiService.getMonthName(_selectedViewMonth),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.grey[600],
+                  ),
+                ],
               ),
             ),
-            items: List.generate(12, (index) {
-              return DropdownMenuItem(
-                value: index + 1,
-                child: Text(PayrollApiService.getMonthName(index + 1)),
-              );
-            }),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _selectedViewMonth = value);
-                _loadPayslips();
-              }
-            },
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: DropdownButtonFormField<int>(
-            initialValue: _selectedViewYear,
-            decoration: InputDecoration(
-              labelText: 'Year',
-              border: OutlineInputBorder(
+          child: GestureDetector(
+            onTap: _showYearBottomSheet,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFe0e0e0)),
                 borderRadius: BorderRadius.circular(8),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Year',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _selectedViewYear.toString(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.grey[600],
+                  ),
+                ],
               ),
             ),
-            items: List.generate(5, (index) {
-              final year = DateTime.now().year - 2 + index;
-              return DropdownMenuItem(
-                value: year,
-                child: Text(year.toString()),
-              );
-            }),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _selectedViewYear = value);
-                _loadPayslips();
-              }
-            },
           ),
         ),
       ],
